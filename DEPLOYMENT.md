@@ -61,6 +61,20 @@ dotnet publish "src\PointOfSale.App\PointOfSale.App.csproj" `
   /p:PublishProfile=ClickOnceProfile
 ```
 
+## Administrative analytics (Phase 12)
+
+Nav: **Analytics**
+
+- Daily / weekly / monthly tax reconciliation by MRA rate codes (standard 17.5%, zero-rated, exempt)
+- Shift open/close, cash-in/out, Z-report with fiscalized invoice list
+- CSV + print/PDF export for managers and tax officers
+
+SQL: `Scripts\004_AnalyticsAndShifts.sql` (also applied on first launch via database bootstrap for shift tables).
+
+```powershell
+sqlcmd -S .\SQLEXPRESS -E -i "Scripts\004_AnalyticsAndShifts.sql"
+```
+
 ## MRA compliance certification (Phase 11)
 
 Admin panel: **MRA Compliance** in the left rail.

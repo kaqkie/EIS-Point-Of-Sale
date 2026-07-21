@@ -59,6 +59,9 @@ public partial class App : Application
                 services.AddSingleton<IMraCertificationAuditStore, PointOfSale.App.Services.Compliance.MraCertificationAuditStore>();
                 services.AddSingleton<IComplianceCertificationService, ComplianceCertificationService>();
                 services.AddSingleton<IComplianceExportService, ComplianceExportService>();
+                services.AddTransient<ITaxReconciliationService, TaxReconciliationService>();
+                services.AddTransient<IShiftManagementService, ShiftManagementService>();
+                services.AddTransient<IAnalyticsReportExportService, AnalyticsReportExportService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -69,12 +72,14 @@ public partial class App : Application
                 services.AddTransient<InventoryView>();
                 services.AddTransient<QueueSyncStatusView>();
                 services.AddTransient<ComplianceExportView>();
+                services.AddTransient<AdminAnalyticsView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<CheckoutViewModel>();
                 services.AddTransient<InventoryViewModel>();
                 services.AddTransient<QueueSyncStatusViewModel>();
                 services.AddTransient<ComplianceExportViewModel>();
+                services.AddTransient<AdminAnalyticsViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

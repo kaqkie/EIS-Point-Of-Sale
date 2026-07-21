@@ -48,6 +48,9 @@ public partial class MainViewModel : ObservableObject
     private void NavigateCompliance() => _navigationService.NavigateTo<ComplianceExportViewModel>();
 
     [RelayCommand]
+    private void NavigateAnalytics() => _navigationService.NavigateTo<AdminAnalyticsViewModel>();
+
+    [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
 
     [RelayCommand]

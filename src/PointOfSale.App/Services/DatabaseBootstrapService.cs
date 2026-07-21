@@ -210,6 +210,42 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
 
                 CREATE INDEX IX_MraApiAuditLog_CreatedAtUtc ON dbo.MraApiAuditLog (CreatedAtUtc DESC);
             END;
+
+            IF OBJECT_ID(N'dbo.CashierShifts', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.CashierShifts
+                (
+                    ShiftId             INT             IDENTITY(1,1) NOT NULL,
+                    OpenedAtUtc         DATETIME2(7)    NOT NULL CONSTRAINT DF_CashierShifts_OpenedAtUtc DEFAULT (SYSUTCDATETIME()),
+                    ClosedAtUtc         DATETIME2(7)    NULL,
+                    CashierName         NVARCHAR(100)   NOT NULL,
+                    OpeningFloat        DECIMAL(18, 2)  NOT NULL CONSTRAINT DF_CashierShifts_OpeningFloat DEFAULT (0),
+                    ClosingCashCounted  DECIMAL(18, 2)  NULL,
+                    ExpectedCash        DECIMAL(18, 2)  NULL,
+                    CashVariance        DECIMAL(18, 2)  NULL,
+                    Status              VARCHAR(20)     NOT NULL
+                        CONSTRAINT CK_CashierShifts_Status CHECK (Status IN (N'Open', N'Closed')),
+                    ZReportJson         NVARCHAR(MAX)   NULL,
+                    Notes               NVARCHAR(500)   NULL,
+                    CONSTRAINT PK_CashierShifts PRIMARY KEY CLUSTERED (ShiftId)
+                );
+            END;
+
+            IF OBJECT_ID(N'dbo.ShiftCashMovements', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.ShiftCashMovements
+                (
+                    MovementId      INT             IDENTITY(1,1) NOT NULL,
+                    ShiftId         INT             NOT NULL,
+                    MovementType    VARCHAR(20)     NOT NULL
+                        CONSTRAINT CK_ShiftCashMovements_Type CHECK (MovementType IN (N'CashIn', N'CashOut')),
+                    Amount          DECIMAL(18, 2)  NOT NULL,
+                    Reason          NVARCHAR(200)   NULL,
+                    CreatedAtUtc    DATETIME2(7)    NOT NULL CONSTRAINT DF_ShiftCashMovements_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                    CONSTRAINT PK_ShiftCashMovements PRIMARY KEY CLUSTERED (MovementId),
+                    CONSTRAINT FK_ShiftCashMovements_Shift FOREIGN KEY (ShiftId) REFERENCES dbo.CashierShifts (ShiftId)
+                );
+            END;
             """;
 
         await using var command = connection.CreateCommand();

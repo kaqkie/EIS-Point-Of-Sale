@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PointOfSale.Infrastructure.Data;
@@ -13,6 +14,7 @@ namespace PointOfSale.Infrastructure;
 
 public static class DependencyInjection
 {
+    [SupportedOSPlatform("windows")]
     public static IServiceCollection AddPointOfSaleInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -37,13 +39,16 @@ public static class DependencyInjection
         services.Configure<AuditLoggingOptions>(configuration.GetSection(AuditLoggingOptions.SectionName));
 
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
+#pragma warning disable CA1416 // Albert Retail Terminal is Windows-only (WPF + DPAPI)
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
+#pragma warning restore CA1416
         services.AddSingleton<IAuditLoggingService, AuditLoggingService>();
 
         services.AddScoped<ITerminalRepository, TerminalRepository>();
         services.AddScoped<IConfigurationRepository, ConfigurationRepository>();
         services.AddScoped<IOfflineInvoiceQueueRepository, OfflineInvoiceQueueRepository>();
         services.AddScoped<ILocalInventoryRepository, LocalInventoryRepository>();
+        services.AddScoped<ICashierShiftRepository, CashierShiftRepository>();
 
         services.AddHttpClient<MraApiClient>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();

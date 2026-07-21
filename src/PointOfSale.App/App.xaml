@@ -17,6 +17,9 @@
         <DataTemplate DataType="{x:Type vm:ComplianceExportViewModel}">
             <v:ComplianceExportView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AdminAnalyticsViewModel}">
+            <v:AdminAnalyticsView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </Application.Resources>
 </Application>

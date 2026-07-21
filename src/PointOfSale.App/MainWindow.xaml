@@ -41,6 +41,11 @@
                         Margin="0,4"
                         Padding="12,10"
                         FontSize="16" />
+                <Button Content="Analytics"
+                        Command="{Binding NavigateAnalyticsCommand}"
+                        Margin="0,4"
+                        Padding="12,10"
+                        FontSize="16" />
                 <Button Content="Toggle Drawer"
                         Command="{Binding ToggleDrawerCommand}"
                         Margin="0,16,0,0"

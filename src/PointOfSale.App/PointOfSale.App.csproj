@@ -55,6 +55,9 @@
     <None Include="..\..\Scripts\003_ProductionMaintenance.sql" Link="Scripts\003_ProductionMaintenance.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\004_AnalyticsAndShifts.sql" Link="Scripts\004_AnalyticsAndShifts.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
