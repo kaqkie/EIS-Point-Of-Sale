@@ -14,5 +14,9 @@
         <DataTemplate DataType="{x:Type vm:QueueSyncStatusViewModel}">
             <v:QueueSyncStatusView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ComplianceExportViewModel}">
+            <v:ComplianceExportView />
+        </DataTemplate>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </Application.Resources>
 </Application>

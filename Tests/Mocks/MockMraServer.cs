@@ -101,6 +101,87 @@ public sealed class MockMraServer : IDisposable
         }));
     }
 
+    public void ConfigureCertificationEndpoints()
+    {
+        ConfigureSalesSuccessForAll();
+        ConfigureInitialInventorySuccess();
+        _handler.SetResponder(async (request, body) =>
+        {
+            var path = request.RequestUri?.IsAbsoluteUri == true
+                ? request.RequestUri.AbsolutePath
+                : request.RequestUri?.OriginalString ?? string.Empty;
+
+            if (path.Contains("activate-terminal", StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateJsonResponse(HttpStatusCode.OK, new
+                {
+                    statusCode = 1,
+                    remark = "Activated",
+                    data = new
+                    {
+                        activatedTerminal = new
+                        {
+                            terminalId = "TERM-CERT-001",
+                            terminalCredentials = new
+                            {
+                                jwtToken = "Bearer cert-jwt",
+                                secretKey = "ART-Integration-Test-Secret-Key"
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (path.Contains("terminal-activated-confirmation", StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateJsonResponse(HttpStatusCode.OK, new
+                {
+                    statusCode = 1,
+                    remark = "Confirmed",
+                    data = new { }
+                });
+            }
+
+            if (path.Contains("get-latest-configs", StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateJsonResponse(HttpStatusCode.OK, new
+                {
+                    statusCode = 1,
+                    remark = "Configs",
+                    data = new
+                    {
+                        globalConfiguration = new { versionNo = 1, taxRates = new[] { new { id = "A", rate = 17.5 } } },
+                        terminalConfiguration = new { versionNo = 1, tradingName = "Cert Terminal" },
+                        taxpayerConfiguration = new { versionNo = 1, tin = "1234567890" }
+                    }
+                });
+            }
+
+            if (path.Contains("process-credit-debit-note", StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateSuccessSalesResponse("CERT-CDN-001", "FSIG-CDN-001");
+            }
+
+            if (path.Contains("submit-sales-transaction", StringComparison.OrdinalIgnoreCase))
+            {
+                Func<string, Task<HttpResponseMessage>> responder;
+                lock (_salesGate)
+                {
+                    responder = _salesResponder;
+                }
+
+                return await responder(body ?? string.Empty).ConfigureAwait(false);
+            }
+
+            if (path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
+            {
+                return await _inventoryResponder(request, body).ConfigureAwait(false);
+            }
+
+            return CreateJsonResponse(HttpStatusCode.NotFound, new { statusCode = 0, remark = "Unhandled mock route" });
+        });
+    }
+
     private async Task<HttpResponseMessage> ResolveResponseAsync(HttpRequestMessage request, string? body)
     {
         var path = request.RequestUri?.IsAbsoluteUri == true

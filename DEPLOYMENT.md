@@ -61,6 +61,18 @@ dotnet publish "src\PointOfSale.App\PointOfSale.App.csproj" `
   /p:PublishProfile=ClickOnceProfile
 ```
 
+## MRA compliance certification (Phase 11)
+
+Admin panel: **MRA Compliance** in the left rail.
+
+1. Run **Run Certification + Export** against the configured MRA environment (requires activated terminal + connectivity for live steps).
+2. Automated mock suite: `Tests/Compliance/MraCertificationRunner.cs` (xUnit) writes `Logs/MraCertificationAudit.json`.
+3. Packages land in `Documents\AlbertRetailTerminal\CompliancePackages\MraCompliancePackage_[TerminalId]_[DateTime].zip` containing audit JSON, schema snapshot, execution report, SQL scripts, and recent logs.
+
+```powershell
+dotnet test "Tests\PointOfSale.Tests.csproj" -c Release --filter "FullyQualifiedName~MraCertification"
+```
+
 ## Environment profiles
 
 Set **`ART_ENV`** (or `DOTNET_ENVIRONMENT`) before launch:

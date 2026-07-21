@@ -36,6 +36,11 @@
                         Margin="0,4"
                         Padding="12,10"
                         FontSize="16" />
+                <Button Content="MRA Compliance"
+                        Command="{Binding NavigateComplianceCommand}"
+                        Margin="0,4"
+                        Padding="12,10"
+                        FontSize="16" />
                 <Button Content="Toggle Drawer"
                         Command="{Binding ToggleDrawerCommand}"
                         Margin="0,16,0,0"

@@ -45,6 +45,9 @@ public partial class MainViewModel : ObservableObject
     private void NavigateQueue() => _navigationService.NavigateTo<QueueSyncStatusViewModel>();
 
     [RelayCommand]
+    private void NavigateCompliance() => _navigationService.NavigateTo<ComplianceExportViewModel>();
+
+    [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
 
     [RelayCommand]

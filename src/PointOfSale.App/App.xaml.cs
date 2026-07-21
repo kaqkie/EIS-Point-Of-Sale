@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PointOfSale.App.Options;
 using PointOfSale.App.Services;
+using PointOfSale.App.Services.Compliance;
 using PointOfSale.App.ViewModels;
 using PointOfSale.App.Views;
 using PointOfSale.Infrastructure;
@@ -55,6 +56,9 @@ public partial class App : Application
                 services.AddSingleton<IDatabaseBootstrapService, DatabaseBootstrapService>();
                 services.AddSingleton<IApplicationUpdateService, ApplicationUpdateService>();
                 services.AddHostedService<ApplicationUpdateBackgroundService>();
+                services.AddSingleton<IMraCertificationAuditStore, PointOfSale.App.Services.Compliance.MraCertificationAuditStore>();
+                services.AddSingleton<IComplianceCertificationService, ComplianceCertificationService>();
+                services.AddSingleton<IComplianceExportService, ComplianceExportService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -64,11 +68,13 @@ public partial class App : Application
                 services.AddTransient<CheckoutView>();
                 services.AddTransient<InventoryView>();
                 services.AddTransient<QueueSyncStatusView>();
+                services.AddTransient<ComplianceExportView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<CheckoutViewModel>();
                 services.AddTransient<InventoryViewModel>();
                 services.AddTransient<QueueSyncStatusViewModel>();
+                services.AddTransient<ComplianceExportViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })
