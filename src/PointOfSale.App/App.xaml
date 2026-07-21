@@ -26,6 +26,12 @@
         <DataTemplate DataType="{x:Type vm:BackupRecoveryViewModel}">
             <v:BackupRecoveryView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LoginViewModel}">
+            <v:LoginView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:UserManagementViewModel}">
+            <v:UserManagementView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

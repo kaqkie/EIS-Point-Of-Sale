@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using PointOfSale.App.Services;
+using PointOfSale.Core.Security;
 
 namespace PointOfSale.App.ViewModels;
 
@@ -12,13 +13,19 @@ public partial class BackupRecoveryViewModel : ObservableObject
 {
     private readonly IDatabaseBackupService _backupService;
     private readonly IDatabaseRestorationService _restorationService;
+    private readonly IAuthenticationAuthorizationService _auth;
+    private readonly IAuditSecurityLogger _auditLogger;
 
     public BackupRecoveryViewModel(
         IDatabaseBackupService backupService,
-        IDatabaseRestorationService restorationService)
+        IDatabaseRestorationService restorationService,
+        IAuthenticationAuthorizationService auth,
+        IAuditSecurityLogger auditLogger)
     {
         _backupService = backupService;
         _restorationService = restorationService;
+        _auth = auth;
+        _auditLogger = auditLogger;
         History = new ObservableCollection<DatabaseBackupHistoryEntry>();
         ActivityLog = new ObservableCollection<string>();
 
@@ -114,6 +121,16 @@ public partial class BackupRecoveryViewModel : ObservableObject
             return;
         }
 
+        try
+        {
+            _auth.EnsurePermission(OperatorPermissions.TriggerBackup);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            StatusMessage = ex.Message;
+            return;
+        }
+
         StatusMessage = "Starting SQL Express backup…";
         try
         {
@@ -125,6 +142,13 @@ public partial class BackupRecoveryViewModel : ObservableObject
                 LastBackupTime = result.Manifest.CreatedAtUtc;
                 PushLog($"Backup OK — {result.Manifest.BackupFilePath} ({result.Manifest.BackupBytes:N0} bytes)");
                 StatusMessage = result.Message ?? "Backup completed.";
+                await _auditLogger.LogAsync(
+                        SecurityAuditActions.BackupTriggered,
+                        detail: result.Manifest.BackupFilePath,
+                        success: true,
+                        operatorId: _auth.CurrentOperator?.OperatorId,
+                        username: _auth.CurrentOperator?.Username)
+                    .ConfigureAwait(true);
             }
             else
             {

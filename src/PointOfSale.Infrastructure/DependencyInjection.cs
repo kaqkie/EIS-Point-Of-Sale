@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<ILocalInventoryRepository, LocalInventoryRepository>();
         services.AddScoped<ICashierShiftRepository, CashierShiftRepository>();
         services.AddScoped<IHeadOfficeSyncOutboxRepository, HeadOfficeSyncOutboxRepository>();
+        services.AddScoped<IOperatorRepository, OperatorRepository>();
 
         services.AddHttpClient<MraApiClient>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();

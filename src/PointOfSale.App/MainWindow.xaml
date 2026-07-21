@@ -8,88 +8,118 @@
         MinWidth="1100"
         Background="#F4F6F8">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+        <Grid Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Background="#1F2937" Padding="16">
-            <StackPanel>
-                <TextBlock Text="Albert Retail Terminal"
-                           Foreground="White"
-                           FontSize="18"
-                           FontWeight="Bold"
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,16" />
-                <Button Content="Checkout"
-                        Command="{Binding NavigateCheckoutCommand}"
-                        Margin="0,4"
-                        Padding="12,10"
-                        FontSize="16" />
-                <Button Content="Inventory"
-                        Command="{Binding NavigateInventoryCommand}"
-                        Margin="0,4"
-                        Padding="12,10"
-                        FontSize="16" />
-                <Button Content="Queue Sync"
-                        Command="{Binding NavigateQueueCommand}"
-                        Margin="0,4"
-                        Padding="12,10"
-                        FontSize="16" />
-                <Button Content="MRA Compliance"
-                        Command="{Binding NavigateComplianceCommand}"
-                        Margin="0,4"
-                        Padding="12,10"
-                        FontSize="16" />
-                <Button Content="Analytics"
-                        Command="{Binding NavigateAnalyticsCommand}"
-                        Margin="0,4"
-                        Padding="12,10"
-                        FontSize="16" />
-                <Button Content="Head Office"
-                        Command="{Binding NavigateHeadOfficeCommand}"
-                        Margin="0,4"
-                        Padding="12,10"
-                        FontSize="16" />
-                <Button Content="Backup / DR"
-                        Command="{Binding NavigateBackupCommand}"
-                        Margin="0,4"
-                        Padding="12,10"
-                        FontSize="16" />
-                <Button Content="Toggle Drawer"
-                        Command="{Binding ToggleDrawerCommand}"
-                        Margin="0,16,0,0"
-                        Padding="10,8" />
-            </StackPanel>
-        </Border>
-
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <Border Grid.Row="0" Background="White" Padding="16" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
-                <DockPanel LastChildFill="True">
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                        <Border Padding="10,6" CornerRadius="8" Margin="0,0,8,0" Background="#2563EB">
-                            <TextBlock Text="{Binding ConnectionStatusText}" Foreground="White" FontWeight="SemiBold" />
-                        </Border>
-                        <Border Padding="10,6" CornerRadius="8" Background="#4B5563">
-                            <TextBlock Text="{Binding IsDrawerOpen, StringFormat='Drawer: {0}'}"
-                                       Foreground="White" />
-                        </Border>
-                        <Button Content="Refresh"
-                                Command="{Binding RefreshConnectionCommand}"
-                                Margin="8,0,0,0"
-                                Padding="10,6" />
+            <Border Grid.Column="0" Background="#1F2937" Padding="16">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Text="Albert Retail Terminal"
+                                   Foreground="White"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="{Binding OperatorDisplay}"
+                                   Foreground="#D1D5DB"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,16" />
+                        <Button Content="Checkout"
+                                Command="{Binding NavigateCheckoutCommand}"
+                                Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Inventory"
+                                Command="{Binding NavigateInventoryCommand}"
+                                Visibility="{Binding CanInventory, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Queue Sync"
+                                Command="{Binding NavigateQueueCommand}"
+                                Visibility="{Binding CanQueue, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="MRA Compliance"
+                                Command="{Binding NavigateComplianceCommand}"
+                                Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Analytics"
+                                Command="{Binding NavigateAnalyticsCommand}"
+                                Visibility="{Binding CanAnalytics, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Head Office"
+                                Command="{Binding NavigateHeadOfficeCommand}"
+                                Visibility="{Binding CanHeadOffice, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Backup / DR"
+                                Command="{Binding NavigateBackupCommand}"
+                                Visibility="{Binding CanBackup, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Users"
+                                Command="{Binding NavigateUsersCommand}"
+                                Visibility="{Binding CanManageUsers, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Toggle Drawer"
+                                Command="{Binding ToggleDrawerCommand}"
+                                Margin="0,16,0,0"
+                                Padding="10,8" />
                     </StackPanel>
+                    <Button Content="Sign Out"
+                            Command="{Binding SignOutCommand}"
+                            DockPanel.Dock="Bottom"
+                            VerticalAlignment="Bottom"
+                            Margin="0,16,0,0"
+                            Padding="12,10" />
                 </DockPanel>
             </Border>
 
-            <ContentControl Grid.Row="1"
-                            Margin="16"
-                            Content="{Binding CurrentViewModel}" />
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="White" Padding="16" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                    <DockPanel LastChildFill="True">
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                            <Border Padding="10,6" CornerRadius="8" Margin="0,0,8,0" Background="#2563EB">
+                                <TextBlock Text="{Binding ConnectionStatusText}" Foreground="White" FontWeight="SemiBold" />
+                            </Border>
+                            <Border Padding="10,6" CornerRadius="8" Background="#4B5563">
+                                <TextBlock Text="{Binding IsDrawerOpen, StringFormat='Drawer: {0}'}"
+                                           Foreground="White" />
+                            </Border>
+                            <Button Content="Refresh"
+                                    Command="{Binding RefreshConnectionCommand}"
+                                    Margin="8,0,0,0"
+                                    Padding="10,6" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <ContentControl Grid.Row="1"
+                                Margin="16"
+                                Content="{Binding CurrentViewModel}" />
+            </Grid>
         </Grid>
+
+        <ContentControl Content="{Binding Login}"
+                        Visibility="{Binding ShowLoginOverlay, Converter={StaticResource BooleanToVisibilityConverter}}" />
     </Grid>
 </Window>

@@ -50,6 +50,8 @@ public partial class App : Application
                     context.Configuration.GetSection(HeadOfficeSyncOptions.SectionName));
                 services.Configure<DatabaseBackupOptions>(
                     context.Configuration.GetSection(DatabaseBackupOptions.SectionName));
+                services.Configure<AuthenticationOptions>(
+                    context.Configuration.GetSection(AuthenticationOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -73,6 +75,9 @@ public partial class App : Application
                 services.AddTransient<ICentralInventoryReplicationService, CentralInventoryReplicationService>();
                 services.AddSingleton<IHeadOfficeSyncService, HeadOfficeSyncService>();
                 services.AddHostedService<HeadOfficeSyncBackgroundService>();
+                services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+                services.AddSingleton<IAuditSecurityLogger, AuditSecurityLogger>();
+                services.AddSingleton<IAuthenticationAuthorizationService, AuthenticationAuthorizationService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -86,8 +91,11 @@ public partial class App : Application
                 services.AddTransient<AdminAnalyticsView>();
                 services.AddTransient<HeadOfficeSyncView>();
                 services.AddTransient<BackupRecoveryView>();
+                services.AddTransient<LoginView>();
+                services.AddTransient<UserManagementView>();
 
                 services.AddSingleton<MainViewModel>();
+                services.AddSingleton<LoginViewModel>();
                 services.AddTransient<CheckoutViewModel>();
                 services.AddTransient<InventoryViewModel>();
                 services.AddTransient<QueueSyncStatusViewModel>();
@@ -95,6 +103,7 @@ public partial class App : Application
                 services.AddTransient<AdminAnalyticsViewModel>();
                 services.AddTransient<HeadOfficeSyncViewModel>();
                 services.AddTransient<BackupRecoveryViewModel>();
+                services.AddTransient<UserManagementViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })
@@ -112,6 +121,10 @@ public partial class App : Application
 
             await _host.Services.GetRequiredService<IDatabaseBootstrapService>()
                 .EnsureDatabaseReadyAsync()
+                .ConfigureAwait(true);
+
+            await _host.Services.GetRequiredService<IAuthenticationAuthorizationService>()
+                .EnsureSeededAsync()
                 .ConfigureAwait(true);
         }
         catch (Exception ex)
