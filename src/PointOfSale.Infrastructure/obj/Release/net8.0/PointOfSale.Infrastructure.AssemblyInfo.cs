@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PointOfSale.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+94b66c4eb9d6a0c1d49b4b5d26929c30ec3098e0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dbbdcfc0ef611cce0cd525b7ae82d522318623bb")]
 [assembly: System.Reflection.AssemblyProductAttribute("PointOfSale.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PointOfSale.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
