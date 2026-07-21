@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>PointOfSale.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +24,7 @@
     <ProjectReference Include="..\src\PointOfSale.Infrastructure\PointOfSale.Infrastructure.csproj" />
     <ProjectReference Include="..\src\PointOfSale.Core\PointOfSale.Core.csproj" />
     <ProjectReference Include="..\src\PointOfSale.Mra\PointOfSale.Mra.csproj" />
+    <ProjectReference Include="..\src\PointOfSale.App\PointOfSale.App.csproj" />
   </ItemGroup>
 
 </Project>

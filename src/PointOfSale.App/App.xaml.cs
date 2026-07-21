@@ -2,6 +2,7 @@ using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using PointOfSale.App.Options;
 using PointOfSale.App.Services;
 using PointOfSale.App.ViewModels;
 using PointOfSale.App.Views;
@@ -36,15 +37,24 @@ public partial class App : Application
             {
                 services.AddPointOfSaleInfrastructure(context.Configuration);
 
-                services.Configure<Options.TerminalDeploymentOptions>(
-                    context.Configuration.GetSection(Options.TerminalDeploymentOptions.SectionName));
-                services.Configure<Options.ThermalPrinterOptions>(
-                    context.Configuration.GetSection(Options.ThermalPrinterOptions.SectionName));
+                services.Configure<TerminalDeploymentOptions>(
+                    context.Configuration.GetSection(TerminalDeploymentOptions.SectionName));
+                services.Configure<ThermalPrinterOptions>(
+                    context.Configuration.GetSection(ThermalPrinterOptions.SectionName));
+                services.Configure<ApplicationUpdateOptions>(
+                    context.Configuration.GetSection(ApplicationUpdateOptions.SectionName));
+                services.Configure<DatabaseBootstrapOptions>(
+                    context.Configuration.GetSection(DatabaseBootstrapOptions.SectionName));
+
+                services.AddHttpClient(nameof(ApplicationUpdateService));
 
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
                 services.AddSingleton<GlobalExceptionHandler>();
                 services.AddSingleton<IProductionSecretGuard, ProductionSecretGuard>();
                 services.AddSingleton<IThermalPrinterHardwareService, ThermalPrinterHardwareService>();
+                services.AddSingleton<IDatabaseBootstrapService, DatabaseBootstrapService>();
+                services.AddSingleton<IApplicationUpdateService, ApplicationUpdateService>();
+                services.AddHostedService<ApplicationUpdateBackgroundService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -65,6 +75,29 @@ public partial class App : Application
             .Build();
 
         _host.Services.GetRequiredService<GlobalExceptionHandler>().Register(this);
+
+        try
+        {
+            var updater = _host.Services.GetRequiredService<IApplicationUpdateService>();
+            if (await updater.TryApplyStagedUpdateOnStartupAsync().ConfigureAwait(true))
+            {
+                return;
+            }
+
+            await _host.Services.GetRequiredService<IDatabaseBootstrapService>()
+                .EnsureDatabaseReadyAsync()
+                .ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Albert Retail Terminal — Startup",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
 
         await _host.StartAsync().ConfigureAwait(true);
 

@@ -1,0 +1,11 @@
+{
+  "version": "1.0.1",
+  "minSupportedVersion": "1.0.0",
+  "schemaVersion": 10,
+  "channel": "stable",
+  "releaseNotes": "Example enterprise update feed manifest. Host this JSON on your internal HTTPS deployment endpoint.",
+  "packageUrl": "https://updates.albertretail.local/art/1.0.1/AlbertRetailTerminal-1.0.1.zip",
+  "sha256": "REPLACE_WITH_PACKAGE_SHA256",
+  "mandatory": false,
+  "publishedUtc": "2026-07-21T00:00:00Z"
+}

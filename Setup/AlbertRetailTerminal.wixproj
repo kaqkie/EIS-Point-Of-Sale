@@ -1,0 +1,25 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>AlbertRetailTerminal</OutputName>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">1.0.0</ProductVersion>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);RepoRoot=$(RepoRoot)</DefineConstants>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!-- Defaults overridden by Build-Installer.ps1 -->
+    <PublishDir Condition="'$(PublishDir)' == ''">..\publish\AlbertRetailTerminal\</PublishDir>
+    <RepoRoot Condition="'$(RepoRoot)' == ''">..\</RepoRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="License.rtf" />
+    <None Include="ConfigureFirewall.ps1" />
+    <None Include="Sign-Release.ps1" />
+    <None Include="Build-Installer.ps1" />
+  </ItemGroup>
+
+</Project>

@@ -1,6 +1,6 @@
 # Albert Retail Terminal — Deployment
 
-## Folder publish (recommended)
+## Folder publish
 
 ```powershell
 dotnet publish "src\PointOfSale.App\PointOfSale.App.csproj" `
@@ -9,6 +9,57 @@ dotnet publish "src\PointOfSale.App\PointOfSale.App.csproj" `
 ```
 
 Output: `publish\AlbertRetailTerminal\` (self-contained win-x64).
+
+## MSI installer (Phase 10)
+
+Requires [WiX Toolset SDK 5](https://wixtoolset.org/) (`WixToolset.Sdk`).
+
+```powershell
+# Optional Authenticode env (see Setup\CodeSigning.md)
+$env:ART_CODE_SIGN_CERT_PATH = "C:\secure\certs\albert-retail-codesign.pfx"
+$env:ART_CODE_SIGN_CERT_PASSWORD = "<from vault>"
+
+.\Setup\Build-Installer.ps1 -ProductVersion 1.0.0 -ConfigureFirewall
+```
+
+Produces:
+- `publish\AlbertRetailTerminal\` — published app + SQL scripts
+- `publish\Installer\AlbertRetailTerminal.msi` — per-machine MSI (SQL Express `SQLEXPRESS` launch condition)
+
+Post-install (if not using `-ConfigureFirewall`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\Program Files\Albert Retail Terminal\Setup\ConfigureFirewall.ps1"
+```
+
+### First-launch database provisioning
+
+On startup, `DatabaseBootstrapService` (idempotent) ensures SQL Express is reachable and creates:
+`Terminals`, `Configurations`, `OfflineInvoiceQueue`, `LocalInventory`, plus later migrations / audit log.
+Schema version is stored in `dbo.Configurations` (`Schema.Version`).
+
+Manual scripts remain under `Scripts\` for DBA use.
+
+## Auto-updates
+
+Configure `ApplicationUpdate` in `appsettings.Production.json`:
+
+| Setting | Purpose |
+| --- | --- |
+| `Enabled` | Turn on feed polling |
+| `FeedUrl` | HTTPS JSON manifest (see `Setup\update-feed.example.json`) |
+| `CheckIntervalMinutes` | Background poll interval |
+| `StageOnlyDuringBusinessHours` | Download/stage only; apply on next restart |
+
+Flow: background download → SHA-256 verify → stage under `%LocalAppData%\AlbertRetailTerminal\Updates\` → apply on next launch (cashiers keep working until restart).
+
+Optional web/ClickOnce-style publish:
+
+```powershell
+dotnet publish "src\PointOfSale.App\PointOfSale.App.csproj" `
+  -c Release `
+  /p:PublishProfile=ClickOnceProfile
+```
 
 ## Environment profiles
 
@@ -24,23 +75,15 @@ $env:ART_ENV = "Production"
 .\AlbertRetailTerminal.exe
 ```
 
-Overrides live in `appsettings.{ART_ENV}.json` beside the executable.
-
 ## Production go-live checklist
 
-1. Set `ART_ENV=Production` so `appsettings.Production.json` loads live MRA URLs.
-2. Fill `TerminalDeployment` in that file:
-   - `BranchId` / `SiteId` for the outlet
-   - `TerminalActivationCode` only for first-time activation (remove after onboarding)
-   - Keep `RequireEncryptedSecrets: true` so JWT and terminal secrets must exist as DPAPI-protected values in SQL
-3. Pair the thermal printer under `ThermalPrinter`:
-   - `ConnectionMode`: `Spooler` (Windows queue) or `Serial` (`COM3`, etc.)
-   - `PaperWidthMm`: `80` or `58` (sets characters/line and layout)
-   - `PrinterName`: optional Windows queue name; empty uses the default printer
-4. Complete onboarding so the terminal secret + JWT are stored via DPAPI (`ISecretProtector`).
-5. Smoke-test: one sandbox sale, then one production sale with receipt + QR verify URL.
-
-Never commit real activation codes or secrets — production secrets belong in encrypted SQL storage after activation.
+1. Set `ART_ENV=Production`.
+2. Fill `TerminalDeployment` (Branch/Site; TAC only for first activation).
+3. Pair `ThermalPrinter`.
+4. Build/sign MSI; deploy SQL Express + firewall rule.
+5. Complete onboarding (DPAPI secrets).
+6. Point `ApplicationUpdate:FeedUrl` at your internal update host.
+7. Smoke-test sale + receipt.
 
 ## Cashier shortcuts (Checkout)
 
@@ -52,9 +95,7 @@ Never commit real activation codes or secrets — production secrets belong in e
 | F9 | Reprint last fiscal receipt |
 | F12 | Complete sale |
 
-Offline / MRA failures surface as operator dialogs with optional offline-queue fallback.
-
-## SQL maintenance (production)
+## SQL maintenance
 
 ```powershell
 sqlcmd -S .\SQLEXPRESS -E -i "Scripts\003_ProductionMaintenance.sql"
@@ -66,9 +107,9 @@ EXEC dbo.usp_CleanupMraApiAuditLog @RetentionDays = 90;
 
 | Path | Content |
 | --- | --- |
-| `Logs/app-*.log` | Serilog application log (rolling) |
-| `Logs/MraAudit/mra-audit-*.log` | Scrubbed MRA request/response audit |
-| `Logs/Critical/critical-*.log` | Unhandled UI/domain exceptions |
-| `dbo.MraApiAuditLog` | Scrubbed MRA JSON audit (SQL) |
+| `Logs/app-*.log` | Serilog application log |
+| `Logs/MraAudit/mra-audit-*.log` | Scrubbed MRA audit |
+| `Logs/Critical/critical-*.log` | Unhandled exceptions |
+| `dbo.MraApiAuditLog` | SQL audit |
 
-Sensitive fields (JWT, secret keys, signatures) are redacted in all audit outputs.
+Sensitive fields are redacted in all audit outputs.

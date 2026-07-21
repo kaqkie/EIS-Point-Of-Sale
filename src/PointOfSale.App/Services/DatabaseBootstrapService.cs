@@ -1,0 +1,242 @@
+using System.Data;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PointOfSale.App.Options;
+
+namespace PointOfSale.App.Services;
+
+public interface IDatabaseBootstrapService
+{
+    Task EnsureDatabaseReadyAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Provisions PointOfSale SQL Express schema on first launch (idempotent).
+/// Creates Terminals, Configurations, OfflineInvoiceQueue, LocalInventory (+ later migrations).
+/// </summary>
+public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
+{
+    public const string SchemaVersionConfigKey = "Schema.Version";
+
+    private readonly string _connectionString;
+    private readonly DatabaseBootstrapOptions _options;
+    private readonly ILogger<DatabaseBootstrapService> _logger;
+
+    public DatabaseBootstrapService(
+        IConfiguration configuration,
+        IOptions<DatabaseBootstrapOptions> options,
+        ILogger<DatabaseBootstrapService> logger)
+    {
+        _connectionString = configuration.GetConnectionString("PosDatabase")
+            ?? throw new InvalidOperationException("Connection string 'PosDatabase' is missing.");
+        _options = options.Value;
+        _logger = logger;
+    }
+
+    public async Task EnsureDatabaseReadyAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled)
+        {
+            return;
+        }
+
+        await EnsureSqlExpressReachableAsync(cancellationToken).ConfigureAwait(false);
+        await EnsureDatabaseExistsAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await EnsureCoreTablesAsync(connection, cancellationToken).ConfigureAwait(false);
+        await EnsureMigrationsAsync(connection, cancellationToken).ConfigureAwait(false);
+        await UpsertSchemaVersionAsync(connection, _options.TargetSchemaVersion, cancellationToken)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "SQL Express schema ready (version {SchemaVersion}).",
+            _options.TargetSchemaVersion);
+    }
+
+    private async Task EnsureSqlExpressReachableAsync(CancellationToken cancellationToken)
+    {
+        var builder = new SqlConnectionStringBuilder(_connectionString)
+        {
+            InitialCatalog = "master",
+            ConnectTimeout = 8
+        };
+
+        try
+        {
+            await using var connection = new SqlConnection(builder.ConnectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Cannot reach SQL Server Express ({_options.RequiredInstanceHint}). " +
+                "Install/start the SQLEXPRESS instance, then relaunch Albert Retail Terminal.",
+                ex);
+        }
+    }
+
+    private async Task EnsureDatabaseExistsAsync(CancellationToken cancellationToken)
+    {
+        var builder = new SqlConnectionStringBuilder(_connectionString);
+        var databaseName = builder.InitialCatalog;
+        if (string.IsNullOrWhiteSpace(databaseName))
+        {
+            throw new InvalidOperationException("PosDatabase connection string must include Initial Catalog / Database.");
+        }
+
+        builder.InitialCatalog = "master";
+        await using var connection = new SqlConnection(builder.ConnectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            IF DB_ID(@DatabaseName) IS NULL
+            BEGIN
+                DECLARE @sql nvarchar(max) = N'CREATE DATABASE ' + QUOTENAME(@DatabaseName);
+                EXEC(@sql);
+            END
+            """;
+        command.Parameters.Add(new SqlParameter("@DatabaseName", SqlDbType.NVarChar, 128) { Value = databaseName });
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task EnsureCoreTablesAsync(SqlConnection connection, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            IF OBJECT_ID(N'dbo.Terminals', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.Terminals
+                (
+                    TerminalId      VARCHAR(50)     NOT NULL,
+                    BranchCode      VARCHAR(50)     NULL,
+                    ActivationState VARCHAR(20)     NOT NULL
+                        CONSTRAINT CK_Terminals_ActivationState
+                        CHECK (ActivationState IN (
+                            N'NotActivated', N'PendingConfirmation', N'Activated', N'Deactivated')),
+                    SecretKey       NVARCHAR(MAX)   NULL,
+                    LastSyncedAt    DATETIME        NULL,
+                    CONSTRAINT PK_Terminals PRIMARY KEY CLUSTERED (TerminalId)
+                );
+            END;
+
+            IF OBJECT_ID(N'dbo.Configurations', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.Configurations
+                (
+                    ConfigKey   VARCHAR(100)    NOT NULL,
+                    ConfigJson  NVARCHAR(MAX)   NOT NULL,
+                    UpdatedAt   DATETIME        NOT NULL CONSTRAINT DF_Configurations_UpdatedAt DEFAULT (GETUTCDATE()),
+                    CONSTRAINT PK_Configurations PRIMARY KEY CLUSTERED (ConfigKey)
+                );
+            END;
+
+            IF OBJECT_ID(N'dbo.OfflineInvoiceQueue', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.OfflineInvoiceQueue
+                (
+                    Id              INT             IDENTITY(1,1) NOT NULL,
+                    PayloadJson     NVARCHAR(MAX)   NOT NULL,
+                    CreatedAt       DATETIME        NOT NULL CONSTRAINT DF_OfflineInvoiceQueue_CreatedAt DEFAULT (GETUTCDATE()),
+                    Status          VARCHAR(20)     NOT NULL
+                        CONSTRAINT CK_OfflineInvoiceQueue_Status
+                        CHECK (Status IN (N'PENDING', N'SYNCING', N'SYNCED', N'QUARANTINED')),
+                    RetryCount      INT             NOT NULL CONSTRAINT DF_OfflineInvoiceQueue_RetryCount DEFAULT (0),
+                    NextRetryTime   DATETIME        NULL,
+                    ErrorMessage    NVARCHAR(MAX)   NULL,
+                    FiscalResponseJson NVARCHAR(MAX) NULL,
+                    CONSTRAINT PK_OfflineInvoiceQueue PRIMARY KEY CLUSTERED (Id)
+                );
+
+                CREATE INDEX IX_OfflineInvoiceQueue_PendingFifo
+                    ON dbo.OfflineInvoiceQueue (Status, CreatedAt, Id)
+                    WHERE Status = N'PENDING';
+            END;
+
+            IF OBJECT_ID(N'dbo.LocalInventory', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.LocalInventory
+                (
+                    ProductId       VARCHAR(50)     NOT NULL,
+                    ProductCode     VARCHAR(100)    NOT NULL,
+                    Name            NVARCHAR(200)   NOT NULL,
+                    UnitPrice       DECIMAL(18, 2)  NOT NULL,
+                    StockQuantity   DECIMAL(18, 2)  NOT NULL CONSTRAINT DF_LocalInventory_Stock DEFAULT (0),
+                    HsCode          VARCHAR(50)     NULL,
+                    UnitOfMeasure   VARCHAR(20)     NULL,
+                    TaxRateId       VARCHAR(20)     NULL,
+                    CONSTRAINT PK_LocalInventory PRIMARY KEY CLUSTERED (ProductId)
+                );
+
+                CREATE UNIQUE INDEX UX_LocalInventory_ProductCode ON dbo.LocalInventory (ProductCode);
+            END;
+            """;
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.CommandTimeout = 120;
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task EnsureMigrationsAsync(SqlConnection connection, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            IF COL_LENGTH(N'dbo.LocalInventory', N'TaxRateId') IS NULL
+                ALTER TABLE dbo.LocalInventory ADD TaxRateId VARCHAR(20) NULL;
+
+            IF COL_LENGTH(N'dbo.OfflineInvoiceQueue', N'FiscalResponseJson') IS NULL
+                ALTER TABLE dbo.OfflineInvoiceQueue ADD FiscalResponseJson NVARCHAR(MAX) NULL;
+
+            IF OBJECT_ID(N'dbo.MraApiAuditLog', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.MraApiAuditLog
+                (
+                    AuditId         BIGINT          IDENTITY(1,1) NOT NULL,
+                    CreatedAtUtc    DATETIME2(7)    NOT NULL CONSTRAINT DF_MraApiAuditLog_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                    HttpMethod      NVARCHAR(10)    NOT NULL,
+                    RequestPath     NVARCHAR(500)   NOT NULL,
+                    HttpStatusCode  INT             NULL,
+                    DurationMs      INT             NOT NULL,
+                    RequestBody     NVARCHAR(MAX)   NULL,
+                    ResponseBody    NVARCHAR(MAX)   NULL,
+                    IsSuccess       BIT             NOT NULL,
+                    ErrorMessage    NVARCHAR(2000)  NULL,
+                    CONSTRAINT PK_MraApiAuditLog PRIMARY KEY CLUSTERED (AuditId)
+                );
+
+                CREATE INDEX IX_MraApiAuditLog_CreatedAtUtc ON dbo.MraApiAuditLog (CreatedAtUtc DESC);
+            END;
+            """;
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.CommandTimeout = 120;
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task UpsertSchemaVersionAsync(
+        SqlConnection connection,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            MERGE dbo.Configurations AS target
+            USING (SELECT @ConfigKey AS ConfigKey) AS source
+            ON target.ConfigKey = source.ConfigKey
+            WHEN MATCHED THEN
+                UPDATE SET ConfigJson = @ConfigJson, UpdatedAt = GETUTCDATE()
+            WHEN NOT MATCHED THEN
+                INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (@ConfigKey, @ConfigJson, GETUTCDATE());
+            """;
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("@ConfigKey", SchemaVersionConfigKey);
+        command.Parameters.AddWithValue("@ConfigJson", version.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+}

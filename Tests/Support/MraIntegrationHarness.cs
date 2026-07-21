@@ -1,3 +1,4 @@
+using System.Net.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PointOfSale.Infrastructure.Options;
