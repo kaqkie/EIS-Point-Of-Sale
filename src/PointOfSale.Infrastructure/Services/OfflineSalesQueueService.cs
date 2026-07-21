@@ -15,6 +15,7 @@ public sealed class OfflineSalesQueueService
 {
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly SalesTransactionService _salesTransactionService;
+    private readonly IOfflineInvoiceSyncCompletedHandler? _syncCompletedHandler;
     private readonly OfflineSyncOptions _options;
     private readonly ILogger<OfflineSalesQueueService> _logger;
 
@@ -22,12 +23,14 @@ public sealed class OfflineSalesQueueService
         IOfflineInvoiceQueueRepository queueRepository,
         SalesTransactionService salesTransactionService,
         IOptions<OfflineSyncOptions> options,
-        ILogger<OfflineSalesQueueService> logger)
+        ILogger<OfflineSalesQueueService> logger,
+        IOfflineInvoiceSyncCompletedHandler? syncCompletedHandler = null)
     {
         _queueRepository = queueRepository;
         _salesTransactionService = salesTransactionService;
         _options = options.Value;
         _logger = logger;
+        _syncCompletedHandler = syncCompletedHandler;
     }
 
     public async Task<SaleQueueResult> EnqueueAndTrySubmitAsync(
@@ -47,7 +50,12 @@ public sealed class OfflineSalesQueueService
             return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false);
         }
 
-        return await TrySubmitQueuedAsync(queueId, payload, currentRetryCount: 0, cancellationToken).ConfigureAwait(false);
+        return await TrySubmitQueuedAsync(
+            queueId,
+            payload,
+            currentRetryCount: 0,
+            cancellationToken,
+            triggerAutoPrintOnSuccess: false).ConfigureAwait(false);
     }
 
     public async Task<bool> ProcessNextFifoAsync(CancellationToken cancellationToken = default)
@@ -77,9 +85,65 @@ public sealed class OfflineSalesQueueService
             return true;
         }
 
-        await TrySubmitQueuedAsync(next.Id, payload, next.RetryCount, cancellationToken, alreadySyncing: true)
-            .ConfigureAwait(false);
+        await TrySubmitQueuedAsync(
+            next.Id,
+            payload,
+            next.RetryCount,
+            cancellationToken,
+            triggerAutoPrintOnSuccess: true).ConfigureAwait(false);
         return true;
+    }
+
+    public async Task<SaleQueueResult?> ForceSyncQueueItemAsync(int queueId, CancellationToken cancellationToken = default)
+    {
+        var item = await _queueRepository.GetByIdAsync(queueId, cancellationToken).ConfigureAwait(false);
+        if (item is null)
+        {
+            return null;
+        }
+
+        if (item.Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase))
+        {
+            var retried = await _queueRepository.RetryQuarantinedAsync(queueId, cancellationToken).ConfigureAwait(false);
+            if (!retried)
+            {
+                return SaleQueueResult.Quarantined(queueId, string.Empty, "Item is not quarantined or could not be retried.");
+            }
+
+            item = await _queueRepository.GetByIdAsync(queueId, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (item is null ||
+            !item.Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase))
+        {
+            return SaleQueueResult.Queued(queueId, string.Empty, submittedOnline: false, "Item is not eligible for force sync.");
+        }
+
+        if (!await _queueRepository.TryMarkSyncingAsync(queueId, cancellationToken).ConfigureAwait(false))
+        {
+            return SaleQueueResult.Queued(queueId, string.Empty, submittedOnline: false, "Item is already syncing.");
+        }
+
+        SubmitSalesTransactionRequest payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions)
+                ?? throw new InvalidOperationException($"Queue item {queueId} payload is invalid.");
+        }
+        catch (Exception ex)
+        {
+            await _queueRepository
+                .MarkQuarantinedAsync(queueId, TruncateError($"Invalid payload: {ex.Message}"), cancellationToken)
+                .ConfigureAwait(false);
+            return SaleQueueResult.Quarantined(queueId, string.Empty, ex.Message);
+        }
+
+        return await TrySubmitQueuedAsync(
+            queueId,
+            payload,
+            item.RetryCount,
+            cancellationToken,
+            triggerAutoPrintOnSuccess: true).ConfigureAwait(false);
     }
 
     private async Task<SaleQueueResult> TrySubmitQueuedAsync(
@@ -87,7 +151,7 @@ public sealed class OfflineSalesQueueService
         SubmitSalesTransactionRequest payload,
         int currentRetryCount,
         CancellationToken cancellationToken,
-        bool alreadySyncing = false)
+        bool triggerAutoPrintOnSuccess)
     {
         try
         {
@@ -95,9 +159,34 @@ public sealed class OfflineSalesQueueService
                 .SubmitSalesTransactionAsync(payload, cancellationToken)
                 .ConfigureAwait(false);
 
+            if (submit.Success && submit.Data is not null)
+            {
+                var fiscalJson = JsonSerializer.Serialize(submit.Data, MraJson.SerializerOptions);
+                await _queueRepository.MarkSyncedAsync(queueId, fiscalJson, cancellationToken).ConfigureAwait(false);
+                await _salesTransactionService.ApplyLocalInventoryDeductionsAsync(payload, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (triggerAutoPrintOnSuccess && _syncCompletedHandler is not null)
+                {
+                    try
+                    {
+                        await _syncCompletedHandler
+                            .HandleSuccessfulSyncAsync(payload, submit.Data, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Post-sync receipt handler failed for queue id {QueueId}.", queueId);
+                    }
+                }
+
+                return SaleQueueResult.Submitted(queueId, payload.InvoiceHeader.InvoiceNumber, submit.Data, submit.Remark);
+            }
+
             if (submit.Success)
             {
-                await _queueRepository.MarkSyncedAsync(queueId, cancellationToken).ConfigureAwait(false);
+                await _queueRepository.MarkSyncedAsync(queueId, fiscalResponseJson: null, cancellationToken)
+                    .ConfigureAwait(false);
                 await _salesTransactionService.ApplyLocalInventoryDeductionsAsync(payload, cancellationToken)
                     .ConfigureAwait(false);
                 return SaleQueueResult.Submitted(queueId, payload.InvoiceHeader.InvoiceNumber, submit.Data, submit.Remark);

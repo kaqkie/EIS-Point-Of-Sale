@@ -16,7 +16,14 @@ public interface IOfflineInvoiceQueueRepository
 
     Task<bool> TryMarkSyncingAsync(int id, CancellationToken cancellationToken = default);
 
-    Task MarkSyncedAsync(int id, CancellationToken cancellationToken = default);
+    Task MarkSyncedAsync(int id, string? fiscalResponseJson = null, CancellationToken cancellationToken = default);
+
+    Task<OfflineInvoiceQueueItem?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<OfflineInvoiceQueueItem>> GetItemsAsync(
+        string? statusFilter,
+        int take,
+        CancellationToken cancellationToken = default);
 
     Task MarkQuarantinedAsync(int id, string errorMessage, CancellationToken cancellationToken = default);
 
@@ -73,7 +80,7 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
     {
         const string sql = """
             SELECT TOP (1)
-                q.Id, q.PayloadJson, q.CreatedAt, q.Status, q.RetryCount, q.NextRetryTime, q.ErrorMessage
+                Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage, FiscalResponseJson
             FROM dbo.OfflineInvoiceQueue AS q WITH (UPDLOCK, READPAST, ROWLOCK)
             WHERE q.Status = @PendingStatus
               AND (q.NextRetryTime IS NULL OR q.NextRetryTime <= GETUTCDATE())
@@ -127,13 +134,14 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
         return rows == 1;
     }
 
-    public async Task MarkSyncedAsync(int id, CancellationToken cancellationToken = default)
+    public async Task MarkSyncedAsync(int id, string? fiscalResponseJson = null, CancellationToken cancellationToken = default)
     {
         const string sql = """
             UPDATE dbo.OfflineInvoiceQueue
             SET Status = @Status,
                 ErrorMessage = NULL,
-                NextRetryTime = NULL
+                NextRetryTime = NULL,
+                FiscalResponseJson = @FiscalResponseJson
             WHERE Id = @Id;
             """;
 
@@ -142,9 +150,55 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
         await connection.ExecuteAsync(
             new CommandDefinition(
                 sql,
-                new { Id = id, Status = OfflineQueueStatuses.Synced },
+                new { Id = id, Status = OfflineQueueStatuses.Synced, FiscalResponseJson = fiscalResponseJson },
                 cancellationToken: cancellationToken))
             .ConfigureAwait(false);
+    }
+
+    public async Task<OfflineInvoiceQueueItem?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage, FiscalResponseJson
+            FROM dbo.OfflineInvoiceQueue
+            WHERE Id = @Id;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return await connection.QuerySingleOrDefaultAsync<OfflineInvoiceQueueItem>(
+            new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<OfflineInvoiceQueueItem>> GetItemsAsync(
+        string? statusFilter,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var sql = string.IsNullOrWhiteSpace(statusFilter)
+            ? """
+              SELECT TOP (@Take)
+                  Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage, FiscalResponseJson
+              FROM dbo.OfflineInvoiceQueue
+              ORDER BY CreatedAt ASC, Id ASC;
+              """
+            : """
+              SELECT TOP (@Take)
+                  Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage, FiscalResponseJson
+              FROM dbo.OfflineInvoiceQueue
+              WHERE Status = @StatusFilter
+              ORDER BY CreatedAt ASC, Id ASC;
+              """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var rows = await connection.QueryAsync<OfflineInvoiceQueueItem>(
+            new CommandDefinition(
+                sql,
+                new { Take = take, StatusFilter = statusFilter },
+                cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+        return rows.AsList();
     }
 
     public async Task MarkQuarantinedAsync(int id, string errorMessage, CancellationToken cancellationToken = default)
@@ -231,7 +285,7 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
     {
         const string sql = """
             SELECT TOP (@Take)
-                Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage
+                Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage, FiscalResponseJson
             FROM dbo.OfflineInvoiceQueue
             ORDER BY CreatedAt DESC, Id DESC;
             """;

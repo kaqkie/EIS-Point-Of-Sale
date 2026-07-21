@@ -29,7 +29,7 @@ public sealed class OfflineInvoiceFifoSyncBackgroundService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "Offline invoice FIFO sync worker started (interval {Interval}s).",
+            "Offline invoice FIFO sync worker started (interval {Interval}s). Auto-print is handled after successful MRA sync.",
             _options.PollIntervalSeconds);
 
         while (!stoppingToken.IsCancellationRequested)

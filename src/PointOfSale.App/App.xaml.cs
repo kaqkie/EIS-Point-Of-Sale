@@ -6,6 +6,7 @@ using PointOfSale.App.Services;
 using PointOfSale.App.ViewModels;
 using PointOfSale.App.Views;
 using PointOfSale.Infrastructure;
+using PointOfSale.Infrastructure.Services;
 
 namespace PointOfSale.App;
 
@@ -26,6 +27,7 @@ public partial class App : Application
             .ConfigureServices((context, services) =>
             {
                 services.AddPointOfSaleInfrastructure(context.Configuration);
+                services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();

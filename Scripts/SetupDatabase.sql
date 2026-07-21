@@ -59,6 +59,7 @@ BEGIN
         RetryCount      INT             NOT NULL CONSTRAINT DF_OfflineInvoiceQueue_RetryCount DEFAULT (0),
         NextRetryTime   DATETIME        NULL,
         ErrorMessage    NVARCHAR(MAX)   NULL,
+        FiscalResponseJson NVARCHAR(MAX) NULL,
         CONSTRAINT PK_OfflineInvoiceQueue PRIMARY KEY CLUSTERED (Id)
     );
 

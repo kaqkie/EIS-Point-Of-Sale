@@ -5,6 +5,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -37,6 +38,12 @@
         </UniformGrid>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="Status filter:" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox Width="160"
+                      ItemsSource="{Binding StatusFilterOptions}"
+                      SelectedItem="{Binding SelectedStatusFilter}"
+                      Padding="8,4"
+                      Margin="0,0,16,0" />
             <Button Content="Refresh"
                     Command="{Binding RefreshCommand}"
                     Padding="10,8"
@@ -47,10 +54,31 @@
                     FontWeight="SemiBold" />
         </StackPanel>
 
-        <DataGrid Grid.Row="2"
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="Print Receipt"
+                    Command="{Binding PrintReceiptCommand}"
+                    CommandParameter="{Binding SelectedQueueItem}"
+                    Padding="10,8"
+                    Margin="0,0,8,0"
+                    FontWeight="SemiBold" />
+            <Button Content="Retry (Quarantined → Pending)"
+                    Command="{Binding RetryQuarantinedCommand}"
+                    CommandParameter="{Binding SelectedQueueItem}"
+                    Padding="10,8"
+                    Margin="0,0,8,0" />
+            <Button Content="Force Sync"
+                    Command="{Binding ForceSyncCommand}"
+                    CommandParameter="{Binding SelectedQueueItem}"
+                    Padding="10,8"
+                    FontWeight="SemiBold" />
+        </StackPanel>
+
+        <DataGrid Grid.Row="3"
                   ItemsSource="{Binding QueueItems}"
+                  SelectedItem="{Binding SelectedQueueItem, Mode=TwoWay}"
                   AutoGenerateColumns="False"
-                  CanUserAddRows="False">
+                  CanUserAddRows="False"
+                  IsReadOnly="True">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="60" />
                 <DataGridTextColumn Header="Invoice" Binding="{Binding InvoiceNumber}" Width="160" />
@@ -59,18 +87,26 @@
                 <DataGridTextColumn Header="Retries" Binding="{Binding RetryCount}" Width="70" />
                 <DataGridTextColumn Header="Next Retry" Binding="{Binding NextRetryTime}" Width="160" />
                 <DataGridTextColumn Header="Error" Binding="{Binding ErrorMessage}" Width="*" />
-                <DataGridTemplateColumn Header="Actions" Width="220">
+                <DataGridTemplateColumn Header="Row Actions" Width="280">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
+                                <Button Content="Print Receipt"
+                                        Command="{Binding DataContext.PrintReceiptCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        IsEnabled="{Binding CanPrintReceipt}"
+                                        Margin="0,0,4,0"
+                                        Padding="6,2" />
                                 <Button Content="Retry"
                                         Command="{Binding DataContext.RetryQuarantinedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}"
+                                        IsEnabled="{Binding CanRetry}"
                                         Margin="0,0,4,0"
                                         Padding="6,2" />
-                                <Button Content="Print"
-                                        Command="{Binding DataContext.PrintSyncedReceiptCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                <Button Content="Force Sync"
+                                        Command="{Binding DataContext.ForceSyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}"
+                                        IsEnabled="{Binding CanForceSync}"
                                         Padding="6,2" />
                             </StackPanel>
                         </DataTemplate>
@@ -79,6 +115,6 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Margin="0,8,0,0" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="4" Text="{Binding StatusMessage}" Margin="0,8,0,0" TextWrapping="Wrap" />
     </Grid>
 </UserControl>

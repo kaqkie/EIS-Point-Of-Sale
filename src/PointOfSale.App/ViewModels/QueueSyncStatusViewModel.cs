@@ -15,6 +15,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject
 {
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly OfflineSalesQueueService _offlineSalesQueueService;
+    private readonly SalesTransactionService _salesTransactionService;
     private readonly IReceiptPrintingService _receiptPrintingService;
     private readonly IPosConfigurationService _posConfigurationService;
     private readonly Timer _refreshTimer;
@@ -22,19 +23,37 @@ public partial class QueueSyncStatusViewModel : ObservableObject
     public QueueSyncStatusViewModel(
         IOfflineInvoiceQueueRepository queueRepository,
         OfflineSalesQueueService offlineSalesQueueService,
+        SalesTransactionService salesTransactionService,
         IReceiptPrintingService receiptPrintingService,
         IPosConfigurationService posConfigurationService)
     {
         _queueRepository = queueRepository;
         _offlineSalesQueueService = offlineSalesQueueService;
+        _salesTransactionService = salesTransactionService;
         _receiptPrintingService = receiptPrintingService;
         _posConfigurationService = posConfigurationService;
         QueueItems = new ObservableCollection<QueueItemViewModel>();
+        StatusFilterOptions = new ObservableCollection<string>
+        {
+            "All",
+            OfflineQueueStatuses.Pending,
+            OfflineQueueStatuses.Syncing,
+            OfflineQueueStatuses.Quarantined,
+            OfflineQueueStatuses.Synced
+        };
+        SelectedStatusFilter = "All";
         _refreshTimer = new Timer(async _ => await RefreshAsync().ConfigureAwait(false), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
         _ = RefreshAsync();
     }
 
     public ObservableCollection<QueueItemViewModel> QueueItems { get; }
+    public ObservableCollection<string> StatusFilterOptions { get; }
+
+    [ObservableProperty]
+    private QueueItemViewModel? _selectedQueueItem;
+
+    [ObservableProperty]
+    private string _selectedStatusFilter;
 
     [ObservableProperty]
     private int _pendingCount;
@@ -51,6 +70,8 @@ public partial class QueueSyncStatusViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    partial void OnSelectedStatusFilterChanged(string value) => _ = RefreshAsync();
+
     [RelayCommand]
     private async Task RefreshAsync()
     {
@@ -60,9 +81,13 @@ public partial class QueueSyncStatusViewModel : ObservableObject
         SyncedCount = counts.GetValueOrDefault(OfflineQueueStatuses.Synced);
         QuarantinedCount = counts.GetValueOrDefault(OfflineQueueStatuses.Quarantined);
 
+        var filter = SelectedStatusFilter.Equals("All", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : SelectedStatusFilter;
+
         QueueItems.Clear();
-        var items = await _queueRepository.GetRecentItemsAsync(100).ConfigureAwait(true);
-        foreach (var item in items)
+        var items = await _queueRepository.GetItemsAsync(filter, take: 250).ConfigureAwait(true);
+        foreach (var item in items.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id))
         {
             QueueItems.Add(QueueItemViewModel.FromEntity(item));
         }
@@ -72,15 +97,19 @@ public partial class QueueSyncStatusViewModel : ObservableObject
     private async Task SyncNextAsync()
     {
         var processed = await _offlineSalesQueueService.ProcessNextFifoAsync().ConfigureAwait(true);
-        StatusMessage = processed ? "Processed next FIFO queue item." : "No eligible queue item.";
+        StatusMessage = processed
+            ? "Processed next FIFO queue item (auto-print runs when MRA returns fiscal data)."
+            : "No eligible queue item.";
         await RefreshAsync().ConfigureAwait(true);
     }
 
     [RelayCommand]
     private async Task RetryQuarantinedAsync(QueueItemViewModel? item)
     {
-        if (item is null)
+        item ??= SelectedQueueItem;
+        if (item is null || !item.CanRetry)
         {
+            StatusMessage = "Select a quarantined item to retry.";
             return;
         }
 
@@ -92,38 +121,75 @@ public partial class QueueSyncStatusViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task PrintSyncedReceiptAsync(QueueItemViewModel? item)
+    private async Task ForceSyncAsync(QueueItemViewModel? item)
     {
-        if (item is null || !item.Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase))
+        item ??= SelectedQueueItem;
+        if (item is null || !item.CanForceSync)
         {
+            StatusMessage = "Select a quarantined or pending item to force sync.";
+            return;
+        }
+
+        var result = await _offlineSalesQueueService.ForceSyncQueueItemAsync(item.Id).ConfigureAwait(true);
+        StatusMessage = result switch
+        {
+            null => "Queue item not found.",
+            { SubmittedOnline: true } => $"Force sync succeeded for invoice {result.InvoiceNumber}. Receipt auto-print triggered when fiscal data is present.",
+            { IsQuarantined: true } => $"Force sync quarantined: {result.Remark}",
+            _ => result.Remark ?? "Force sync did not complete."
+        };
+        await RefreshAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task PrintReceiptAsync(QueueItemViewModel? item)
+    {
+        item ??= SelectedQueueItem;
+        if (item is null || !item.CanPrintReceipt)
+        {
+            StatusMessage = "Select a SYNCED item to print its receipt.";
             return;
         }
 
         var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions);
         if (payload is null)
         {
+            StatusMessage = "Unable to parse invoice payload.";
             return;
+        }
+
+        var fiscal = item.ResolveFiscalResponse();
+        if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceHeader.InvoiceNumber))
+        {
+            var lookup = await _salesTransactionService
+                .GetInvoiceByNumberAsync(
+                    new InvoiceNumberQueryRequest { InvoiceNumber = payload.InvoiceHeader.InvoiceNumber })
+                .ConfigureAwait(true);
+            if (lookup.Success && lookup.Data is not null)
+            {
+                fiscal = new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = lookup.Data.InvoiceNumber,
+                    FiscalSignature = lookup.Data.FiscalCode,
+                    VerificationUrl = null
+                };
+            }
+        }
+
+        if (fiscal is null &&
+            !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+        {
+            fiscal = new SubmitSalesTransactionResponseData
+            {
+                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                FiscalSignature = payload.InvoiceSummary.OfflineSignature
+            };
         }
 
         var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
         await _receiptPrintingService.PrintAsync(
-            new ReceiptPrintRequest
-            {
-                TradingName = context.TradingName,
-                SellerTin = context.SellerTin,
-                AddressLines = context.AddressLines,
-                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                InvoiceDateTime = payload.InvoiceHeader.InvoiceDateTime,
-                LineItems = payload.InvoiceLineItems,
-                TaxBreakdown = payload.InvoiceSummary.TaxBreakDown,
-                InvoiceTotal = payload.InvoiceSummary.InvoiceTotal,
-                AmountTendered = payload.InvoiceSummary.AmountTendered,
-                FiscalResponse = new SubmitSalesTransactionResponseData
-                {
-                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                    FiscalSignature = payload.InvoiceSummary.OfflineSignature
-                }
-            }).ConfigureAwait(true);
+            QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscal)).ConfigureAwait(true);
+        StatusMessage = $"Printed receipt for {payload.InvoiceHeader.InvoiceNumber}.";
     }
 }
 
@@ -136,7 +202,28 @@ public sealed class QueueItemViewModel
     public DateTime? NextRetryTime { get; init; }
     public string? ErrorMessage { get; init; }
     public required string PayloadJson { get; init; }
+    public string? FiscalResponseJson { get; init; }
     public string InvoiceNumber { get; init; } = string.Empty;
+
+    public bool CanRetry =>
+        Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase);
+
+    public bool CanForceSync =>
+        Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase) ||
+        Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase);
+
+    public bool CanPrintReceipt =>
+        Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase);
+
+    public SubmitSalesTransactionResponseData? ResolveFiscalResponse()
+    {
+        if (string.IsNullOrWhiteSpace(FiscalResponseJson))
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<SubmitSalesTransactionResponseData>(FiscalResponseJson, MraJson.SerializerOptions);
+    }
 
     public static QueueItemViewModel FromEntity(PointOfSale.Core.Entities.OfflineInvoiceQueueItem entity)
     {
@@ -160,6 +247,7 @@ public sealed class QueueItemViewModel
             NextRetryTime = entity.NextRetryTime,
             ErrorMessage = entity.ErrorMessage,
             PayloadJson = entity.PayloadJson,
+            FiscalResponseJson = entity.FiscalResponseJson,
             InvoiceNumber = invoiceNumber
         };
     }
