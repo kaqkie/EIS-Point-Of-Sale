@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PointOfSale.Core.Constants;
+using PointOfSale.Core.Inventory;
 using PointOfSale.Infrastructure.Options;
 using PointOfSale.Core.Entities;
 using PointOfSale.Mra.Contracts.Common;
@@ -273,6 +274,51 @@ public sealed class StockManagementService
 
     public int NormalizeInventoryPageSize(int pageSize) =>
         NormalizePageSize(Math.Min(pageSize, _inventoryUploadBatchSize));
+
+    public IReadOnlyList<InventoryUploadBatch<T>> PlanInitialInventoryUploadBatches<T>(IReadOnlyList<T> items) =>
+        InventoryUploadBatchPlanner.CreateBatches(items, _inventoryUploadBatchSize);
+
+    public async Task<StockResult<int>> UploadInitialInventoryInBatchesAsync(
+        IReadOnlyList<InitialInventoryItemDto> items,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        if (items.Count == 0)
+        {
+            return StockResult<int>.Succeeded(0, "No inventory items to upload.");
+        }
+
+        var batches = InventoryUploadBatchPlanner.CreateBatches(items, _inventoryUploadBatchSize);
+        var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
+        var uploaded = 0;
+
+        foreach (var batch in batches)
+        {
+            var request = new InitialInventoryUploadBatchRequest
+            {
+                InventoryItems = batch.Items,
+                IsLastBatch = batch.IsLastBatch
+            };
+
+            var response = await _apiClient
+                .PostAsync<InitialInventoryUploadBatchRequest, InitialInventoryUploadBatchResponseData>(
+                    "stock/upload-initial-inventory",
+                    request,
+                    context,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            var result = ToResult(response);
+            if (!result.Success)
+            {
+                return StockResult<int>.Failed(result.Remark, result.Errors);
+            }
+
+            uploaded += batch.Items.Count;
+        }
+
+        return StockResult<int>.Succeeded(uploaded, $"Uploaded {uploaded} inventory item(s) in {batches.Count} batch(es).");
+    }
 
     public static int NormalizePageSize(int pageSize) =>
         pageSize switch

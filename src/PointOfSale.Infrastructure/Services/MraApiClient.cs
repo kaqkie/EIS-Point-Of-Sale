@@ -119,7 +119,7 @@ public sealed class MraApiClient
     {
         _logger.LogDebug("MRA EIS {Method} {Uri}", request.Method, request.RequestUri);
 
-        var path = request.RequestUri?.PathAndQuery ?? request.RequestUri?.ToString() ?? "(unknown)";
+        var path = ResolveAuditPath(request.RequestUri);
         var started = Environment.TickCount64;
 
         try
@@ -222,6 +222,21 @@ public sealed class MraApiClient
             isSuccess,
             errorMessage,
             cancellationToken);
+    }
+
+    private static string ResolveAuditPath(Uri? requestUri)
+    {
+        if (requestUri is null)
+        {
+            return "(unknown)";
+        }
+
+        if (requestUri.IsAbsoluteUri)
+        {
+            return requestUri.PathAndQuery;
+        }
+
+        return requestUri.OriginalString;
     }
 
     private static string BuildPathWithQuery(string relativePath, IReadOnlyDictionary<string, string>? query)

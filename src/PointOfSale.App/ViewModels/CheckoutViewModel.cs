@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PointOfSale.App.Services;
 using PointOfSale.Core.Entities;
+using PointOfSale.Core.Pricing;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Contracts.Sales;
@@ -273,8 +274,8 @@ public partial class CartLineViewModel : ObservableObject
     public decimal UnitPrice { get; init; }
     public decimal VatRatePercent { get; init; }
 
-    public decimal NetTotal => Math.Round(UnitPrice * Quantity, 2);
-    public decimal VatTotal => Math.Round(NetTotal * (VatRatePercent / 100m), 2);
+    public decimal NetTotal => PosTaxCalculator.CalculateNetAmount(UnitPrice, Quantity);
+    public decimal VatTotal => PosTaxCalculator.CalculateVatAmount(NetTotal, VatRatePercent);
     public decimal LineTotal => NetTotal + VatTotal;
 
     public static CartLineViewModel FromProduct(LocalInventoryItem product, decimal quantity) =>

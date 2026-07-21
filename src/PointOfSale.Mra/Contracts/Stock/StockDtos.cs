@@ -266,6 +266,39 @@ public sealed class AddProductResponseData
     public string? ProductCode { get; set; }
 }
 
+public sealed class InitialInventoryItemDto
+{
+    [JsonPropertyName("productCode")]
+    public required string ProductCode { get; init; }
+
+    [JsonPropertyName("productName")]
+    public required string ProductName { get; init; }
+
+    [JsonPropertyName("unitPrice")]
+    public decimal UnitPrice { get; init; }
+
+    [JsonPropertyName("openingStockQuantity")]
+    public decimal OpeningStockQuantity { get; init; }
+
+    [JsonPropertyName("taxRateId")]
+    public required string TaxRateId { get; init; }
+}
+
+public sealed class InitialInventoryUploadBatchRequest
+{
+    [JsonPropertyName("inventoryItems")]
+    public required IReadOnlyList<InitialInventoryItemDto> InventoryItems { get; init; }
+
+    [JsonPropertyName("isLastBatch")]
+    public bool IsLastBatch { get; init; }
+}
+
+public sealed class InitialInventoryUploadBatchResponseData
+{
+    [JsonPropertyName("acceptedCount")]
+    public int AcceptedCount { get; set; }
+}
+
 public sealed class StockMutationResponseData
 {
     [JsonPropertyName("transactionId")]
