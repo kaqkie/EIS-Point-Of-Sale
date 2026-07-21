@@ -10,4 +10,10 @@ public sealed class LocalInventoryItem
     public string? HsCode { get; set; }
     public string? UnitOfMeasure { get; set; }
     public string? TaxRateId { get; set; }
+
+    /// <summary>Local | HeadOffice — catalog ownership for conflict resolution.</summary>
+    public string CatalogSource { get; set; } = "Local";
+
+    public DateTime? HeadOfficeRevisionUtc { get; set; }
+    public DateTime? LastReplicatedAtUtc { get; set; }
 }

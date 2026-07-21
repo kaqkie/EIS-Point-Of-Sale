@@ -20,9 +20,51 @@ public sealed class FakeLocalInventoryRepository : ILocalInventoryRepository
         return Task.FromResult(item);
     }
 
+    public Task<LocalInventoryItem?> GetByProductIdAsync(string productId, CancellationToken cancellationToken = default)
+    {
+        var item = _byCode.Values.FirstOrDefault(x =>
+            string.Equals(x.ProductId, productId, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(item);
+    }
+
     public Task UpsertAsync(LocalInventoryItem item, CancellationToken cancellationToken = default)
     {
         _byCode[item.ProductCode] = item;
+        return Task.CompletedTask;
+    }
+
+    public Task ApplyHeadOfficeCatalogAsync(
+        LocalInventoryItem catalogItem,
+        bool preserveLocalStock,
+        CancellationToken cancellationToken = default)
+    {
+        if (_byCode.TryGetValue(catalogItem.ProductCode, out var existing) ||
+            (existing = _byCode.Values.FirstOrDefault(x =>
+                string.Equals(x.ProductId, catalogItem.ProductId, StringComparison.OrdinalIgnoreCase))) is not null)
+        {
+            existing.ProductCode = catalogItem.ProductCode;
+            existing.Name = catalogItem.Name;
+            existing.UnitPrice = catalogItem.UnitPrice;
+            if (!preserveLocalStock)
+            {
+                existing.StockQuantity = catalogItem.StockQuantity;
+            }
+
+            existing.HsCode = catalogItem.HsCode;
+            existing.UnitOfMeasure = catalogItem.UnitOfMeasure;
+            existing.TaxRateId = catalogItem.TaxRateId;
+            existing.CatalogSource = "HeadOffice";
+            existing.HeadOfficeRevisionUtc = catalogItem.HeadOfficeRevisionUtc;
+            existing.LastReplicatedAtUtc = DateTime.UtcNow;
+            _byCode[existing.ProductCode] = existing;
+        }
+        else
+        {
+            catalogItem.CatalogSource = "HeadOffice";
+            catalogItem.LastReplicatedAtUtc = DateTime.UtcNow;
+            _byCode[catalogItem.ProductCode] = catalogItem;
+        }
+
         return Task.CompletedTask;
     }
 }

@@ -46,8 +46,11 @@ public partial class App : Application
                     context.Configuration.GetSection(ApplicationUpdateOptions.SectionName));
                 services.Configure<DatabaseBootstrapOptions>(
                     context.Configuration.GetSection(DatabaseBootstrapOptions.SectionName));
+                services.Configure<HeadOfficeSyncOptions>(
+                    context.Configuration.GetSection(HeadOfficeSyncOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
+                services.AddHttpClient(nameof(HeadOfficeSyncService));
 
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
                 services.AddSingleton<GlobalExceptionHandler>();
@@ -62,6 +65,9 @@ public partial class App : Application
                 services.AddTransient<ITaxReconciliationService, TaxReconciliationService>();
                 services.AddTransient<IShiftManagementService, ShiftManagementService>();
                 services.AddTransient<IAnalyticsReportExportService, AnalyticsReportExportService>();
+                services.AddTransient<ICentralInventoryReplicationService, CentralInventoryReplicationService>();
+                services.AddSingleton<IHeadOfficeSyncService, HeadOfficeSyncService>();
+                services.AddHostedService<HeadOfficeSyncBackgroundService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -73,6 +79,7 @@ public partial class App : Application
                 services.AddTransient<QueueSyncStatusView>();
                 services.AddTransient<ComplianceExportView>();
                 services.AddTransient<AdminAnalyticsView>();
+                services.AddTransient<HeadOfficeSyncView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<CheckoutViewModel>();
@@ -80,6 +87,7 @@ public partial class App : Application
                 services.AddTransient<QueueSyncStatusViewModel>();
                 services.AddTransient<ComplianceExportViewModel>();
                 services.AddTransient<AdminAnalyticsViewModel>();
+                services.AddTransient<HeadOfficeSyncViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

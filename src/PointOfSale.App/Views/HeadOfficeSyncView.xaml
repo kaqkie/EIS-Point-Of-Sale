@@ -1,0 +1,106 @@
+<UserControl x:Class="PointOfSale.App.Views.HeadOfficeSyncView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8">
+            <DockPanel Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Head Office Synchronization"
+                               FontSize="22"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap"
+                               Foreground="#4B5563"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal"
+                            DockPanel.Dock="Right"
+                            HorizontalAlignment="Right">
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0" />
+                    <Button Content="Sync Now"
+                            Command="{Binding SyncNowCommand}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            FontWeight="Bold"
+                            IsEnabled="{Binding IsSyncing, Converter={StaticResource InverseBooleanConverter}}" />
+                </StackPanel>
+            </DockPanel>
+
+            <UniformGrid Columns="4" Margin="0,0,0,12">
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Connection" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding ConnectionStatusText}"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Pending uploads" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding PendingUploadCount}" FontSize="22" FontWeight="Bold" />
+                        <TextBlock Text="{Binding FailedUploadCount, StringFormat='Failed: {0}'}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Last sync (UTC)" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding LastSyncTimestamp, StringFormat=g, TargetNullValue=Never}"
+                                   FontSize="16"
+                                   FontWeight="Bold" />
+                        <TextBlock Text="{Binding IsSyncing, StringFormat='Syncing: {0}'}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="Catalog pull" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding LastCatalogPullUtc, StringFormat=g, TargetNullValue=Never}"
+                                   FontSize="16"
+                                   FontWeight="Bold" />
+                        <TextBlock Text="{Binding IsHeadOfficeReachable, StringFormat='HQ reachable: {0}'}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <UniformGrid Columns="3" Margin="0,0,0,12">
+                <Border Background="#ECFDF5" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Network" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding IsNetworkAvailable, StringFormat='Available: {0}'}" />
+                    </StackPanel>
+                </Border>
+                <Border Background="#EFF6FF" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Feature flag" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding IsEnabled, StringFormat='HeadOfficeSync Enabled: {0}'}" />
+                    </StackPanel>
+                </Border>
+                <Border Background="#FEF2F2" CornerRadius="8" Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="Last error" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding LastError, TargetNullValue=None}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <Border Background="White" CornerRadius="8" Padding="12">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Recent sync activity"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,8" />
+                    <ListBox ItemsSource="{Binding RecentMessages}"
+                             MinHeight="220"
+                             MaxHeight="360"
+                             BorderThickness="0" />
+                </DockPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
