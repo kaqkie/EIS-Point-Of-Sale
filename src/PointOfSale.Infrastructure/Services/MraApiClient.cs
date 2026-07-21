@@ -19,15 +19,21 @@ public sealed class MraApiClient
     private readonly HttpClient _httpClient;
     private readonly MraApiOptions _options;
     private readonly ILogger<MraApiClient> _logger;
+    private readonly IAuditLoggingService? _auditLoggingService;
 
-    public MraApiClient(HttpClient httpClient, IOptions<MraApiOptions> options, ILogger<MraApiClient> logger)
+    public MraApiClient(
+        HttpClient httpClient,
+        IOptions<MraApiOptions> options,
+        ILogger<MraApiClient> logger,
+        IAuditLoggingService? auditLoggingService = null)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
+        _auditLoggingService = auditLoggingService;
 
-        if (_httpClient.BaseAddress is null &&
-            Uri.TryCreate(_options.BaseUrl, UriKind.Absolute, out var baseUri))
+        var baseUrl = _options.ResolveBaseUrl();
+        if (_httpClient.BaseAddress is null && Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
         {
             _httpClient.BaseAddress = baseUri;
         }
@@ -50,7 +56,7 @@ public sealed class MraApiClient
         };
 
         ApplyContext(request, context, signaturePlainText: context?.SignaturePlainText ?? json, jsonBody: json);
-        return SendAsync<TResponse>(request, cancellationToken);
+        return SendAsync<TResponse>(request, auditRequestBody: json, cancellationToken);
     }
 
     public Task<EisApiResponse<TResponse>> GetAsync<TResponse>(
@@ -68,7 +74,10 @@ public sealed class MraApiClient
         var path = BuildPathWithQuery(relativePath, query);
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
         ApplyContext(request, context, signaturePlainText: context?.SignaturePlainText, jsonBody: null);
-        return SendAsync<TResponse>(request, cancellationToken);
+        var auditBody = query is null || query.Count == 0
+            ? null
+            : JsonSerializer.Serialize(query, MraJson.SerializerOptions);
+        return SendAsync<TResponse>(request, auditRequestBody: auditBody, cancellationToken);
     }
 
     /// <summary>
@@ -105,45 +114,114 @@ public sealed class MraApiClient
 
     private async Task<EisApiResponse<TResponse>> SendAsync<TResponse>(
         HttpRequestMessage request,
+        string? auditRequestBody,
         CancellationToken cancellationToken)
     {
         _logger.LogDebug("MRA EIS {Method} {Uri}", request.Method, request.RequestUri);
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var path = request.RequestUri?.PathAndQuery ?? request.RequestUri?.ToString() ?? "(unknown)";
+        var started = Environment.TickCount64;
 
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            throw new MraApiException(
-                $"Empty MRA EIS response ({(int)response.StatusCode}).",
-                (int)response.StatusCode,
-                content);
-        }
-
-        EisApiResponse<TResponse>? parsed;
         try
         {
-            parsed = JsonSerializer.Deserialize<EisApiResponse<TResponse>>(content, MraJson.SerializerOptions);
-        }
-        catch (JsonException ex)
-        {
-            throw new MraApiException("Invalid MRA EIS response JSON.", (int)response.StatusCode, content, ex);
-        }
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var durationMs = (int)Math.Min(int.MaxValue, Environment.TickCount64 - started);
 
-        if (parsed is null)
-        {
-            throw new MraApiException("MRA EIS response was null.", (int)response.StatusCode, content);
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new MraApiException(
-                $"MRA EIS HTTP {(int)response.StatusCode}: {response.ReasonPhrase}",
+            await AuditAsync(
+                request.Method.Method,
+                path,
                 (int)response.StatusCode,
-                content);
+                durationMs,
+                auditRequestBody,
+                content,
+                response.IsSuccessStatusCode,
+                response.IsSuccessStatusCode ? null : content,
+                cancellationToken).ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                throw new MraApiException(
+                    $"Empty MRA EIS response ({(int)response.StatusCode}).",
+                    (int)response.StatusCode,
+                    content);
+            }
+
+            EisApiResponse<TResponse>? parsed;
+            try
+            {
+                parsed = JsonSerializer.Deserialize<EisApiResponse<TResponse>>(content, MraJson.SerializerOptions);
+            }
+            catch (JsonException ex)
+            {
+                throw new MraApiException(
+                    "Invalid MRA EIS response JSON.",
+                    (int)response.StatusCode,
+                    content,
+                    ex);
+            }
+
+            if (parsed is null)
+            {
+                throw new MraApiException(
+                    "MRA EIS response was null.",
+                    (int)response.StatusCode,
+                    content);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new MraApiException(
+                    $"MRA EIS HTTP {(int)response.StatusCode}: {response.ReasonPhrase}",
+                    (int)response.StatusCode,
+                    content);
+            }
+
+            return parsed;
+        }
+        catch (Exception ex) when (ex is not MraApiException)
+        {
+            var durationMs = (int)Math.Min(int.MaxValue, Environment.TickCount64 - started);
+            await AuditAsync(
+                request.Method.Method,
+                path,
+                httpStatusCode: null,
+                durationMs,
+                auditRequestBody,
+                responseBody: null,
+                isSuccess: false,
+                errorMessage: ex.Message,
+                cancellationToken).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private Task AuditAsync(
+        string method,
+        string path,
+        int? httpStatusCode,
+        int durationMs,
+        string? requestBody,
+        string? responseBody,
+        bool isSuccess,
+        string? errorMessage,
+        CancellationToken cancellationToken)
+    {
+        if (_auditLoggingService is null)
+        {
+            return Task.CompletedTask;
         }
 
-        return parsed;
+        return _auditLoggingService.LogMraExchangeAsync(
+            method,
+            path,
+            httpStatusCode,
+            durationMs,
+            requestBody,
+            responseBody,
+            isSuccess,
+            errorMessage,
+            cancellationToken);
     }
 
     private static string BuildPathWithQuery(string relativePath, IReadOnlyDictionary<string, string>? query)

@@ -25,12 +25,20 @@ public static class DependencyInjection
             {
                 options.HttpTimeout = TimeSpan.FromSeconds(timeoutSeconds.Value);
             }
+
+            if (string.IsNullOrWhiteSpace(options.BaseUrl))
+            {
+                options.BaseUrl = options.ResolveBaseUrl();
+            }
         });
 
         services.Configure<OfflineSyncOptions>(configuration.GetSection(OfflineSyncOptions.SectionName));
+        services.Configure<PosOperationsOptions>(configuration.GetSection(PosOperationsOptions.SectionName));
+        services.Configure<AuditLoggingOptions>(configuration.GetSection(AuditLoggingOptions.SectionName));
 
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
+        services.AddSingleton<IAuditLoggingService, AuditLoggingService>();
 
         services.AddScoped<ITerminalRepository, TerminalRepository>();
         services.AddScoped<IConfigurationRepository, ConfigurationRepository>();

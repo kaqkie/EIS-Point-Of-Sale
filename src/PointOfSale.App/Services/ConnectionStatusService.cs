@@ -43,7 +43,7 @@ public sealed class ConnectionStatusService : IConnectionStatusService
         _isOnline = NetworkInterface.GetIsNetworkAvailable();
         _isMraReachable = false;
 
-        if (_isOnline && Uri.TryCreate(_options.BaseUrl, UriKind.Absolute, out var baseUri))
+        if (_isOnline && Uri.TryCreate(_options.ResolveBaseUrl(), UriKind.Absolute, out var baseUri))
         {
             try
             {

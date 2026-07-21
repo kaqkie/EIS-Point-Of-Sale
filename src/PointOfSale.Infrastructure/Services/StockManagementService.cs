@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using PointOfSale.Core.Constants;
+using PointOfSale.Infrastructure.Options;
 using PointOfSale.Core.Entities;
 using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Contracts.Configuration;
@@ -20,26 +22,29 @@ public sealed class StockManagementService
     private readonly ILocalInventoryRepository _inventoryRepository;
     private readonly IConfigurationRepository _configurationRepository;
     private readonly ILogger<StockManagementService> _logger;
+    private readonly int _inventoryUploadBatchSize;
 
     public StockManagementService(
         MraApiClient apiClient,
         IMraTerminalAuthProvider authProvider,
         ILocalInventoryRepository inventoryRepository,
         IConfigurationRepository configurationRepository,
-        ILogger<StockManagementService> logger)
+        ILogger<StockManagementService> logger,
+        IOptions<PosOperationsOptions> posOperations)
     {
         _apiClient = apiClient;
         _authProvider = authProvider;
         _inventoryRepository = inventoryRepository;
         _configurationRepository = configurationRepository;
         _logger = logger;
+        _inventoryUploadBatchSize = Math.Clamp(posOperations.Value.InventoryUploadBatchSize, 1, MaxPageSize);
     }
 
     public async Task<StockResult<PagedResponse<WarehouseInventoryItemDto>>> GetWarehouseInventoryAsync(
         WarehouseInventoryRequest request,
         CancellationToken cancellationToken = default)
     {
-        var pageSize = NormalizePageSize(request.PageSize);
+        var pageSize = NormalizeInventoryPageSize(request.PageSize);
         var context = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
         var query = new Dictionary<string, string>
         {
@@ -72,7 +77,7 @@ public sealed class StockManagementService
         var query = new Dictionary<string, string>
         {
             ["pageNumber"] = Math.Max(1, request.PageNumber).ToString(),
-            ["pageSize"] = NormalizePageSize(request.PageSize).ToString()
+            ["pageSize"] = NormalizeInventoryPageSize(request.PageSize).ToString()
         };
 
         var response = await _apiClient
@@ -265,6 +270,9 @@ public sealed class StockManagementService
 
         return result;
     }
+
+    public int NormalizeInventoryPageSize(int pageSize) =>
+        NormalizePageSize(Math.Min(pageSize, _inventoryUploadBatchSize));
 
     public static int NormalizePageSize(int pageSize) =>
         pageSize switch

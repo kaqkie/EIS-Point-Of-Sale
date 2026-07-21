@@ -7,6 +7,7 @@ using PointOfSale.App.ViewModels;
 using PointOfSale.App.Views;
 using PointOfSale.Infrastructure;
 using PointOfSale.Infrastructure.Services;
+using Serilog;
 
 namespace PointOfSale.App;
 
@@ -18,16 +19,24 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        var environmentName = Environment.GetEnvironmentVariable("ART_ENV")
+            ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+            ?? "Sandbox";
+
         _host = Host.CreateDefaultBuilder()
+            .UseSerilog((context, _, configuration) =>
+                configuration.ReadFrom.Configuration(context.Configuration))
             .ConfigureAppConfiguration(config =>
             {
                 config.SetBasePath(AppContext.BaseDirectory);
                 config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+                config.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: true);
             })
             .ConfigureServices((context, services) =>
             {
                 services.AddPointOfSaleInfrastructure(context.Configuration);
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
+                services.AddSingleton<GlobalExceptionHandler>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -47,6 +56,8 @@ public partial class App : Application
             })
             .Build();
 
+        _host.Services.GetRequiredService<GlobalExceptionHandler>().Register(this);
+
         await _host.StartAsync().ConfigureAwait(true);
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
@@ -58,6 +69,7 @@ public partial class App : Application
         if (_host is not null)
         {
             await _host.StopAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(true);
+            Log.CloseAndFlush();
             _host.Dispose();
         }
 

@@ -59,7 +59,7 @@ public partial class InventoryViewModel : ObservableObject
         try
         {
             var response = await _stockManagementService
-                .GetWarehouseInventoryAsync(new WarehouseInventoryRequest { PageNumber = 1, PageSize = 200 })
+                .GetWarehouseInventoryAsync(new WarehouseInventoryRequest { PageNumber = 1, PageSize = 50 })
                 .ConfigureAwait(true);
 
             if (!response.Success || response.Data is null)
