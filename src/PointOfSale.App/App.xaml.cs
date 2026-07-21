@@ -48,6 +48,8 @@ public partial class App : Application
                     context.Configuration.GetSection(DatabaseBootstrapOptions.SectionName));
                 services.Configure<HeadOfficeSyncOptions>(
                     context.Configuration.GetSection(HeadOfficeSyncOptions.SectionName));
+                services.Configure<DatabaseBackupOptions>(
+                    context.Configuration.GetSection(DatabaseBackupOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -63,6 +65,9 @@ public partial class App : Application
                 services.AddSingleton<IComplianceCertificationService, ComplianceCertificationService>();
                 services.AddSingleton<IComplianceExportService, ComplianceExportService>();
                 services.AddTransient<ITaxReconciliationService, TaxReconciliationService>();
+                services.AddSingleton<IDatabaseBackupService, DatabaseBackupService>();
+                services.AddSingleton<IDatabaseRestorationService, DatabaseRestorationService>();
+                services.AddHostedService<DatabaseBackupBackgroundService>();
                 services.AddTransient<IShiftManagementService, ShiftManagementService>();
                 services.AddTransient<IAnalyticsReportExportService, AnalyticsReportExportService>();
                 services.AddTransient<ICentralInventoryReplicationService, CentralInventoryReplicationService>();
@@ -80,6 +85,7 @@ public partial class App : Application
                 services.AddTransient<ComplianceExportView>();
                 services.AddTransient<AdminAnalyticsView>();
                 services.AddTransient<HeadOfficeSyncView>();
+                services.AddTransient<BackupRecoveryView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<CheckoutViewModel>();
@@ -88,6 +94,7 @@ public partial class App : Application
                 services.AddTransient<ComplianceExportViewModel>();
                 services.AddTransient<AdminAnalyticsViewModel>();
                 services.AddTransient<HeadOfficeSyncViewModel>();
+                services.AddTransient<BackupRecoveryViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

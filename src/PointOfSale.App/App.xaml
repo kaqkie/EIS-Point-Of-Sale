@@ -23,6 +23,9 @@
         <DataTemplate DataType="{x:Type vm:HeadOfficeSyncViewModel}">
             <v:HeadOfficeSyncView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:BackupRecoveryViewModel}">
+            <v:BackupRecoveryView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

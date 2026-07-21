@@ -54,6 +54,9 @@ public partial class MainViewModel : ObservableObject
     private void NavigateHeadOffice() => _navigationService.NavigateTo<HeadOfficeSyncViewModel>();
 
     [RelayCommand]
+    private void NavigateBackup() => _navigationService.NavigateTo<BackupRecoveryViewModel>();
+
+    [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
 
     [RelayCommand]

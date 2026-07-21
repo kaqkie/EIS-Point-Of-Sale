@@ -24,13 +24,16 @@ public sealed class ShiftManagementService : IShiftManagementService
 {
     private readonly ICashierShiftRepository _shiftRepository;
     private readonly ISqlConnectionFactory _connectionFactory;
+    private readonly IDatabaseBackupService? _backupService;
 
     public ShiftManagementService(
         ICashierShiftRepository shiftRepository,
-        ISqlConnectionFactory connectionFactory)
+        ISqlConnectionFactory connectionFactory,
+        IDatabaseBackupService? backupService = null)
     {
         _shiftRepository = shiftRepository;
         _connectionFactory = connectionFactory;
+        _backupService = backupService;
     }
 
     public Task<CashierShift?> GetOpenShiftAsync(CancellationToken cancellationToken = default) =>
@@ -114,6 +117,19 @@ public sealed class ShiftManagementService : IShiftManagementService
             CashVariance = variance,
             ClosedAtUtc = DateTime.UtcNow
         };
+
+        if (_backupService is not null)
+        {
+            try
+            {
+                await _backupService.BackupOnShiftCloseAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Disaster-recovery backup must never block shift close.
+            }
+        }
+
         return report;
     }
 

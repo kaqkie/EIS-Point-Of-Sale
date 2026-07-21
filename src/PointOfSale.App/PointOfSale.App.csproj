@@ -61,6 +61,9 @@
     <None Include="..\..\Scripts\005_HeadOfficeSync.sql" Link="Scripts\005_HeadOfficeSync.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\006_DatabaseBackup.sql" Link="Scripts\006_DatabaseBackup.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
