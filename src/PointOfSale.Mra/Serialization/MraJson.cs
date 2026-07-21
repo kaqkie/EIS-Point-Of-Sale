@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace PointOfSale.Mra.Serialization;
 
-internal static class MraJson
+public static class MraJson
 {
     public static JsonSerializerOptions SerializerOptions { get; } = CreateOptions();
 
