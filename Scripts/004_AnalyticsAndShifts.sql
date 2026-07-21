@@ -37,7 +37,7 @@ BEGIN
         MovementId      INT             IDENTITY(1,1) NOT NULL,
         ShiftId         INT             NOT NULL,
         MovementType    VARCHAR(20)     NOT NULL
-            CONSTRAINT CK_ShiftCashMovements_Type CHECK (MovementType IN (N'CashIn', N'CashOut')),
+            CONSTRAINT CK_ShiftCashMovements_Type CHECK (MovementType IN (N'CashIn', N'CashOut', N'CashDrop')),
         Amount          DECIMAL(18, 2)  NOT NULL,
         Reason          NVARCHAR(200)   NULL,
         CreatedAtUtc    DATETIME2(7)    NOT NULL CONSTRAINT DF_ShiftCashMovements_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
@@ -46,6 +46,18 @@ BEGIN
     );
 
     CREATE INDEX IX_ShiftCashMovements_ShiftId ON dbo.ShiftCashMovements (ShiftId, CreatedAtUtc);
+END
+GO
+
+-- Allow CashDrop on upgraded databases
+IF EXISTS (
+    SELECT 1 FROM sys.check_constraints
+    WHERE name = N'CK_ShiftCashMovements_Type' AND parent_object_id = OBJECT_ID(N'dbo.ShiftCashMovements'))
+BEGIN
+    ALTER TABLE dbo.ShiftCashMovements DROP CONSTRAINT CK_ShiftCashMovements_Type;
+    ALTER TABLE dbo.ShiftCashMovements WITH CHECK
+        ADD CONSTRAINT CK_ShiftCashMovements_Type
+        CHECK (MovementType IN (N'CashIn', N'CashOut', N'CashDrop'));
 END
 GO
 

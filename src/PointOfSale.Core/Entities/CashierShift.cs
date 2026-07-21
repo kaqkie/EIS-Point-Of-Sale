@@ -35,4 +35,6 @@ public static class ShiftCashMovementTypes
 {
     public const string CashIn = "CashIn";
     public const string CashOut = "CashOut";
+    /// <summary>Safe drop / pickup reducing drawer cash (treated like CashOut for expected drawer).</summary>
+    public const string CashDrop = "CashDrop";
 }

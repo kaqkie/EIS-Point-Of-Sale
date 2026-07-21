@@ -24,10 +24,13 @@ public partial class AdminAnalyticsViewModel : ObservableObject
         TaxBuckets = new ObservableCollection<TaxCodeBucket>();
         HourlySales = new ObservableCollection<ChartBarItem>();
         QueueDrainage = new ObservableCollection<ChartBarItem>();
+        QuarantineFrequency = new ObservableCollection<ChartBarItem>();
         RecentShifts = new ObservableCollection<CashierShift>();
         FiscalInvoices = new ObservableCollection<ZReportInvoiceLine>();
 
         SelectedPeriod = TaxReconciliationPeriod.Daily;
+        RangeStart = DateTime.Today;
+        RangeEnd = DateTime.Today;
         CashierName = Environment.UserName;
         _ = RefreshAsync();
     }
@@ -35,6 +38,7 @@ public partial class AdminAnalyticsViewModel : ObservableObject
     public ObservableCollection<TaxCodeBucket> TaxBuckets { get; }
     public ObservableCollection<ChartBarItem> HourlySales { get; }
     public ObservableCollection<ChartBarItem> QueueDrainage { get; }
+    public ObservableCollection<ChartBarItem> QuarantineFrequency { get; }
     public ObservableCollection<CashierShift> RecentShifts { get; }
     public ObservableCollection<ZReportInvoiceLine> FiscalInvoices { get; }
 
@@ -44,6 +48,12 @@ public partial class AdminAnalyticsViewModel : ObservableObject
     private TaxReconciliationPeriod _selectedPeriod;
 
     [ObservableProperty]
+    private DateTime _rangeStart;
+
+    [ObservableProperty]
+    private DateTime _rangeEnd;
+
+    [ObservableProperty]
     private string _statusMessage = "Loading analytics...";
 
     [ObservableProperty]
@@ -51,6 +61,12 @@ public partial class AdminAnalyticsViewModel : ObservableObject
 
     [ObservableProperty]
     private decimal _grossSales;
+
+    [ObservableProperty]
+    private decimal _onlineGrossSales;
+
+    [ObservableProperty]
+    private decimal _offlineSyncedGrossSales;
 
     [ObservableProperty]
     private decimal _actualVat;
@@ -66,6 +82,21 @@ public partial class AdminAnalyticsViewModel : ObservableObject
 
     [ObservableProperty]
     private int _syncedInvoiceCount;
+
+    [ObservableProperty]
+    private int _onlineInvoiceCount;
+
+    [ObservableProperty]
+    private int _offlineSyncedInvoiceCount;
+
+    [ObservableProperty]
+    private decimal _standardTaxable;
+
+    [ObservableProperty]
+    private decimal _zeroRatedTaxable;
+
+    [ObservableProperty]
+    private decimal _exemptTaxable;
 
     [ObservableProperty]
     private int _pendingQueueCount;
@@ -92,6 +123,9 @@ public partial class AdminAnalyticsViewModel : ObservableObject
     private string? _openShiftSummary;
 
     [ObservableProperty]
+    private string _shiftMetricsSummary = string.Empty;
+
+    [ObservableProperty]
     private ZReportBundle? _zReportPreview;
 
     [RelayCommand]
@@ -105,13 +139,23 @@ public partial class AdminAnalyticsViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var report = await _taxReconciliationService.GetReportAsync(SelectedPeriod).ConfigureAwait(true);
+            var report = SelectedPeriod == TaxReconciliationPeriod.Custom
+                ? await _taxReconciliationService.GetReportForDateRangeAsync(RangeStart, RangeEnd).ConfigureAwait(true)
+                : await _taxReconciliationService.GetReportAsync(SelectedPeriod, RangeEnd.Date).ConfigureAwait(true);
+
             GrossSales = report.GrossSales;
+            OnlineGrossSales = report.OnlineGrossSales;
+            OfflineSyncedGrossSales = report.OfflineSyncedGrossSales;
             ActualVat = report.ActualVatCollected;
             ExpectedVat = report.ExpectedStandardVat;
             VatVariance = report.VatVariance;
             IsTaxBalanced = report.IsBalanced;
             SyncedInvoiceCount = report.SyncedInvoiceCount;
+            OnlineInvoiceCount = report.OnlineInvoiceCount;
+            OfflineSyncedInvoiceCount = report.OfflineSyncedInvoiceCount;
+            StandardTaxable = report.StandardRateTaxable;
+            ZeroRatedTaxable = report.ZeroRatedTaxable;
+            ExemptTaxable = report.ExemptTaxable;
 
             TaxBuckets.Clear();
             foreach (var bucket in report.TaxBuckets)
@@ -119,7 +163,11 @@ public partial class AdminAnalyticsViewModel : ObservableObject
                 TaxBuckets.Add(bucket);
             }
 
-            var hourly = await _taxReconciliationService.GetHourlySalesVelocityAsync(DateTime.Today).ConfigureAwait(true);
+            var chartFrom = SelectedPeriod == TaxReconciliationPeriod.Custom ? RangeStart.Date : report.LocalBusinessDate;
+            var chartTo = SelectedPeriod == TaxReconciliationPeriod.Custom ? RangeEnd.Date : report.LocalBusinessDate;
+            var hourly = await _taxReconciliationService
+                .GetHourlySalesVelocityAsync(chartFrom, chartTo)
+                .ConfigureAwait(true);
             var maxSales = hourly.Count == 0 ? 1m : Math.Max(1m, hourly.Max(h => h.SalesTotal));
             HourlySales.Clear();
             foreach (var point in hourly)
@@ -139,6 +187,8 @@ public partial class AdminAnalyticsViewModel : ObservableObject
                 ? 1
                 : Math.Max(1, drainage.Max(h => Math.Max(h.SyncedCount, Math.Max(h.BacklogCount, h.QuarantinedCount))));
             QueueDrainage.Clear();
+            QuarantineFrequency.Clear();
+            var maxQuarantine = drainage.Count == 0 ? 1 : Math.Max(1, drainage.Max(h => h.QuarantinedCount));
             foreach (var point in drainage.TakeLast(12))
             {
                 QueueDrainage.Add(new ChartBarItem(
@@ -146,6 +196,11 @@ public partial class AdminAnalyticsViewModel : ObservableObject
                     point.SyncedCount,
                     point.SyncedCount / (double)maxQ,
                     $"Q:{point.QuarantinedCount} B:{point.BacklogCount}"));
+                QuarantineFrequency.Add(new ChartBarItem(
+                    point.HourBucketUtc.ToLocalTime().ToString("HH:mm"),
+                    point.QuarantinedCount,
+                    point.QuarantinedCount / (double)maxQuarantine,
+                    $"{point.QuarantinedCount} fails"));
             }
 
             var open = await _shiftManagementService.GetOpenShiftAsync().ConfigureAwait(true);
@@ -157,10 +212,17 @@ public partial class AdminAnalyticsViewModel : ObservableObject
             FiscalInvoices.Clear();
             if (ZReportPreview is not null)
             {
+                ShiftMetricsSummary =
+                    $"Cash {ZReportPreview.CashSales:N2} · Card {ZReportPreview.CardSales:N2} · Mobile {ZReportPreview.MobileMoneySales:N2} · " +
+                    $"Drops {ZReportPreview.CashDropTotal:N2} · Expected drawer {ZReportPreview.ExpectedCashInDrawer:N2}";
                 foreach (var inv in ZReportPreview.FiscalizedInvoices.Take(50))
                 {
                     FiscalInvoices.Add(inv);
                 }
+            }
+            else
+            {
+                ShiftMetricsSummary = "Open a shift to preview Z-report tenders.";
             }
 
             RecentShifts.Clear();
@@ -170,8 +232,8 @@ public partial class AdminAnalyticsViewModel : ObservableObject
             }
 
             StatusMessage = IsTaxBalanced
-                ? "Tax reconciliation balanced (VAT variance < 0.01)."
-                : $"Tax variance detected: {VatVariance:N2}. Investigate before audit handoff.";
+                ? $"Tax balanced · Online {OnlineGrossSales:N2} / Offline-synced {OfflineSyncedGrossSales:N2} · VAT variance {VatVariance:N2}."
+                : $"Tax variance {VatVariance:N2}. Investigate before audit handoff.";
         }
         catch (Exception ex)
         {
@@ -184,6 +246,13 @@ public partial class AdminAnalyticsViewModel : ObservableObject
     }
 
     partial void OnSelectedPeriodChanged(TaxReconciliationPeriod value) => _ = RefreshAsync();
+
+    [RelayCommand]
+    private async Task ApplyDateRangeAsync()
+    {
+        SelectedPeriod = TaxReconciliationPeriod.Custom;
+        await RefreshAsync().ConfigureAwait(true);
+    }
 
     [RelayCommand]
     private async Task OpenShiftAsync()
@@ -233,6 +302,22 @@ public partial class AdminAnalyticsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task CashDropAsync()
+    {
+        try
+        {
+            await _shiftManagementService.RecordCashDropAsync(CashMovementAmount, CashMovementReason).ConfigureAwait(true);
+            CashMovementAmount = 0;
+            StatusMessage = "Cash drop recorded.";
+            await RefreshAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
     private async Task CloseShiftAsync()
     {
         try
@@ -253,7 +338,7 @@ public partial class AdminAnalyticsViewModel : ObservableObject
     {
         try
         {
-            var report = await _taxReconciliationService.GetReportAsync(SelectedPeriod).ConfigureAwait(true);
+            var report = await LoadCurrentTaxReportAsync().ConfigureAwait(true);
             var path = await _exportService.ExportTaxReconciliationCsvAsync(report).ConfigureAwait(true);
             StatusMessage = string.IsNullOrEmpty(path) ? "CSV export cancelled." : $"CSV saved: {path}";
         }
@@ -268,7 +353,7 @@ public partial class AdminAnalyticsViewModel : ObservableObject
     {
         try
         {
-            var report = await _taxReconciliationService.GetReportAsync(SelectedPeriod).ConfigureAwait(true);
+            var report = await LoadCurrentTaxReportAsync().ConfigureAwait(true);
             await _exportService.ExportTaxReconciliationPdfAsync(report).ConfigureAwait(true);
             StatusMessage = "Tax PDF/print dialog completed.";
         }
@@ -319,6 +404,11 @@ public partial class AdminAnalyticsViewModel : ObservableObject
             StatusMessage = ex.Message;
         }
     }
+
+    private Task<TaxReconciliationReport> LoadCurrentTaxReportAsync() =>
+        SelectedPeriod == TaxReconciliationPeriod.Custom
+            ? _taxReconciliationService.GetReportForDateRangeAsync(RangeStart, RangeEnd)
+            : _taxReconciliationService.GetReportAsync(SelectedPeriod, RangeEnd.Date);
 }
 
 public sealed record ChartBarItem(string Label, decimal Value, double Ratio, string Detail);

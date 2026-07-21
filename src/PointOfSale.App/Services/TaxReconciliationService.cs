@@ -11,8 +11,14 @@ public interface ITaxReconciliationService
         DateTime? asOfLocalDate = null,
         CancellationToken cancellationToken = default);
 
+    Task<TaxReconciliationReport> GetReportForDateRangeAsync(
+        DateTime fromLocalInclusive,
+        DateTime toLocalInclusive,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<HourlySalesPoint>> GetHourlySalesVelocityAsync(
-        DateTime localDay,
+        DateTime fromLocalInclusive,
+        DateTime toLocalInclusive,
         CancellationToken cancellationToken = default);
 
     Task<QueueHealthSnapshot> GetQueueHealthAsync(CancellationToken cancellationToken = default);
@@ -22,7 +28,8 @@ public enum TaxReconciliationPeriod
 {
     Daily,
     Weekly,
-    Monthly
+    Monthly,
+    Custom
 }
 
 public sealed class TaxReconciliationService : ITaxReconciliationService
@@ -34,91 +41,43 @@ public sealed class TaxReconciliationService : ITaxReconciliationService
         _connectionFactory = connectionFactory;
     }
 
-    public async Task<TaxReconciliationReport> GetReportAsync(
+    public Task<TaxReconciliationReport> GetReportAsync(
         TaxReconciliationPeriod period,
         DateTime? asOfLocalDate = null,
         CancellationToken cancellationToken = default)
     {
         var localDay = (asOfLocalDate ?? DateTime.Today).Date;
         var (fromUtc, toUtcExclusive) = ResolveWindow(period, localDay);
+        return BuildReportAsync(period, localDay, fromUtc, toUtcExclusive, cancellationToken);
+    }
 
-        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        const string taxSql = """
-            SELECT
-                UPPER(LTRIM(RTRIM(ISNULL(JSON_VALUE(tax.value, '$.rateId'), 'UNKNOWN')))) AS TaxRateId,
-                SUM(ISNULL(TRY_CAST(JSON_VALUE(tax.value, '$.taxableAmount') AS DECIMAL(18,2)), 0)) AS TaxableTotal,
-                SUM(ISNULL(TRY_CAST(JSON_VALUE(tax.value, '$.taxAmount') AS DECIMAL(18,2)), 0)) AS VatCollected,
-                COUNT(DISTINCT q.Id) AS InvoiceCount
-            FROM dbo.OfflineInvoiceQueue AS q
-            CROSS APPLY OPENJSON(q.PayloadJson, '$.invoiceSummary.taxBreakDown') AS tax
-            WHERE q.Status = N'SYNCED'
-              AND q.CreatedAt >= @FromUtc
-              AND q.CreatedAt < @ToUtc
-            GROUP BY UPPER(LTRIM(RTRIM(ISNULL(JSON_VALUE(tax.value, '$.rateId'), 'UNKNOWN'))))
-            ORDER BY TaxRateId;
-            """;
-
-        var buckets = (await connection.QueryAsync<TaxCodeBucketRow>(
-                new CommandDefinition(
-                    taxSql,
-                    new { FromUtc = fromUtc, ToUtc = toUtcExclusive },
-                    cancellationToken: cancellationToken))
-            .ConfigureAwait(false)).AsList();
-
-        const string totalsSql = """
-            SELECT
-                COUNT(*) AS SyncedInvoiceCount,
-                SUM(ISNULL(TRY_CAST(JSON_VALUE(PayloadJson, '$.invoiceSummary.invoiceTotal') AS DECIMAL(18,2)), 0)) AS GrossSales,
-                SUM(ISNULL(TRY_CAST(JSON_VALUE(PayloadJson, '$.invoiceSummary.totalVAT') AS DECIMAL(18,2)), 0)) AS TotalVatDeclared
-            FROM dbo.OfflineInvoiceQueue
-            WHERE Status = N'SYNCED'
-              AND CreatedAt >= @FromUtc
-              AND CreatedAt < @ToUtc;
-            """;
-
-        var totals = await connection.QuerySingleAsync<PeriodTotalsRow>(
-            new CommandDefinition(
-                totalsSql,
-                new { FromUtc = fromUtc, ToUtc = toUtcExclusive },
-                cancellationToken: cancellationToken))
-            .ConfigureAwait(false);
-
-        var categorized = buckets.Select(b => Categorize(b)).ToList();
-        var taxableStandard = categorized
-            .Where(c => c.Category == TaxCategory.Standard)
-            .Sum(c => c.TaxableTotal);
-        var vatCollected = categorized.Sum(c => c.VatCollected);
-        var expectedVat = PosTaxCalculator.CalculateVatAmount(
-            taxableStandard,
-            PosTaxCalculator.MalawiStandardVatRatePercent);
-        var variance = PosTaxCalculator.RoundMoney(vatCollected - expectedVat);
-
-        return new TaxReconciliationReport
+    public Task<TaxReconciliationReport> GetReportForDateRangeAsync(
+        DateTime fromLocalInclusive,
+        DateTime toLocalInclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var from = fromLocalInclusive.Date;
+        var toExclusive = toLocalInclusive.Date.AddDays(1);
+        if (toExclusive <= from)
         {
-            Period = period,
-            FromUtc = fromUtc,
-            ToUtcExclusive = toUtcExclusive,
-            LocalBusinessDate = localDay,
-            SyncedInvoiceCount = totals.SyncedInvoiceCount,
-            GrossSales = totals.GrossSales,
-            TotalVatDeclared = totals.TotalVatDeclared,
-            TaxBuckets = categorized,
-            StandardRateTaxable = taxableStandard,
-            ExpectedStandardVat = expectedVat,
-            ActualVatCollected = vatCollected,
-            VatVariance = variance,
-            IsBalanced = Math.Abs(variance) < 0.01m
-        };
+            throw new ArgumentException("End date must be on or after the start date.");
+        }
+
+        return BuildReportAsync(
+            TaxReconciliationPeriod.Custom,
+            from,
+            from.ToUniversalTime(),
+            toExclusive.ToUniversalTime(),
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<HourlySalesPoint>> GetHourlySalesVelocityAsync(
-        DateTime localDay,
+        DateTime fromLocalInclusive,
+        DateTime toLocalInclusive,
         CancellationToken cancellationToken = default)
     {
-        var fromUtc = localDay.Date.ToUniversalTime();
-        var toUtc = fromUtc.AddDays(1);
+        var fromUtc = fromLocalInclusive.Date.ToUniversalTime();
+        var toUtc = toLocalInclusive.Date.AddDays(1).ToUniversalTime();
 
         const string sql = """
             SELECT
@@ -177,6 +136,109 @@ public sealed class TaxReconciliationService : ITaxReconciliationService
         };
     }
 
+    private async Task<TaxReconciliationReport> BuildReportAsync(
+        TaxReconciliationPeriod period,
+        DateTime localBusinessDate,
+        DateTime fromUtc,
+        DateTime toUtcExclusive,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        const string taxSql = """
+            SELECT
+                UPPER(LTRIM(RTRIM(ISNULL(JSON_VALUE(tax.value, '$.rateId'), 'UNKNOWN')))) AS TaxRateId,
+                SUM(ISNULL(TRY_CAST(JSON_VALUE(tax.value, '$.taxableAmount') AS DECIMAL(18,2)), 0)) AS TaxableTotal,
+                SUM(ISNULL(TRY_CAST(JSON_VALUE(tax.value, '$.taxAmount') AS DECIMAL(18,2)), 0)) AS VatCollected,
+                COUNT(DISTINCT q.Id) AS InvoiceCount
+            FROM dbo.OfflineInvoiceQueue AS q
+            CROSS APPLY OPENJSON(q.PayloadJson, '$.invoiceSummary.taxBreakDown') AS tax
+            WHERE q.Status = N'SYNCED'
+              AND q.CreatedAt >= @FromUtc
+              AND q.CreatedAt < @ToUtc
+            GROUP BY UPPER(LTRIM(RTRIM(ISNULL(JSON_VALUE(tax.value, '$.rateId'), 'UNKNOWN'))))
+            ORDER BY TaxRateId;
+            """;
+
+        var buckets = (await connection.QueryAsync<TaxCodeBucketRow>(
+                new CommandDefinition(
+                    taxSql,
+                    new { FromUtc = fromUtc, ToUtc = toUtcExclusive },
+                    cancellationToken: cancellationToken))
+            .ConfigureAwait(false)).AsList();
+
+        // Online = no offlineSignature; Offline-origin = offlineSignature present (later synced).
+        const string channelSql = """
+            SELECT
+                COUNT(*) AS SyncedInvoiceCount,
+                SUM(ISNULL(TRY_CAST(JSON_VALUE(PayloadJson, '$.invoiceSummary.invoiceTotal') AS DECIMAL(18,2)), 0)) AS GrossSales,
+                SUM(ISNULL(TRY_CAST(JSON_VALUE(PayloadJson, '$.invoiceSummary.totalVAT') AS DECIMAL(18,2)), 0)) AS TotalVatDeclared,
+                SUM(CASE WHEN NULLIF(LTRIM(RTRIM(JSON_VALUE(PayloadJson, '$.invoiceSummary.offlineSignature'))), '') IS NULL
+                         THEN ISNULL(TRY_CAST(JSON_VALUE(PayloadJson, '$.invoiceSummary.invoiceTotal') AS DECIMAL(18,2)), 0)
+                         ELSE 0 END) AS OnlineGrossSales,
+                SUM(CASE WHEN NULLIF(LTRIM(RTRIM(JSON_VALUE(PayloadJson, '$.invoiceSummary.offlineSignature'))), '') IS NULL
+                         THEN ISNULL(TRY_CAST(JSON_VALUE(PayloadJson, '$.invoiceSummary.totalVAT') AS DECIMAL(18,2)), 0)
+                         ELSE 0 END) AS OnlineVat,
+                SUM(CASE WHEN NULLIF(LTRIM(RTRIM(JSON_VALUE(PayloadJson, '$.invoiceSummary.offlineSignature'))), '') IS NOT NULL
+                         THEN ISNULL(TRY_CAST(JSON_VALUE(PayloadJson, '$.invoiceSummary.invoiceTotal') AS DECIMAL(18,2)), 0)
+                         ELSE 0 END) AS OfflineSyncedGrossSales,
+                SUM(CASE WHEN NULLIF(LTRIM(RTRIM(JSON_VALUE(PayloadJson, '$.invoiceSummary.offlineSignature'))), '') IS NOT NULL
+                         THEN ISNULL(TRY_CAST(JSON_VALUE(PayloadJson, '$.invoiceSummary.totalVAT') AS DECIMAL(18,2)), 0)
+                         ELSE 0 END) AS OfflineSyncedVat,
+                SUM(CASE WHEN NULLIF(LTRIM(RTRIM(JSON_VALUE(PayloadJson, '$.invoiceSummary.offlineSignature'))), '') IS NULL
+                         THEN 1 ELSE 0 END) AS OnlineInvoiceCount,
+                SUM(CASE WHEN NULLIF(LTRIM(RTRIM(JSON_VALUE(PayloadJson, '$.invoiceSummary.offlineSignature'))), '') IS NOT NULL
+                         THEN 1 ELSE 0 END) AS OfflineSyncedInvoiceCount
+            FROM dbo.OfflineInvoiceQueue
+            WHERE Status = N'SYNCED'
+              AND CreatedAt >= @FromUtc
+              AND CreatedAt < @ToUtc;
+            """;
+
+        var totals = await connection.QuerySingleAsync<PeriodTotalsRow>(
+            new CommandDefinition(
+                channelSql,
+                new { FromUtc = fromUtc, ToUtc = toUtcExclusive },
+                cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+
+        var categorized = buckets.Select(Categorize).ToList();
+        var taxableStandard = categorized.Where(c => c.Category == TaxCategory.Standard).Sum(c => c.TaxableTotal);
+        var zeroRatedTaxable = categorized.Where(c => c.Category == TaxCategory.ZeroRated).Sum(c => c.TaxableTotal);
+        var exemptTaxable = categorized.Where(c => c.Category == TaxCategory.Exempt).Sum(c => c.TaxableTotal);
+        var vatCollected = categorized.Sum(c => c.VatCollected);
+        var expectedVat = PosTaxCalculator.CalculateVatAmount(
+            taxableStandard,
+            PosTaxCalculator.MalawiStandardVatRatePercent);
+        var variance = PosTaxCalculator.RoundMoney(vatCollected - expectedVat);
+
+        return new TaxReconciliationReport
+        {
+            Period = period,
+            FromUtc = fromUtc,
+            ToUtcExclusive = toUtcExclusive,
+            LocalBusinessDate = localBusinessDate,
+            SyncedInvoiceCount = totals.SyncedInvoiceCount,
+            GrossSales = totals.GrossSales,
+            TotalVatDeclared = totals.TotalVatDeclared,
+            OnlineGrossSales = totals.OnlineGrossSales,
+            OnlineVat = totals.OnlineVat,
+            OnlineInvoiceCount = totals.OnlineInvoiceCount,
+            OfflineSyncedGrossSales = totals.OfflineSyncedGrossSales,
+            OfflineSyncedVat = totals.OfflineSyncedVat,
+            OfflineSyncedInvoiceCount = totals.OfflineSyncedInvoiceCount,
+            TaxBuckets = categorized,
+            StandardRateTaxable = taxableStandard,
+            ZeroRatedTaxable = zeroRatedTaxable,
+            ExemptTaxable = exemptTaxable,
+            ExpectedStandardVat = expectedVat,
+            ActualVatCollected = vatCollected,
+            VatVariance = variance,
+            IsBalanced = Math.Abs(variance) < 0.01m
+        };
+    }
+
     private static (DateTime FromUtc, DateTime ToUtcExclusive) ResolveWindow(TaxReconciliationPeriod period, DateTime localDay)
     {
         var startLocal = period switch
@@ -227,6 +289,12 @@ public sealed class TaxReconciliationService : ITaxReconciliationService
         public int SyncedInvoiceCount { get; set; }
         public decimal GrossSales { get; set; }
         public decimal TotalVatDeclared { get; set; }
+        public decimal OnlineGrossSales { get; set; }
+        public decimal OnlineVat { get; set; }
+        public int OnlineInvoiceCount { get; set; }
+        public decimal OfflineSyncedGrossSales { get; set; }
+        public decimal OfflineSyncedVat { get; set; }
+        public int OfflineSyncedInvoiceCount { get; set; }
     }
 }
 
@@ -256,8 +324,16 @@ public sealed class TaxReconciliationReport
     public int SyncedInvoiceCount { get; init; }
     public decimal GrossSales { get; init; }
     public decimal TotalVatDeclared { get; init; }
+    public decimal OnlineGrossSales { get; init; }
+    public decimal OnlineVat { get; init; }
+    public int OnlineInvoiceCount { get; init; }
+    public decimal OfflineSyncedGrossSales { get; init; }
+    public decimal OfflineSyncedVat { get; init; }
+    public int OfflineSyncedInvoiceCount { get; init; }
     public IReadOnlyList<TaxCodeBucket> TaxBuckets { get; init; } = Array.Empty<TaxCodeBucket>();
     public decimal StandardRateTaxable { get; init; }
+    public decimal ZeroRatedTaxable { get; init; }
+    public decimal ExemptTaxable { get; init; }
     public decimal ExpectedStandardVat { get; init; }
     public decimal ActualVatCollected { get; init; }
     public decimal VatVariance { get; init; }

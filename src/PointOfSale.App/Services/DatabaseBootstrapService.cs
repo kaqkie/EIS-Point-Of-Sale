@@ -238,7 +238,7 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                     MovementId      INT             IDENTITY(1,1) NOT NULL,
                     ShiftId         INT             NOT NULL,
                     MovementType    VARCHAR(20)     NOT NULL
-                        CONSTRAINT CK_ShiftCashMovements_Type CHECK (MovementType IN (N'CashIn', N'CashOut')),
+                        CONSTRAINT CK_ShiftCashMovements_Type CHECK (MovementType IN (N'CashIn', N'CashOut', N'CashDrop')),
                     Amount          DECIMAL(18, 2)  NOT NULL,
                     Reason          NVARCHAR(200)   NULL,
                     CreatedAtUtc    DATETIME2(7)    NOT NULL CONSTRAINT DF_ShiftCashMovements_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),

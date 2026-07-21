@@ -19,6 +19,21 @@
                               Width="120"
                               Margin="0,0,8,0"
                               VerticalAlignment="Center" />
+                    <DatePicker SelectedDate="{Binding RangeStart}"
+                                Width="120"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                ToolTip="Range start (Custom period)" />
+                    <DatePicker SelectedDate="{Binding RangeEnd}"
+                                Width="120"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                ToolTip="Range end (Custom period)" />
+                    <Button Content="Apply Range"
+                            Command="{Binding ApplyDateRangeCommand}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0" />
                     <Button Content="Refresh"
                             Command="{Binding RefreshCommand}"
                             Padding="12,8"
@@ -32,6 +47,7 @@
                     <StackPanel>
                         <TextBlock Text="Gross sales" Foreground="#6B7280" />
                         <TextBlock Text="{Binding GrossSales, StringFormat=N2}" FontSize="22" FontWeight="Bold" />
+                        <TextBlock Text="{Binding SyncedInvoiceCount, StringFormat='{}{0} fiscalized invoices'}" FontSize="12" />
                     </StackPanel>
                 </Border>
                 <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
@@ -57,13 +73,44 @@
                 </Border>
             </UniformGrid>
 
+            <!-- Online vs offline-synced transparency -->
+            <UniformGrid Columns="4" Margin="0,0,0,12">
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Online gross" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding OnlineGrossSales, StringFormat=N2}" FontSize="18" FontWeight="Bold" />
+                        <TextBlock Text="{Binding OnlineInvoiceCount, StringFormat='{}{0} invoices'}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Offline-synced gross" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding OfflineSyncedGrossSales, StringFormat=N2}" FontSize="18" FontWeight="Bold" />
+                        <TextBlock Text="{Binding OfflineSyncedInvoiceCount, StringFormat='{}{0} invoices'}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Standard taxable" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding StandardTaxable, StringFormat=N2}" FontSize="18" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="Zero / Exempt taxable" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding ZeroRatedTaxable, StringFormat='Zero: {0:N2}'}" FontSize="14" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ExemptTaxable, StringFormat='Exempt: {0:N2}'}" FontSize="14" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Hourly sales velocity -->
                 <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="Hourly sales velocity" FontWeight="SemiBold" Margin="0,0,0,8" />
@@ -94,10 +141,9 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Queue drainage -->
-                <Border Grid.Column="1" Background="White" CornerRadius="8" Padding="12">
+                <Border Grid.Column="1" Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Offline queue drainage (synced/hr)" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBlock DockPanel.Dock="Top" Text="Offline queue clearance (synced/hr)" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <ItemsControl ItemsSource="{Binding QueueDrainage}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -125,9 +171,40 @@
                         </ItemsControl>
                     </DockPanel>
                 </Border>
+
+                <Border Grid.Column="2" Background="White" CornerRadius="8" Padding="12">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Quarantine failure frequency" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <ItemsControl ItemsSource="{Binding QuarantineFrequency}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                        <ProgressBar Grid.Column="1"
+                                                     Height="14"
+                                                     Minimum="0"
+                                                     Maximum="1"
+                                                     Value="{Binding Ratio}"
+                                                     Margin="6,0"
+                                                     Foreground="#B91C1C" />
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding Detail}"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="11" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
+                </Border>
             </Grid>
 
-            <!-- Tax buckets + exports -->
             <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,12">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
@@ -154,11 +231,14 @@
                 </DockPanel>
             </Border>
 
-            <!-- Shift management -->
             <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="Shift &amp; cash drawer" FontWeight="SemiBold" Margin="0,0,0,8" />
-                    <TextBlock Text="{Binding OpenShiftSummary}" Margin="0,0,0,10" />
+                    <TextBlock Text="Shift &amp; cash drawer" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding OpenShiftSummary}" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding ShiftMetricsSummary}"
+                               Foreground="#4B5563"
+                               Margin="0,0,0,10"
+                               TextWrapping="Wrap" />
 
                     <WrapPanel>
                         <StackPanel Margin="0,0,16,8" Width="160">
@@ -188,6 +268,7 @@
                         </StackPanel>
                         <Button Content="Cash In" Command="{Binding CashInCommand}" MinHeight="40" Padding="12,8" Margin="0,16,8,8" />
                         <Button Content="Cash Out" Command="{Binding CashOutCommand}" MinHeight="40" Padding="12,8" Margin="0,16,8,8" />
+                        <Button Content="Cash Drop" Command="{Binding CashDropCommand}" MinHeight="40" Padding="12,8" Margin="0,16,8,8" />
                     </WrapPanel>
 
                     <WrapPanel>

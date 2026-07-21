@@ -38,9 +38,17 @@ public sealed class AnalyticsReportExportService : IAnalyticsReportExportService
 
         sb.AppendLine();
         sb.AppendLine($"GrossSales,,,{report.GrossSales:0.00}");
+        sb.AppendLine($"OnlineGrossSales,,,{report.OnlineGrossSales:0.00}");
+        sb.AppendLine($"OnlineInvoices,,,{report.OnlineInvoiceCount}");
+        sb.AppendLine($"OfflineSyncedGrossSales,,,{report.OfflineSyncedGrossSales:0.00}");
+        sb.AppendLine($"OfflineSyncedInvoices,,,{report.OfflineSyncedInvoiceCount}");
         sb.AppendLine($"StandardTaxable,,,{report.StandardRateTaxable:0.00}");
+        sb.AppendLine($"ZeroRatedTaxable,,,{report.ZeroRatedTaxable:0.00}");
+        sb.AppendLine($"ExemptTaxable,,,{report.ExemptTaxable:0.00}");
         sb.AppendLine($"ExpectedVat17_5,,,{report.ExpectedStandardVat:0.00}");
         sb.AppendLine($"ActualVat,,,{report.ActualVatCollected:0.00}");
+        sb.AppendLine($"OnlineVat,,,{report.OnlineVat:0.00}");
+        sb.AppendLine($"OfflineSyncedVat,,,{report.OfflineSyncedVat:0.00}");
         sb.AppendLine($"VatVariance,,,{report.VatVariance:0.00}");
         sb.AppendLine($"Balanced,,,{report.IsBalanced}");
 
@@ -57,9 +65,9 @@ public sealed class AnalyticsReportExportService : IAnalyticsReportExportService
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine("ShiftId,Cashier,OpenedAtUtc,CashSales,CardSales,MobileMoney,GrossSales,TotalVat,ExpectedCash,ClosingCash,Variance");
+        sb.AppendLine("ShiftId,Cashier,OpenedAtUtc,OpeningFloat,CashSales,CardSales,MobileMoney,CashIn,CashOut,CashDrop,GrossSales,TotalVat,ExpectedCash,ClosingCash,Variance");
         sb.AppendLine(
-            $"{report.ShiftId},{Escape(report.CashierName)},{report.OpenedAtUtc:O},{report.CashSales:0.00},{report.CardSales:0.00},{report.MobileMoneySales:0.00},{report.GrossSales:0.00},{report.TotalVat:0.00},{report.ExpectedCashInDrawer:0.00},{report.ClosingCashCounted:0.00},{report.CashVariance:0.00}");
+            $"{report.ShiftId},{Escape(report.CashierName)},{report.OpenedAtUtc:O},{report.OpeningFloat:0.00},{report.CashSales:0.00},{report.CardSales:0.00},{report.MobileMoneySales:0.00},{report.CashInTotal:0.00},{report.CashOutTotal:0.00},{report.CashDropTotal:0.00},{report.GrossSales:0.00},{report.TotalVat:0.00},{report.ExpectedCashInDrawer:0.00},{report.ClosingCashCounted:0.00},{report.CashVariance:0.00}");
         sb.AppendLine();
         sb.AppendLine("InvoiceNumber,PaymentMethod,Total,VAT,FiscalSignature");
         foreach (var inv in report.FiscalizedInvoices)
@@ -85,10 +93,13 @@ public sealed class AnalyticsReportExportService : IAnalyticsReportExportService
         doc.Blocks.Add(Heading("Tax Reconciliation Audit Report"));
         doc.Blocks.Add(Line($"Period: {report.Period}"));
         doc.Blocks.Add(Line($"Business date: {report.LocalBusinessDate:yyyy-MM-dd}"));
-        doc.Blocks.Add(Line($"Synced invoices: {report.SyncedInvoiceCount}"));
-        doc.Blocks.Add(Line($"Gross sales: {report.GrossSales:N2}"));
-        doc.Blocks.Add(Line($"VAT declared: {report.TotalVatDeclared:N2}"));
+        doc.Blocks.Add(Line($"Window (UTC): {report.FromUtc:u} → {report.ToUtcExclusive:u}"));
+        doc.Blocks.Add(Line($"Synced invoices: {report.SyncedInvoiceCount} (online {report.OnlineInvoiceCount}, offline-synced {report.OfflineSyncedInvoiceCount})"));
+        doc.Blocks.Add(Line($"Gross sales: {report.GrossSales:N2} (online {report.OnlineGrossSales:N2} / offline-synced {report.OfflineSyncedGrossSales:N2})"));
+        doc.Blocks.Add(Line($"VAT declared: {report.TotalVatDeclared:N2} (online {report.OnlineVat:N2} / offline-synced {report.OfflineSyncedVat:N2})"));
         doc.Blocks.Add(Line($"Standard taxable (17.5%): {report.StandardRateTaxable:N2}"));
+        doc.Blocks.Add(Line($"Zero-rated taxable: {report.ZeroRatedTaxable:N2}"));
+        doc.Blocks.Add(Line($"Exempt taxable: {report.ExemptTaxable:N2}"));
         doc.Blocks.Add(Line($"Expected VAT: {report.ExpectedStandardVat:N2}"));
         doc.Blocks.Add(Line($"Actual VAT: {report.ActualVatCollected:N2}"));
         doc.Blocks.Add(Line($"Variance: {report.VatVariance:N2}  Balanced={report.IsBalanced}"));
@@ -123,6 +134,7 @@ public sealed class AnalyticsReportExportService : IAnalyticsReportExportService
         doc.Blocks.Add(Line($"Gross sales:   {report.GrossSales:N2}"));
         doc.Blocks.Add(Line($"Total VAT:     {report.TotalVat:N2}"));
         doc.Blocks.Add(Line($"Cash in/out:   {report.CashInTotal:N2} / {report.CashOutTotal:N2}"));
+        doc.Blocks.Add(Line($"Cash drops:    {report.CashDropTotal:N2}"));
         doc.Blocks.Add(Line($"Expected cash: {report.ExpectedCashInDrawer:N2}"));
         doc.Blocks.Add(Line($"Counted cash:  {report.ClosingCashCounted:N2}"));
         doc.Blocks.Add(Line($"Variance:      {report.CashVariance:N2}"));

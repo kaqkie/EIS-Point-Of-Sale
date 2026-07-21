@@ -14,6 +14,7 @@ public interface IShiftManagementService
     Task<CashierShift> OpenShiftAsync(string cashierName, decimal openingFloat, CancellationToken cancellationToken = default);
     Task<ShiftCashMovement> RecordCashInAsync(decimal amount, string? reason, CancellationToken cancellationToken = default);
     Task<ShiftCashMovement> RecordCashOutAsync(decimal amount, string? reason, CancellationToken cancellationToken = default);
+    Task<ShiftCashMovement> RecordCashDropAsync(decimal amount, string? reason, CancellationToken cancellationToken = default);
     Task<ZReportBundle> CloseShiftAsync(decimal closingCashCounted, string? notes = null, CancellationToken cancellationToken = default);
     Task<ZReportBundle?> BuildZReportPreviewAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CashierShift>> GetRecentShiftsAsync(int take = 20, CancellationToken cancellationToken = default);
@@ -70,6 +71,13 @@ public sealed class ShiftManagementService : IShiftManagementService
         string? reason,
         CancellationToken cancellationToken = default) =>
         await AddMovementAsync(ShiftCashMovementTypes.CashOut, amount, reason, cancellationToken)
+            .ConfigureAwait(false);
+
+    public async Task<ShiftCashMovement> RecordCashDropAsync(
+        decimal amount,
+        string? reason,
+        CancellationToken cancellationToken = default) =>
+        await AddMovementAsync(ShiftCashMovementTypes.CashDrop, amount, reason, cancellationToken)
             .ConfigureAwait(false);
 
     public async Task<ZReportBundle> CloseShiftAsync(
@@ -186,7 +194,10 @@ public sealed class ShiftManagementService : IShiftManagementService
         var otherSales = invoices.Sum(i => i.InvoiceTotal) - cashSales - cardSales - mobileSales;
 
         var cashIn = movements.Where(m => m.MovementType == ShiftCashMovementTypes.CashIn).Sum(m => m.Amount);
-        var cashOut = movements.Where(m => m.MovementType == ShiftCashMovementTypes.CashOut).Sum(m => m.Amount);
+        var cashOut = movements
+            .Where(m => m.MovementType is ShiftCashMovementTypes.CashOut or ShiftCashMovementTypes.CashDrop)
+            .Sum(m => m.Amount);
+        var cashDrops = movements.Where(m => m.MovementType == ShiftCashMovementTypes.CashDrop).Sum(m => m.Amount);
         var expectedCash = PosTaxCalculator.RoundMoney(shift.OpeningFloat + cashSales + cashIn - cashOut);
 
         return new ZReportBundle
@@ -203,7 +214,8 @@ public sealed class ShiftManagementService : IShiftManagementService
             GrossSales = invoices.Sum(i => i.InvoiceTotal),
             TotalVat = invoices.Sum(i => i.TotalVat),
             CashInTotal = cashIn,
-            CashOutTotal = cashOut,
+            CashOutTotal = cashOut - cashDrops,
+            CashDropTotal = cashDrops,
             ExpectedCashInDrawer = expectedCash,
             ClosingCashCounted = shift.ClosingCashCounted,
             CashVariance = shift.CashVariance,
@@ -228,6 +240,7 @@ public sealed record ZReportBundle
     public decimal TotalVat { get; init; }
     public decimal CashInTotal { get; init; }
     public decimal CashOutTotal { get; init; }
+    public decimal CashDropTotal { get; init; }
     public decimal ExpectedCashInDrawer { get; init; }
     public decimal? ClosingCashCounted { get; init; }
     public decimal? CashVariance { get; init; }
