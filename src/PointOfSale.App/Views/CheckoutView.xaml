@@ -1,6 +1,17 @@
 <UserControl x:Class="PointOfSale.App.Views.CheckoutView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Focusable="True"
+             Loaded="CheckoutView_OnLoaded"
+             PreviewKeyDown="CheckoutView_OnPreviewKeyDown">
+    <UserControl.InputBindings>
+        <KeyBinding Key="F2" Command="{Binding AddSelectedToCartCommand}" />
+        <KeyBinding Key="F5" Command="{Binding TenderExactAmountCommand}" />
+        <KeyBinding Key="F8" Command="{Binding OpenQueueStatusCommand}" />
+        <KeyBinding Key="F9" Command="{Binding ReprintLastReceiptCommand}" />
+        <KeyBinding Key="F12" Command="{Binding CompleteSaleCommand}" />
+    </UserControl.InputBindings>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="2*" />
@@ -9,16 +20,19 @@
 
         <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
             <DockPanel>
-                <TextBox DockPanel.Dock="Top"
+                <TextBox x:Name="SearchBox"
+                         DockPanel.Dock="Top"
                          Margin="0,0,0,8"
                          FontSize="16"
                          Padding="10"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                          Tag="Search products" />
-                <ListBox ItemsSource="{Binding FilteredProducts}"
+                <ListBox x:Name="ProductList"
+                         ItemsSource="{Binding FilteredProducts}"
                          SelectedItem="{Binding SelectedProduct}"
                          DisplayMemberPath="Name"
-                         FontSize="16" />
+                         FontSize="16"
+                         MouseDoubleClick="ProductList_OnMouseDoubleClick" />
             </DockPanel>
         </Border>
 
@@ -44,39 +58,84 @@
             <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="12">
                 <StackPanel>
                     <TextBlock Text="{Binding CartSubtotal, StringFormat='Subtotal: {0:N2}'}" FontSize="16" />
-                    <TextBlock Text="{Binding CartTaxTotal, StringFormat='Tax: {0:N2}'}" FontSize="16" />
-                    <TextBlock Text="{Binding CartGrandTotal, StringFormat='Total: {0:N2}'}" FontSize="20" FontWeight="Bold" Margin="0,4,0,12" />
+                    <TextBlock Text="{Binding CartTaxTotal, StringFormat='VAT (17.5%): {0:N2}'}" FontSize="16" />
+                    <TextBlock Text="{Binding CartGrandTotal, StringFormat='Total: {0:N2}'}" FontSize="20" FontWeight="Bold" Margin="0,4,0,4" />
+                    <TextBlock Text="{Binding ChangeDue, StringFormat='Change: {0:N2}'}" FontSize="16" Margin="0,0,0,12" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="Payment:" VerticalAlignment="Center" Margin="0,0,8,0" />
                         <ComboBox Width="160"
-                              SelectedValue="{Binding PaymentMethod}"
-                              SelectedValuePath="Content">
-                        <ComboBoxItem Content="Cash" />
-                        <ComboBoxItem Content="Card" />
-                        <ComboBoxItem Content="MobileMoney" />
-                    </ComboBox>
+                                  MinHeight="40"
+                                  SelectedValue="{Binding PaymentMethod}"
+                                  SelectedValuePath="Content">
+                            <ComboBoxItem Content="Cash" />
+                            <ComboBoxItem Content="Card" />
+                            <ComboBoxItem Content="MobileMoney" />
+                        </ComboBox>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="Tendered:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Width="140" FontSize="16" Text="{Binding AmountTendered, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox x:Name="TenderBox"
+                                 Width="140"
+                                 MinHeight="40"
+                                 FontSize="16"
+                                 Text="{Binding AmountTendered, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Content="Exact (F5)"
+                                Command="{Binding TenderExactAmountCommand}"
+                                MinHeight="40"
+                                MinWidth="100"
+                                Margin="8,0,0,0"
+                                Padding="12,8"
+                                FontSize="14" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="Add Item"
+                    <WrapPanel>
+                        <Button Content="Add Item (F2)"
                                 Command="{Binding AddSelectedToCartCommand}"
+                                MinHeight="48"
+                                MinWidth="140"
                                 Padding="14,10"
                                 FontSize="16"
-                                Margin="0,0,8,0" />
-                        <Button Content="Complete Sale"
+                                Margin="0,0,8,8" />
+                        <Button Content="Complete Sale (F12)"
                                 Command="{Binding CompleteSaleCommand}"
+                                MinHeight="48"
+                                MinWidth="180"
                                 Padding="14,10"
                                 FontSize="16"
-                                FontWeight="Bold" />
+                                FontWeight="Bold"
+                                Margin="0,0,8,8" />
+                        <Button Content="Reprint (F9)"
+                                Command="{Binding ReprintLastReceiptCommand}"
+                                MinHeight="48"
+                                MinWidth="130"
+                                Padding="14,10"
+                                FontSize="16"
+                                Margin="0,0,8,8" />
+                        <Button Content="Queue (F8)"
+                                Command="{Binding OpenQueueStatusCommand}"
+                                MinHeight="48"
+                                MinWidth="120"
+                                Padding="14,10"
+                                FontSize="16"
+                                Margin="0,0,8,8" />
+                    </WrapPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="{Binding PendingQueueCount, StringFormat='Pending sync: {0}'}"
+                                   Margin="0,0,16,0"
+                                   FontSize="13"
+                                   Foreground="#B45309" />
+                        <TextBlock Text="{Binding QuarantinedQueueCount, StringFormat='Quarantined: {0}'}"
+                                   FontSize="13"
+                                   Foreground="#B91C1C" />
                     </StackPanel>
 
-                    <TextBlock Text="{Binding StatusMessage}" Margin="0,10,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Margin="0,10,0,0"
+                               TextWrapping="Wrap"
+                               FontSize="14" />
                 </StackPanel>
             </Border>
         </Grid>

@@ -35,8 +35,16 @@ public partial class App : Application
             .ConfigureServices((context, services) =>
             {
                 services.AddPointOfSaleInfrastructure(context.Configuration);
+
+                services.Configure<Options.TerminalDeploymentOptions>(
+                    context.Configuration.GetSection(Options.TerminalDeploymentOptions.SectionName));
+                services.Configure<Options.ThermalPrinterOptions>(
+                    context.Configuration.GetSection(Options.ThermalPrinterOptions.SectionName));
+
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
                 services.AddSingleton<GlobalExceptionHandler>();
+                services.AddSingleton<IProductionSecretGuard, ProductionSecretGuard>();
+                services.AddSingleton<IThermalPrinterHardwareService, ThermalPrinterHardwareService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();

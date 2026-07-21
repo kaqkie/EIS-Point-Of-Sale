@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PointOfSale.App.Services;
@@ -14,25 +15,37 @@ public partial class CheckoutViewModel : ObservableObject
 {
     private readonly ILocalInventoryRepository _inventoryRepository;
     private readonly OfflineSalesQueueService _offlineSalesQueueService;
+    private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly IPosConfigurationService _posConfigurationService;
     private readonly IReceiptPrintingService _receiptPrintingService;
     private readonly IConnectionStatusService _connectionStatusService;
+    private readonly INavigationService _navigationService;
+    private readonly IProductionSecretGuard _productionSecretGuard;
+
+    private ReceiptPrintRequest? _lastPrintableReceipt;
 
     public CheckoutViewModel(
         ILocalInventoryRepository inventoryRepository,
         OfflineSalesQueueService offlineSalesQueueService,
+        IOfflineInvoiceQueueRepository queueRepository,
         IPosConfigurationService posConfigurationService,
         IReceiptPrintingService receiptPrintingService,
-        IConnectionStatusService connectionStatusService)
+        IConnectionStatusService connectionStatusService,
+        INavigationService navigationService,
+        IProductionSecretGuard productionSecretGuard)
     {
         _inventoryRepository = inventoryRepository;
         _offlineSalesQueueService = offlineSalesQueueService;
+        _queueRepository = queueRepository;
         _posConfigurationService = posConfigurationService;
         _receiptPrintingService = receiptPrintingService;
         _connectionStatusService = connectionStatusService;
+        _navigationService = navigationService;
+        _productionSecretGuard = productionSecretGuard;
         CartItems = new ObservableCollection<CartLineViewModel>();
         TaxLines = new ObservableCollection<TaxLineViewModel>();
         _ = LoadProductsAsync();
+        _ = RefreshQueueBadgeAsync();
     }
 
     public ObservableCollection<CartLineViewModel> CartItems { get; }
@@ -61,10 +74,20 @@ public partial class CheckoutViewModel : ObservableObject
     private decimal _amountTendered;
 
     [ObservableProperty]
-    private string _statusMessage = "Ready";
+    private string _statusMessage = "Ready — F2 Add · F5 Exact tender · F9 Reprint · F8 Queue · F12 Complete";
 
     [ObservableProperty]
     private bool _isBusy;
+
+    [ObservableProperty]
+    private int _pendingQueueCount;
+
+    [ObservableProperty]
+    private int _quarantinedQueueCount;
+
+    public decimal ChangeDue => Math.Max(0, AmountTendered - CartGrandTotal);
+
+    public bool CanReprintLastReceipt => _lastPrintableReceipt is not null;
 
     public IEnumerable<LocalInventoryItem> FilteredProducts =>
         string.IsNullOrWhiteSpace(SearchText)
@@ -74,6 +97,10 @@ public partial class CheckoutViewModel : ObservableObject
                 p.ProductCode.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 
     partial void OnSearchTextChanged(string value) => OnPropertyChanged(nameof(FilteredProducts));
+
+    partial void OnAmountTenderedChanged(decimal value) => OnPropertyChanged(nameof(ChangeDue));
+
+    partial void OnCartGrandTotalChanged(decimal value) => OnPropertyChanged(nameof(ChangeDue));
 
     [RelayCommand]
     private async Task LoadProductsAsync()
@@ -91,10 +118,12 @@ public partial class CheckoutViewModel : ObservableObject
     {
         if (SelectedProduct is null)
         {
+            StatusMessage = "Select a product first (or search and press F2).";
             return;
         }
 
         AddProductToCart(SelectedProduct, 1);
+        StatusMessage = $"Added {SelectedProduct.Name}.";
     }
 
     [RelayCommand]
@@ -110,6 +139,51 @@ public partial class CheckoutViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void TenderExactAmount()
+    {
+        if (CartGrandTotal <= 0)
+        {
+            StatusMessage = "Cart is empty.";
+            return;
+        }
+
+        AmountTendered = CartGrandTotal;
+        StatusMessage = $"Exact tender set to {CartGrandTotal:N2}.";
+    }
+
+    [RelayCommand]
+    private void OpenQueueStatus()
+    {
+        _navigationService.NavigateTo<QueueSyncStatusViewModel>();
+    }
+
+    [RelayCommand]
+    private async Task ReprintLastReceiptAsync()
+    {
+        if (_lastPrintableReceipt is null)
+        {
+            ShowOperatorDialog(new OperatorMessage(
+                "Nothing to reprint",
+                "Complete an online fiscalized sale first, then press F9 to reprint the last receipt.",
+                OperatorMessageSeverity.Information,
+                SuggestOfflineFallback: false));
+            return;
+        }
+
+        try
+        {
+            await _receiptPrintingService.PrintAsync(_lastPrintableReceipt).ConfigureAwait(true);
+            StatusMessage = $"Reprinted invoice {_lastPrintableReceipt.InvoiceNumber}.";
+        }
+        catch (Exception ex)
+        {
+            var message = CashierOperatorMessages.FromException(ex, _connectionStatusService.IsMraReachable);
+            ShowOperatorDialog(message);
+            StatusMessage = message.Title;
+        }
+    }
+
+    [RelayCommand]
     private async Task CompleteSaleAsync()
     {
         if (CartItems.Count == 0)
@@ -120,6 +194,11 @@ public partial class CheckoutViewModel : ObservableObject
 
         if (AmountTendered < CartGrandTotal)
         {
+            ShowOperatorDialog(new OperatorMessage(
+                "Insufficient tender",
+                $"Amount tendered ({AmountTendered:N2}) is less than the total ({CartGrandTotal:N2}). Press F5 for exact cash.",
+                OperatorMessageSeverity.Warning,
+                SuggestOfflineFallback: false));
             StatusMessage = "Amount tendered is less than total.";
             return;
         }
@@ -127,10 +206,17 @@ public partial class CheckoutViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            await _productionSecretGuard.EnsureReadyForLiveSalesAsync().ConfigureAwait(true);
+
             var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
             if (string.IsNullOrWhiteSpace(context.SellerTin) || string.IsNullOrWhiteSpace(context.SiteId))
             {
-                StatusMessage = "Terminal configuration incomplete. Run onboarding and sync configs.";
+                ShowOperatorDialog(new OperatorMessage(
+                    "Terminal configuration incomplete",
+                    "Run onboarding, sync MRA configs, and set Branch/Site IDs in appsettings.Production.json before selling.",
+                    OperatorMessageSeverity.Error,
+                    SuggestOfflineFallback: false));
+                StatusMessage = "Terminal configuration incomplete.";
                 return;
             }
 
@@ -165,39 +251,136 @@ public partial class CheckoutViewModel : ObservableObject
             };
 
             var forceOffline = !_connectionStatusService.IsMraReachable;
+            if (forceOffline)
+            {
+                var proceed = ConfirmOfflineFallback();
+                if (!proceed)
+                {
+                    StatusMessage = "Sale cancelled — waiting for MRA connectivity.";
+                    return;
+                }
+            }
+
             var result = await _offlineSalesQueueService
                 .EnqueueAndTrySubmitAsync(request, forceOffline)
                 .ConfigureAwait(true);
 
             if (result.IsQuarantined)
             {
-                StatusMessage = $"Sale quarantined: {result.Remark}";
+                var message = CashierOperatorMessages.Quarantined(result.Remark);
+                ShowOperatorDialog(message);
+                StatusMessage = message.Title;
+                await RefreshQueueBadgeAsync().ConfigureAwait(true);
                 return;
             }
 
             if (result.SubmittedOnline && result.Response is not null)
             {
                 await PrintReceiptAsync(request, result.Response).ConfigureAwait(true);
-                StatusMessage = $"Sale submitted online — invoice {result.InvoiceNumber}.";
+                var ok = CashierOperatorMessages.SubmittedOnline(result.InvoiceNumber);
+                StatusMessage = ok.Body;
             }
             else
             {
-                StatusMessage = forceOffline
-                    ? $"Sale queued offline — invoice {result.InvoiceNumber}."
-                    : $"Sale queued for sync — invoice {result.InvoiceNumber}.";
+                var queued = CashierOperatorMessages.QueuedOffline(result.InvoiceNumber, forceOffline);
+                ShowOperatorDialog(queued);
+                StatusMessage = queued.Body;
             }
 
             CartItems.Clear();
             RecalculateTotals();
             AmountTendered = 0;
+            await RefreshQueueBadgeAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            StatusMessage = ex.Message;
+            var message = CashierOperatorMessages.FromException(ex, _connectionStatusService.IsMraReachable);
+            if (message.SuggestOfflineFallback && CartItems.Count > 0)
+            {
+                var retryOffline = ConfirmOfflineFallback(message);
+                if (retryOffline)
+                {
+                    await TryForceOfflineSaleAsync().ConfigureAwait(true);
+                    return;
+                }
+            }
+
+            ShowOperatorDialog(message);
+            StatusMessage = message.Title;
         }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private async Task TryForceOfflineSaleAsync()
+    {
+        try
+        {
+            var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+            var invoiceNumber = $"ART-{DateTime.Now:yyyyMMddHHmmss}";
+            var lineItems = CartItems.Select((x, index) => x.ToInvoiceLine(index + 1)).ToList();
+            var request = new SubmitSalesTransactionRequest
+            {
+                InvoiceHeader = new InvoiceHeaderDto
+                {
+                    InvoiceNumber = invoiceNumber,
+                    InvoiceDateTime = DateTime.UtcNow,
+                    SellerTin = context.SellerTin,
+                    SiteId = context.SiteId,
+                    GlobalConfigVersion = context.GlobalConfigVersion,
+                    TaxpayerConfigVersion = context.TaxpayerConfigVersion,
+                    TerminalConfigVersion = context.TerminalConfigVersion,
+                    PaymentMethod = PaymentMethod
+                },
+                InvoiceLineItems = lineItems,
+                InvoiceSummary = new InvoiceSummaryDto
+                {
+                    TaxBreakDown = TaxLines.Select(t => new TaxBreakDownDto
+                    {
+                        RateId = t.RateId,
+                        TaxableAmount = t.TaxableAmount,
+                        TaxAmount = t.TaxAmount
+                    }).ToList(),
+                    TotalVat = CartTaxTotal,
+                    InvoiceTotal = CartGrandTotal,
+                    AmountTendered = AmountTendered
+                }
+            };
+
+            var result = await _offlineSalesQueueService
+                .EnqueueAndTrySubmitAsync(request, forceOffline: true)
+                .ConfigureAwait(true);
+
+            var queued = CashierOperatorMessages.QueuedOffline(result.InvoiceNumber, forcedOffline: true);
+            ShowOperatorDialog(queued);
+            StatusMessage = queued.Body;
+            CartItems.Clear();
+            RecalculateTotals();
+            AmountTendered = 0;
+            await RefreshQueueBadgeAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            var message = CashierOperatorMessages.FromException(ex, mraReachable: false);
+            ShowOperatorDialog(message);
+            StatusMessage = message.Title;
+        }
+    }
+
+    private async Task RefreshQueueBadgeAsync()
+    {
+        try
+        {
+            var counts = await _queueRepository.GetStatusCountsAsync().ConfigureAwait(true);
+            PendingQueueCount = counts.GetValueOrDefault(Core.Constants.OfflineQueueStatuses.Pending)
+                + counts.GetValueOrDefault(Core.Constants.OfflineQueueStatuses.Syncing);
+            QuarantinedQueueCount = counts.GetValueOrDefault(Core.Constants.OfflineQueueStatuses.Quarantined);
+        }
+        catch
+        {
+            // Badge is advisory only.
         }
     }
 
@@ -246,20 +429,55 @@ public partial class CheckoutViewModel : ObservableObject
         SubmitSalesTransactionResponseData response)
     {
         var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
-        await _receiptPrintingService.PrintAsync(
-            new ReceiptPrintRequest
-            {
-                TradingName = context.TradingName,
-                SellerTin = context.SellerTin,
-                AddressLines = context.AddressLines,
-                InvoiceNumber = request.InvoiceHeader.InvoiceNumber,
-                InvoiceDateTime = request.InvoiceHeader.InvoiceDateTime,
-                LineItems = request.InvoiceLineItems,
-                TaxBreakdown = request.InvoiceSummary.TaxBreakDown,
-                InvoiceTotal = request.InvoiceSummary.InvoiceTotal,
-                AmountTendered = request.InvoiceSummary.AmountTendered,
-                FiscalResponse = response
-            }).ConfigureAwait(true);
+        var printRequest = new ReceiptPrintRequest
+        {
+            TradingName = context.TradingName,
+            SellerTin = context.SellerTin,
+            AddressLines = context.AddressLines,
+            InvoiceNumber = request.InvoiceHeader.InvoiceNumber,
+            InvoiceDateTime = request.InvoiceHeader.InvoiceDateTime,
+            LineItems = request.InvoiceLineItems,
+            TaxBreakdown = request.InvoiceSummary.TaxBreakDown,
+            InvoiceTotal = request.InvoiceSummary.InvoiceTotal,
+            AmountTendered = request.InvoiceSummary.AmountTendered,
+            FiscalResponse = response
+        };
+
+        _lastPrintableReceipt = printRequest;
+        OnPropertyChanged(nameof(CanReprintLastReceipt));
+        await _receiptPrintingService.PrintAsync(printRequest).ConfigureAwait(true);
+    }
+
+    private static bool ConfirmOfflineFallback(OperatorMessage? preface = null)
+    {
+        var body = preface is null
+            ? "MRA is unreachable. Save this sale to the offline queue and sync later?"
+            : $"{preface.Body}\n\nSave this sale to the offline queue instead?";
+
+        var result = MessageBox.Show(
+            Application.Current.MainWindow,
+            body,
+            preface?.Title ?? "Offline fallback",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        return result == MessageBoxResult.Yes;
+    }
+
+    private static void ShowOperatorDialog(OperatorMessage message)
+    {
+        var icon = message.Severity switch
+        {
+            OperatorMessageSeverity.Warning => MessageBoxImage.Warning,
+            OperatorMessageSeverity.Error => MessageBoxImage.Error,
+            _ => MessageBoxImage.Information
+        };
+
+        MessageBox.Show(
+            Application.Current.MainWindow,
+            message.Body,
+            message.Title,
+            MessageBoxButton.OK,
+            icon);
     }
 }
 
@@ -285,7 +503,7 @@ public partial class CartLineViewModel : ObservableObject
             Description = product.Name,
             TaxRateId = product.TaxRateId ?? "T",
             UnitPrice = product.UnitPrice,
-            VatRatePercent = 16.5m,
+            VatRatePercent = PosTaxCalculator.MalawiStandardVatRatePercent,
             Quantity = quantity
         };
 

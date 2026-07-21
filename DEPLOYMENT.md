@@ -26,6 +26,34 @@ $env:ART_ENV = "Production"
 
 Overrides live in `appsettings.{ART_ENV}.json` beside the executable.
 
+## Production go-live checklist
+
+1. Set `ART_ENV=Production` so `appsettings.Production.json` loads live MRA URLs.
+2. Fill `TerminalDeployment` in that file:
+   - `BranchId` / `SiteId` for the outlet
+   - `TerminalActivationCode` only for first-time activation (remove after onboarding)
+   - Keep `RequireEncryptedSecrets: true` so JWT and terminal secrets must exist as DPAPI-protected values in SQL
+3. Pair the thermal printer under `ThermalPrinter`:
+   - `ConnectionMode`: `Spooler` (Windows queue) or `Serial` (`COM3`, etc.)
+   - `PaperWidthMm`: `80` or `58` (sets characters/line and layout)
+   - `PrinterName`: optional Windows queue name; empty uses the default printer
+4. Complete onboarding so the terminal secret + JWT are stored via DPAPI (`ISecretProtector`).
+5. Smoke-test: one sandbox sale, then one production sale with receipt + QR verify URL.
+
+Never commit real activation codes or secrets — production secrets belong in encrypted SQL storage after activation.
+
+## Cashier shortcuts (Checkout)
+
+| Key | Action |
+| --- | --- |
+| F2 | Add selected product |
+| F5 | Exact cash tender |
+| F8 | Open offline queue |
+| F9 | Reprint last fiscal receipt |
+| F12 | Complete sale |
+
+Offline / MRA failures surface as operator dialogs with optional offline-queue fallback.
+
 ## SQL maintenance (production)
 
 ```powershell

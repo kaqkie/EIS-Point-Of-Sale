@@ -5,6 +5,9 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PointOfSale.App.Options;
 using PointOfSale.Mra.Contracts.Sales;
 using QRCoder;
 
@@ -18,17 +21,33 @@ public interface IReceiptPrintingService
 
 public sealed class ReceiptPrintingService : IReceiptPrintingService
 {
-    private const double ThermalWidth = 280;
+    private const double ThermalWidth58 = 200;
+    private const double ThermalWidth80 = 280;
+
+    private readonly IThermalPrinterHardwareService _thermalPrinter;
+    private readonly ThermalPrinterOptions _thermalOptions;
+    private readonly ILogger<ReceiptPrintingService> _logger;
+
+    public ReceiptPrintingService(
+        IThermalPrinterHardwareService thermalPrinter,
+        IOptions<ThermalPrinterOptions> thermalOptions,
+        ILogger<ReceiptPrintingService> logger)
+    {
+        _thermalPrinter = thermalPrinter;
+        _thermalOptions = thermalOptions.Value;
+        _logger = logger;
+    }
 
     public ReceiptPrintResult BuildReceipt(ReceiptPrintRequest request)
     {
         var fiscalSignature = request.FiscalResponse?.ResolveFiscalSignature() ?? string.Empty;
         var verificationUrl = request.FiscalResponse?.VerificationUrl ?? string.Empty;
         var qr = CreateQrImage(verificationUrl);
+        var pageWidth = _thermalOptions.PaperWidthMm <= 58 ? ThermalWidth58 : ThermalWidth80;
 
         var document = new FlowDocument
         {
-            PageWidth = ThermalWidth,
+            PageWidth = pageWidth,
             PagePadding = new Thickness(8),
             FontFamily = new FontFamily("Consolas"),
             FontSize = 11
@@ -54,7 +73,7 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
         document.Blocks.Add(Spacer());
         foreach (var tax in request.TaxBreakdown)
         {
-            document.Blocks.Add(Line($"Tax {tax.RateId}: {tax.TaxableAmount:N2} + {tax.TaxAmount:N2}"));
+            document.Blocks.Add(Line($"Tax {tax.RateId}: taxable {tax.TaxableAmount:N2}  VAT {tax.TaxAmount:N2}"));
         }
 
         document.Blocks.Add(Line($"TOTAL: {request.InvoiceTotal:N2}"));
@@ -74,10 +93,34 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
         return new ReceiptPrintResult(document, qr, fiscalSignature, verificationUrl);
     }
 
-    public Task PrintAsync(ReceiptPrintRequest request, CancellationToken cancellationToken = default)
+    public async Task PrintAsync(ReceiptPrintRequest request, CancellationToken cancellationToken = default)
+    {
+        if (_thermalPrinter.IsEnabled)
+        {
+            try
+            {
+                await _thermalPrinter.PrintReceiptAsync(request, cancellationToken).ConfigureAwait(true);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "ESC/POS thermal print failed; falling back to Windows FlowDocument print.");
+            }
+        }
+
+        await PrintFlowDocumentAsync(request).ConfigureAwait(true);
+    }
+
+    private Task PrintFlowDocumentAsync(ReceiptPrintRequest request)
     {
         var receipt = BuildReceipt(request);
         var printDialog = new PrintDialog();
+        if (!string.IsNullOrWhiteSpace(_thermalOptions.PrinterName))
+        {
+            using var server = new LocalPrintServer();
+            printDialog.PrintQueue = server.GetPrintQueue(_thermalOptions.PrinterName.Trim());
+        }
+
         if (printDialog.PrintQueue is null)
         {
             printDialog.PrintQueue = LocalPrintServer.GetDefaultPrintQueue();
@@ -89,7 +132,9 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
         }
 
         receipt.Document.PageHeight = double.MaxValue;
-        printDialog.PrintDocument(((IDocumentPaginatorSource)receipt.Document).DocumentPaginator, "Albert Retail Terminal Receipt");
+        printDialog.PrintDocument(
+            ((IDocumentPaginatorSource)receipt.Document).DocumentPaginator,
+            "Albert Retail Terminal Receipt");
         return Task.CompletedTask;
     }
 
