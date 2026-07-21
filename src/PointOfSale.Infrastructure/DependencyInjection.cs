@@ -3,7 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using PointOfSale.Infrastructure.Data;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Security;
+using PointOfSale.Infrastructure.Options;
 using PointOfSale.Infrastructure.Services;
+using PointOfSale.Infrastructure.Workers;
+
 using PointOfSale.Mra.Options;
 
 namespace PointOfSale.Infrastructure;
@@ -24,6 +27,8 @@ public static class DependencyInjection
             }
         });
 
+        services.Configure<OfflineSyncOptions>(configuration.GetSection(OfflineSyncOptions.SectionName));
+
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
 
@@ -36,6 +41,9 @@ public static class DependencyInjection
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();
+        services.AddScoped<SalesTransactionService>();
+        services.AddScoped<OfflineSalesQueueService>();
+        services.AddHostedService<OfflineInvoiceFifoSyncBackgroundService>();
 
         return services;
     }
