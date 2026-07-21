@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyDescriptionAttribute(("MRA EIS API integration — onboarding, configuration, and shared HTTP/HMAC infrast" +
     "ructure."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+efa520423ea7e10391aa881ea242e4803fe58546")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ff4d02315c526c37e4e04584d855f8147fd2c4ce")]
 [assembly: System.Reflection.AssemblyProductAttribute("PointOfSale.Mra")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PointOfSale.Mra")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

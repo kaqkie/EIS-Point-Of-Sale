@@ -1,5 +1,5 @@
 ﻿AlbertRetailTerminal
-
+1.0.0.0
 
 winexe
 C#
@@ -10,11 +10,11 @@ none
 false
 TRACE;RELEASE;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\App.xaml
-41592491665
+7732849875
 
-16-2073163079
-255-750623856
-MainWindow.xaml;Views\CheckoutView.xaml;Views\InventoryView.xaml;Views\QueueSyncStatusView.xaml;
+411934006927
+2561067282260
+MainWindow.xaml;Views\AdminAnalyticsView.xaml;Views\CheckoutView.xaml;Views\ComplianceExportView.xaml;Views\HeadOfficeSyncView.xaml;Views\InventoryView.xaml;Views\QueueSyncStatusView.xaml;
 
 False
 
