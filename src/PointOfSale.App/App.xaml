@@ -32,6 +32,12 @@
         <DataTemplate DataType="{x:Type vm:UserManagementViewModel}">
             <v:UserManagementView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CustomerLoyaltyViewModel}">
+            <v:CustomerLoyaltyView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DiscountManagementViewModel}">
+            <v:DiscountManagementView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

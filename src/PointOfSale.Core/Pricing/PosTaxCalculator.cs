@@ -23,8 +23,22 @@ public static class PosTaxCalculator
     }
 
     /// <summary>
-    /// Maps unit price to invoice line net/VAT totals using the same rounding as checkout.
+    /// Applies a taxable-net discount, then recalculates VAT so totals stay aligned with 17.5% rounding.
     /// </summary>
+    public static (decimal NetAfterDiscount, decimal Vat, decimal Gross, decimal DiscountApplied) ApplyNetDiscount(
+        decimal unitPrice,
+        decimal quantity,
+        decimal ratePercent,
+        decimal discountNet)
+    {
+        var grossNet = CalculateNetAmount(unitPrice, quantity);
+        var discount = RoundMoney(Math.Min(Math.Max(0m, discountNet), grossNet));
+        var net = RoundMoney(grossNet - discount);
+        var vat = CalculateVatAmount(net, ratePercent);
+        return (net, vat, net + vat, discount);
+    }
+
+    /// <summary>Maps unit price to invoice line net/VAT totals using the same rounding as checkout.</summary>
     public static (decimal Net, decimal Vat, decimal Gross) MapUnitPriceLine(
         decimal unitPrice,
         decimal quantity,

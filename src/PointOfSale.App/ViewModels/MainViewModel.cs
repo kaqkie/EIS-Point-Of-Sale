@@ -92,6 +92,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _canManageUsers;
 
+    [ObservableProperty]
+    private bool _canLoyalty;
+
+    [ObservableProperty]
+    private bool _canDiscounts;
+
     [RelayCommand(CanExecute = nameof(CanCheckout))]
     private void NavigateCheckout() => _navigationService.NavigateTo<CheckoutViewModel>();
 
@@ -115,6 +121,12 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanManageUsers))]
     private void NavigateUsers() => _navigationService.NavigateTo<UserManagementViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanLoyalty))]
+    private void NavigateLoyalty() => _navigationService.NavigateTo<CustomerLoyaltyViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanDiscounts))]
+    private void NavigateDiscounts() => _navigationService.NavigateTo<DiscountManagementViewModel>();
 
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
@@ -155,6 +167,8 @@ public partial class MainViewModel : ObservableObject
         CanHeadOffice = _auth.HasPermission(OperatorPermissions.AccessHeadOffice);
         CanBackup = _auth.HasPermission(OperatorPermissions.TriggerBackup);
         CanManageUsers = _auth.HasPermission(OperatorPermissions.ManageUsers);
+        CanLoyalty = _auth.HasPermission(OperatorPermissions.LookupLoyaltyCustomer);
+        CanDiscounts = _auth.HasPermission(OperatorPermissions.ManageLoyaltyPrograms);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -164,5 +178,7 @@ public partial class MainViewModel : ObservableObject
         NavigateHeadOfficeCommand.NotifyCanExecuteChanged();
         NavigateBackupCommand.NotifyCanExecuteChanged();
         NavigateUsersCommand.NotifyCanExecuteChanged();
+        NavigateLoyaltyCommand.NotifyCanExecuteChanged();
+        NavigateDiscountsCommand.NotifyCanExecuteChanged();
     }
 }

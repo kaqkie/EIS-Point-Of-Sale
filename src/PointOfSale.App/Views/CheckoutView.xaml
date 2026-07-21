@@ -50,17 +50,54 @@
                       Margin="0,0,0,8">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" />
-                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="80" />
-                    <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="100" />
+                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="60" />
+                    <DataGridTextColumn Header="Disc" Binding="{Binding TotalDiscountNet, StringFormat=N2}" Width="70" />
+                    <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="90" />
                 </DataGrid.Columns>
             </DataGrid>
 
             <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="12">
                 <StackPanel>
                     <TextBlock Text="{Binding CartSubtotal, StringFormat='Subtotal: {0:N2}'}" FontSize="16" />
+                    <TextBlock Text="{Binding PromoDiscountTotal, StringFormat='Promo discount: {0:N2}'}" FontSize="14" Foreground="#047857" />
+                    <TextBlock Text="{Binding LoyaltyDiscountMwk, StringFormat='Loyalty discount: {0:N2}'}" FontSize="14" Foreground="#1D4ED8" />
                     <TextBlock Text="{Binding CartTaxTotal, StringFormat='VAT (17.5%): {0:N2}'}" FontSize="16" />
                     <TextBlock Text="{Binding CartGrandTotal, StringFormat='Total: {0:N2}'}" FontSize="20" FontWeight="Bold" Margin="0,4,0,4" />
-                    <TextBlock Text="{Binding ChangeDue, StringFormat='Change: {0:N2}'}" FontSize="16" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding ChangeDue, StringFormat='Change: {0:N2}'}" FontSize="16" Margin="0,0,0,8" />
+
+                    <WrapPanel Margin="0,0,0,8">
+                        <TextBox Width="140"
+                                 MinHeight="36"
+                                 Margin="0,0,8,4"
+                                 Text="{Binding LoyaltyMemberCode, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Loyalty member code" />
+                        <Button Content="Attach Member"
+                                Command="{Binding AttachLoyaltyMemberCommand}"
+                                MinHeight="36"
+                                Padding="10,6"
+                                Margin="0,0,8,4" />
+                        <TextBox Width="80"
+                                 MinHeight="36"
+                                 Margin="0,0,8,4"
+                                 Text="{Binding PointsToRedeem, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Points to redeem" />
+                        <Button Content="Apply Points"
+                                Command="{Binding PreviewLoyaltyRedeemCommand}"
+                                MinHeight="36"
+                                Padding="10,6"
+                                Margin="0,0,8,4" />
+                        <Button Content="Apply Promos"
+                                Command="{Binding ApplyPromotionsCommand}"
+                                MinHeight="36"
+                                Padding="10,6"
+                                Margin="0,0,8,4" />
+                    </WrapPanel>
+                    <TextBlock Text="{Binding AttachedMember.FullName, StringFormat='Member: {0}', TargetNullValue='Member: none'}"
+                               FontSize="12"
+                               Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding AvailablePoints, StringFormat='Available points: {0:N2}'}"
+                               FontSize="12"
+                               Margin="0,0,0,8" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="Payment:" VerticalAlignment="Center" Margin="0,0,8,0" />

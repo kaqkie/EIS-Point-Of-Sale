@@ -52,6 +52,8 @@ public partial class App : Application
                     context.Configuration.GetSection(DatabaseBackupOptions.SectionName));
                 services.Configure<AuthenticationOptions>(
                     context.Configuration.GetSection(AuthenticationOptions.SectionName));
+                services.Configure<LoyaltyProgramOptions>(
+                    context.Configuration.GetSection(LoyaltyProgramOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -78,6 +80,8 @@ public partial class App : Application
                 services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
                 services.AddSingleton<IAuditSecurityLogger, AuditSecurityLogger>();
                 services.AddSingleton<IAuthenticationAuthorizationService, AuthenticationAuthorizationService>();
+                services.AddTransient<ILoyaltyProgramService, LoyaltyProgramService>();
+                services.AddTransient<IPricingRulesEngine, PricingRulesEngine>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -93,6 +97,8 @@ public partial class App : Application
                 services.AddTransient<BackupRecoveryView>();
                 services.AddTransient<LoginView>();
                 services.AddTransient<UserManagementView>();
+                services.AddTransient<CustomerLoyaltyView>();
+                services.AddTransient<DiscountManagementView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -104,6 +110,8 @@ public partial class App : Application
                 services.AddTransient<HeadOfficeSyncViewModel>();
                 services.AddTransient<BackupRecoveryViewModel>();
                 services.AddTransient<UserManagementViewModel>();
+                services.AddTransient<CustomerLoyaltyViewModel>();
+                services.AddTransient<DiscountManagementViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

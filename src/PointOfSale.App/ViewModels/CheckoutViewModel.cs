@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using PointOfSale.App.Services;
 using PointOfSale.Core.Entities;
 using PointOfSale.Core.Pricing;
+using PointOfSale.Core.Security;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Contracts.Sales;
@@ -21,6 +22,9 @@ public partial class CheckoutViewModel : ObservableObject
     private readonly IConnectionStatusService _connectionStatusService;
     private readonly INavigationService _navigationService;
     private readonly IProductionSecretGuard _productionSecretGuard;
+    private readonly IPricingRulesEngine _pricingRulesEngine;
+    private readonly ILoyaltyProgramService _loyaltyProgramService;
+    private readonly IAuthenticationAuthorizationService _auth;
 
     private ReceiptPrintRequest? _lastPrintableReceipt;
 
@@ -32,7 +36,10 @@ public partial class CheckoutViewModel : ObservableObject
         IReceiptPrintingService receiptPrintingService,
         IConnectionStatusService connectionStatusService,
         INavigationService navigationService,
-        IProductionSecretGuard productionSecretGuard)
+        IProductionSecretGuard productionSecretGuard,
+        IPricingRulesEngine pricingRulesEngine,
+        ILoyaltyProgramService loyaltyProgramService,
+        IAuthenticationAuthorizationService auth)
     {
         _inventoryRepository = inventoryRepository;
         _offlineSalesQueueService = offlineSalesQueueService;
@@ -42,14 +49,19 @@ public partial class CheckoutViewModel : ObservableObject
         _connectionStatusService = connectionStatusService;
         _navigationService = navigationService;
         _productionSecretGuard = productionSecretGuard;
+        _pricingRulesEngine = pricingRulesEngine;
+        _loyaltyProgramService = loyaltyProgramService;
+        _auth = auth;
         CartItems = new ObservableCollection<CartLineViewModel>();
         TaxLines = new ObservableCollection<TaxLineViewModel>();
+        ActivePromotions = new ObservableCollection<string>();
         _ = LoadProductsAsync();
         _ = RefreshQueueBadgeAsync();
     }
 
     public ObservableCollection<CartLineViewModel> CartItems { get; }
     public ObservableCollection<TaxLineViewModel> TaxLines { get; }
+    public ObservableCollection<string> ActivePromotions { get; }
     public ObservableCollection<LocalInventoryItem> Products { get; } = new();
 
     [ObservableProperty]
@@ -84,6 +96,24 @@ public partial class CheckoutViewModel : ObservableObject
 
     [ObservableProperty]
     private int _quarantinedQueueCount;
+
+    [ObservableProperty]
+    private string _loyaltyMemberCode = string.Empty;
+
+    [ObservableProperty]
+    private LoyaltyMember? _attachedMember;
+
+    [ObservableProperty]
+    private decimal _availablePoints;
+
+    [ObservableProperty]
+    private decimal _pointsToRedeem;
+
+    [ObservableProperty]
+    private decimal _loyaltyDiscountMwk;
+
+    [ObservableProperty]
+    private decimal _promoDiscountTotal;
 
     public decimal ChangeDue => Math.Max(0, AmountTendered - CartGrandTotal);
 
@@ -149,6 +179,117 @@ public partial class CheckoutViewModel : ObservableObject
 
         AmountTendered = CartGrandTotal;
         StatusMessage = $"Exact tender set to {CartGrandTotal:N2}.";
+    }
+
+    [RelayCommand]
+    private async Task AttachLoyaltyMemberAsync()
+    {
+        try
+        {
+            _auth.EnsurePermission(OperatorPermissions.LookupLoyaltyCustomer);
+            if (string.IsNullOrWhiteSpace(LoyaltyMemberCode))
+            {
+                StatusMessage = "Enter a loyalty member code.";
+                return;
+            }
+
+            var member = await _loyaltyProgramService.GetByCodeAsync(LoyaltyMemberCode).ConfigureAwait(true);
+            if (member is null || !member.IsActive)
+            {
+                StatusMessage = "Loyalty member not found.";
+                AttachedMember = null;
+                AvailablePoints = 0;
+                return;
+            }
+
+            AttachedMember = member;
+            AvailablePoints = member.PointsBalance;
+            StatusMessage = $"Attached {member.FullName} — {member.PointsBalance:N2} pts.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ApplyPromotionsAsync()
+    {
+        try
+        {
+            _auth.EnsurePermission(OperatorPermissions.ExecuteCheckout);
+            if (CartItems.Count == 0)
+            {
+                StatusMessage = "Cart is empty.";
+                return;
+            }
+
+            var lines = CartItems.Select(c => new PricingCartLine
+            {
+                ProductCode = c.ProductCode,
+                Description = c.Description,
+                CategoryCode = c.TaxRateId,
+                UnitPrice = c.UnitPrice,
+                Quantity = c.Quantity,
+                VatRatePercent = c.VatRatePercent
+            }).ToList();
+
+            var result = await _pricingRulesEngine.EvaluateAsync(lines).ConfigureAwait(true);
+            foreach (var item in CartItems)
+            {
+                var adj = result.LineAdjustments.FirstOrDefault(a =>
+                    a.ProductCode.Equals(item.ProductCode, StringComparison.OrdinalIgnoreCase));
+                item.PromoDiscountNet = adj?.DiscountNet ?? 0m;
+                item.AppliedPromotion = adj?.AppliedRuleName;
+            }
+
+            ActivePromotions.Clear();
+            foreach (var name in result.AppliedPromotionNames)
+            {
+                ActivePromotions.Add(name);
+            }
+
+            RecalculateTotals();
+            StatusMessage = result.TotalDiscountNet <= 0
+                ? "No active promotions matched this cart."
+                : $"Applied promotions — discount net {result.TotalDiscountNet:N2}.";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            StatusMessage = "Checkout permission required to apply promotions.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private void PreviewLoyaltyRedeem()
+    {
+        try
+        {
+            _auth.EnsurePermission(OperatorPermissions.RedeemLoyaltyPoints);
+            if (AttachedMember is null)
+            {
+                StatusMessage = "Attach a loyalty member first.";
+                return;
+            }
+
+            if (PointsToRedeem > AttachedMember.PointsBalance)
+            {
+                StatusMessage = "Cannot redeem more points than available.";
+                return;
+            }
+
+            LoyaltyDiscountMwk = _loyaltyProgramService.CalculateRedeemValueMwk(PointsToRedeem);
+            RecalculateTotals();
+            StatusMessage = $"Loyalty tender discount preview {LoyaltyDiscountMwk:N2} MWK.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
     }
 
     [RelayCommand]
@@ -221,6 +362,38 @@ public partial class CheckoutViewModel : ObservableObject
             }
 
             var invoiceNumber = $"ART-{DateTime.Now:yyyyMMddHHmmss}";
+
+            var forceOffline = !_connectionStatusService.IsMraReachable;
+            if (forceOffline)
+            {
+                var proceed = ConfirmOfflineFallback();
+                if (!proceed)
+                {
+                    StatusMessage = "Sale cancelled — waiting for MRA connectivity.";
+                    return;
+                }
+            }
+
+            // Atomically redeem loyalty points before fiscal submit when requested.
+            if (AttachedMember is not null && PointsToRedeem > 0 && LoyaltyDiscountMwk > 0)
+            {
+                _auth.EnsurePermission(OperatorPermissions.RedeemLoyaltyPoints);
+                var redeem = await _loyaltyProgramService.RedeemAtCheckoutAsync(
+                        AttachedMember.MemberId,
+                        PointsToRedeem,
+                        invoiceNumber)
+                    .ConfigureAwait(true);
+                if (!redeem.Success)
+                {
+                    StatusMessage = redeem.Error ?? "Loyalty redemption failed.";
+                    return;
+                }
+
+                LoyaltyDiscountMwk = redeem.DiscountMwk;
+                AvailablePoints = redeem.NewBalance;
+                RecalculateTotals();
+            }
+
             var lineItems = CartItems.Select((x, index) => x.ToInvoiceLine(index + 1)).ToList();
             var request = new SubmitSalesTransactionRequest
             {
@@ -250,17 +423,6 @@ public partial class CheckoutViewModel : ObservableObject
                 }
             };
 
-            var forceOffline = !_connectionStatusService.IsMraReachable;
-            if (forceOffline)
-            {
-                var proceed = ConfirmOfflineFallback();
-                if (!proceed)
-                {
-                    StatusMessage = "Sale cancelled — waiting for MRA connectivity.";
-                    return;
-                }
-            }
-
             var result = await _offlineSalesQueueService
                 .EnqueueAndTrySubmitAsync(request, forceOffline)
                 .ConfigureAwait(true);
@@ -287,7 +449,25 @@ public partial class CheckoutViewModel : ObservableObject
                 StatusMessage = queued.Body;
             }
 
+            // Capture before cart reset — earn points on the final paid invoice total.
+            var earnMemberId = AttachedMember?.MemberId;
+            var earnInvoiceTotal = CartGrandTotal;
+            if (earnMemberId is int memberId)
+            {
+                await _loyaltyProgramService.EarnFromPurchaseAsync(
+                        memberId,
+                        earnInvoiceTotal,
+                        result.InvoiceNumber)
+                    .ConfigureAwait(true);
+            }
+
             CartItems.Clear();
+            ActivePromotions.Clear();
+            AttachedMember = null;
+            AvailablePoints = 0;
+            PointsToRedeem = 0;
+            LoyaltyDiscountMwk = 0;
+            PromoDiscountTotal = 0;
             RecalculateTotals();
             AmountTendered = 0;
             await RefreshQueueBadgeAsync().ConfigureAwait(true);
@@ -403,11 +583,38 @@ public partial class CheckoutViewModel : ObservableObject
 
     private void RecalculateTotals()
     {
+        // Clear loyalty shares then allocate proportionally across promo-adjusted nets.
         foreach (var line in CartItems)
         {
+            line.LoyaltyShareNet = 0m;
             line.RefreshTotals();
         }
 
+        var netsAfterPromo = CartItems.Sum(x => x.NetBeforeLoyalty);
+        if (LoyaltyDiscountMwk > 0 && netsAfterPromo > 0 && CartItems.Count > 0)
+        {
+            var remaining = LoyaltyDiscountMwk;
+            for (var i = 0; i < CartItems.Count; i++)
+            {
+                var line = CartItems[i];
+                decimal share;
+                if (i == CartItems.Count - 1)
+                {
+                    share = remaining;
+                }
+                else
+                {
+                    share = PosTaxCalculator.RoundMoney(LoyaltyDiscountMwk * (line.NetBeforeLoyalty / netsAfterPromo));
+                    share = Math.Min(share, line.NetBeforeLoyalty);
+                    remaining = PosTaxCalculator.RoundMoney(remaining - share);
+                }
+
+                line.LoyaltyShareNet = Math.Min(share, line.NetBeforeLoyalty);
+                line.RefreshTotals();
+            }
+        }
+
+        PromoDiscountTotal = CartItems.Sum(x => x.PromoDiscountNet);
         CartSubtotal = CartItems.Sum(x => x.NetTotal);
         CartTaxTotal = CartItems.Sum(x => x.VatTotal);
         CartGrandTotal = CartSubtotal + CartTaxTotal;
@@ -486,14 +693,27 @@ public partial class CartLineViewModel : ObservableObject
     [ObservableProperty]
     private decimal _quantity;
 
+    [ObservableProperty]
+    private decimal _promoDiscountNet;
+
+    [ObservableProperty]
+    private decimal _loyaltyShareNet;
+
+    [ObservableProperty]
+    private string? _appliedPromotion;
+
     public required string ProductCode { get; init; }
     public required string Description { get; init; }
     public required string TaxRateId { get; init; }
     public decimal UnitPrice { get; init; }
     public decimal VatRatePercent { get; init; }
 
-    public decimal NetTotal => PosTaxCalculator.CalculateNetAmount(UnitPrice, Quantity);
-    public decimal VatTotal => PosTaxCalculator.CalculateVatAmount(NetTotal, VatRatePercent);
+    public decimal GrossNet => PosTaxCalculator.CalculateNetAmount(UnitPrice, Quantity);
+    public decimal NetBeforeLoyalty => PosTaxCalculator.RoundMoney(Math.Max(0m, GrossNet - PromoDiscountNet));
+    public decimal TotalDiscountNet => PosTaxCalculator.RoundMoney(PromoDiscountNet + LoyaltyShareNet);
+
+    public decimal NetTotal { get; private set; }
+    public decimal VatTotal { get; private set; }
     public decimal LineTotal => NetTotal + VatTotal;
 
     public static CartLineViewModel FromProduct(LocalInventoryItem product, decimal quantity) =>
@@ -509,6 +729,12 @@ public partial class CartLineViewModel : ObservableObject
 
     public void RefreshTotals()
     {
+        var mapped = PosTaxCalculator.ApplyNetDiscount(UnitPrice, Quantity, VatRatePercent, TotalDiscountNet);
+        NetTotal = mapped.NetAfterDiscount;
+        VatTotal = mapped.Vat;
+        OnPropertyChanged(nameof(GrossNet));
+        OnPropertyChanged(nameof(NetBeforeLoyalty));
+        OnPropertyChanged(nameof(TotalDiscountNet));
         OnPropertyChanged(nameof(NetTotal));
         OnPropertyChanged(nameof(VatTotal));
         OnPropertyChanged(nameof(LineTotal));
@@ -522,7 +748,7 @@ public partial class CartLineViewModel : ObservableObject
             Description = Description,
             UnitPrice = UnitPrice,
             Quantity = Quantity,
-            Discount = 0,
+            Discount = TotalDiscountNet,
             Total = NetTotal,
             TotalVat = VatTotal,
             TaxRateId = TaxRateId,

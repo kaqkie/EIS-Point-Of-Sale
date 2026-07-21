@@ -75,6 +75,18 @@
                                 Margin="0,4"
                                 Padding="12,10"
                                 FontSize="16" />
+                        <Button Content="Loyalty"
+                                Command="{Binding NavigateLoyaltyCommand}"
+                                Visibility="{Binding CanLoyalty, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Discounts"
+                                Command="{Binding NavigateDiscountsCommand}"
+                                Visibility="{Binding CanDiscounts, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
                         <Button Content="Toggle Drawer"
                                 Command="{Binding ToggleDrawerCommand}"
                                 Margin="0,16,0,0"

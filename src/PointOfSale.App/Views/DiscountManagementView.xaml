@@ -1,0 +1,137 @@
+<UserControl x:Class="PointOfSale.App.Views.DiscountManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8">
+            <DockPanel Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Discount &amp; Promotions"
+                               FontSize="22"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="#4B5563"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Button Content="Preview Engine"
+                            Command="{Binding PreviewEngineCommand}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0" />
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            Padding="12,8"
+                            MinHeight="40" />
+                </StackPanel>
+            </DockPanel>
+
+            <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Active promotions" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <ItemsControl ItemsSource="{Binding ActivePromotions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#DBEAFE" CornerRadius="6" Padding="10,6" Margin="0,0,8,8">
+                                    <TextBlock Text="{Binding}" FontWeight="SemiBold" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
+            </Border>
+
+            <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Create rule" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <WrapPanel>
+                        <StackPanel Width="180" Margin="0,0,12,8">
+                            <TextBlock Text="Name" />
+                            <TextBox Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                        </StackPanel>
+                        <StackPanel Width="150" Margin="0,0,12,8">
+                            <TextBlock Text="Type" />
+                            <ComboBox ItemsSource="{Binding RuleTypeOptions}" SelectedItem="{Binding NewRuleType}" MinHeight="36" />
+                        </StackPanel>
+                        <StackPanel Width="100" Margin="0,0,12,8">
+                            <TextBlock Text="Category" />
+                            <TextBox Text="{Binding NewCategoryCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" ToolTip="Matches product TaxRateId / category" />
+                        </StackPanel>
+                        <StackPanel Width="120" Margin="0,0,12,8">
+                            <TextBlock Text="Product code" />
+                            <TextBox Text="{Binding NewProductCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                        </StackPanel>
+                        <StackPanel Width="90" Margin="0,0,12,8">
+                            <TextBlock Text="% off" />
+                            <TextBox Text="{Binding NewPercentOff, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                        </StackPanel>
+                        <StackPanel Width="70" Margin="0,0,12,8">
+                            <TextBlock Text="Buy qty" />
+                            <TextBox Text="{Binding NewBuyQuantity, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                        </StackPanel>
+                        <StackPanel Width="70" Margin="0,0,12,8">
+                            <TextBlock Text="Free qty" />
+                            <TextBox Text="{Binding NewFreeQuantity, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                        </StackPanel>
+                        <StackPanel Width="100" Margin="0,0,12,8">
+                            <TextBlock Text="Promo price" />
+                            <TextBox Text="{Binding NewPromoUnitPrice, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                        </StackPanel>
+                        <StackPanel Width="70" Margin="0,0,12,8">
+                            <TextBlock Text="Priority" />
+                            <TextBox Text="{Binding NewPriority, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                        </StackPanel>
+                        <StackPanel Width="120" Margin="0,0,12,8">
+                            <TextBlock Text="Starts" />
+                            <DatePicker SelectedDate="{Binding NewStartsAt}" />
+                        </StackPanel>
+                        <StackPanel Width="120" Margin="0,0,12,8">
+                            <TextBlock Text="Ends (optional)" />
+                            <DatePicker SelectedDate="{Binding NewEndsAt}" />
+                        </StackPanel>
+                        <Button Content="Create"
+                                Command="{Binding CreateRuleCommand}"
+                                MinHeight="40"
+                                Padding="12,8"
+                                Margin="0,16,0,8"
+                                VerticalAlignment="Bottom" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="White" CornerRadius="8" Padding="12">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="All rules" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button Content="Toggle Active"
+                                Command="{Binding ToggleSelectedCommand}"
+                                HorizontalAlignment="Right"
+                                Padding="10,6" />
+                    </DockPanel>
+                    <DataGrid ItemsSource="{Binding Rules}"
+                              SelectedItem="{Binding SelectedRule}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              MaxHeight="360">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Id" Binding="{Binding RuleId}" Width="50" />
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding RuleType}" Width="120" />
+                            <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="70" />
+                            <DataGridTextColumn Header="%" Binding="{Binding PercentOff}" Width="50" />
+                            <DataGridTextColumn Header="Active" Binding="{Binding IsActive}" Width="60" />
+                            <DataGridTextColumn Header="Starts" Binding="{Binding StartsAtUtc, StringFormat=g}" Width="130" />
+                            <DataGridTextColumn Header="Ends" Binding="{Binding EndsAtUtc, StringFormat=g}" Width="130" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

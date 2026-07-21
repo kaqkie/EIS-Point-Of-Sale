@@ -29,6 +29,10 @@ public static class OperatorPermissions
     public const string AccessHeadOffice = "AccessHeadOffice";
     public const string ManageUsers = "ManageUsers";
     public const string OpenCashDrawer = "OpenCashDrawer";
+    public const string LookupLoyaltyCustomer = "LookupLoyaltyCustomer";
+    public const string RedeemLoyaltyPoints = "RedeemLoyaltyPoints";
+    public const string ManageLoyaltyPrograms = "ManageLoyaltyPrograms";
+    public const string ApplyCartDiscount = "ApplyCartDiscount";
 
     public static readonly string[] All =
     [
@@ -42,7 +46,11 @@ public static class OperatorPermissions
         AccessCompliance,
         AccessHeadOffice,
         ManageUsers,
-        OpenCashDrawer
+        OpenCashDrawer,
+        LookupLoyaltyCustomer,
+        RedeemLoyaltyPoints,
+        ManageLoyaltyPrograms,
+        ApplyCartDiscount
     ];
 }
 
