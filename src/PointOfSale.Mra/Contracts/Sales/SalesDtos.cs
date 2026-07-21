@@ -157,8 +157,17 @@ public sealed class SubmitSalesTransactionResponseData
     [JsonPropertyName("fiscalCode")]
     public string? FiscalCode { get; set; }
 
+    [JsonPropertyName("fiscalSignature")]
+    public string? FiscalSignature { get; set; }
+
+    [JsonPropertyName("verificationUrl")]
+    public string? VerificationUrl { get; set; }
+
     [JsonPropertyName("shouldDownloadLatestConfig")]
     public bool ShouldDownloadLatestConfig { get; set; }
+
+    public string ResolveFiscalSignature() =>
+        !string.IsNullOrWhiteSpace(FiscalSignature) ? FiscalSignature! : FiscalCode ?? string.Empty;
 }
 
 public sealed class InvoiceNumberQueryRequest

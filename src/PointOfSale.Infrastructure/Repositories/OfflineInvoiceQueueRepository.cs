@@ -23,6 +23,12 @@ public interface IOfflineInvoiceQueueRepository
     Task MarkPendingRetryAsync(int id, int retryCount, DateTime nextRetryTimeUtc, string errorMessage, CancellationToken cancellationToken = default);
 
     Task ResetSyncingToPendingAsync(int id, int retryCount, DateTime nextRetryTimeUtc, string errorMessage, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<OfflineInvoiceQueueItem>> GetRecentItemsAsync(int take, CancellationToken cancellationToken = default);
+
+    Task<bool> RetryQuarantinedAsync(int id, CancellationToken cancellationToken = default);
 }
 
 public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueRepository
@@ -201,4 +207,67 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
         string errorMessage,
         CancellationToken cancellationToken = default) =>
         await MarkPendingRetryAsync(id, retryCount, nextRetryTimeUtc, errorMessage, cancellationToken).ConfigureAwait(false);
+
+    public async Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT Status, COUNT(*) AS Count
+            FROM dbo.OfflineInvoiceQueue
+            GROUP BY Status;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var rows = await connection.QueryAsync<(string Status, int Count)>(
+            new CommandDefinition(sql, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+
+        return rows.ToDictionary(x => x.Status, x => x.Count, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyList<OfflineInvoiceQueueItem>> GetRecentItemsAsync(
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT TOP (@Take)
+                Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage
+            FROM dbo.OfflineInvoiceQueue
+            ORDER BY CreatedAt DESC, Id DESC;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var rows = await connection.QueryAsync<OfflineInvoiceQueueItem>(
+            new CommandDefinition(sql, new { Take = take }, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+        return rows.AsList();
+    }
+
+    public async Task<bool> RetryQuarantinedAsync(int id, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE dbo.OfflineInvoiceQueue
+            SET Status = @PendingStatus,
+                RetryCount = 0,
+                NextRetryTime = NULL,
+                ErrorMessage = NULL
+            WHERE Id = @Id AND Status = @QuarantinedStatus;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var rows = await connection.ExecuteAsync(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    Id = id,
+                    PendingStatus = OfflineQueueStatuses.Pending,
+                    QuarantinedStatus = OfflineQueueStatuses.Quarantined
+                },
+                cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+        return rows == 1;
+    }
 }
