@@ -198,3 +198,5 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\obj\Release\net8.0-wi
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\obj\Release\net8.0-windows\ref\PointOfSale.Tests.dll
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\004_AnalyticsAndShifts.sql
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\005_HeadOfficeSync.sql
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\006_DatabaseBackup.sql
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\007_OperatorSecurity.sql

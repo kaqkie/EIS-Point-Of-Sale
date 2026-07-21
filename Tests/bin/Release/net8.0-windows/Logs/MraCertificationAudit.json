@@ -1,56 +1,56 @@
 {
-  "packageId": "45628115bd01414e8016f96d1903269a",
+  "packageId": "cfcada53d3b847339c75d178c49fce3a",
   "terminalId": "TERM-TEST-001",
-  "startedUtc": "2026-07-21T18:43:41.030649Z",
-  "completedUtc": "2026-07-21T18:43:41.3759287Z",
+  "startedUtc": "2026-07-21T19:29:34.1881775Z",
+  "completedUtc": "2026-07-21T19:29:35.1077936Z",
   "overallResult": "Passed",
   "applicationVersion": "1.0.0.0",
   "steps": [
     {
       "scenario": "Terminal Activation",
       "endpoint": "onboarding/activate-terminal",
-      "timestampUtc": "2026-07-21T18:43:41.038317Z",
+      "timestampUtc": "2026-07-21T19:29:34.1906967Z",
       "passed": true,
       "httpStatusCode": 200,
       "requestPayload": "{\u0022tac\u0022:\u0022TAC-CERT-001\u0022}",
       "responsePayload": "{\u0022statusCode\u0022:1,\u0022remark\u0022:\u0022Activated\u0022,\u0022data\u0022:{\u0022activatedTerminal\u0022:{\u0022terminalId\u0022:\u0022TERM-CERT-001\u0022,\u0022terminalCredentials\u0022:{\u0022jwtToken\u0022:\u0022Bearer cert-jwt\u0022,\u0022secretKey\u0022:\u0022ART-Integration-Test-Secret-Key\u0022}}},\u0022errors\u0022:null,\u0022IsSuccess\u0022:true}",
-      "durationMs": 192
+      "durationMs": 551
     },
     {
       "scenario": "Configuration Fetching",
       "endpoint": "configuration/get-latest-configs",
-      "timestampUtc": "2026-07-21T18:43:41.2307675Z",
+      "timestampUtc": "2026-07-21T19:29:34.7416586Z",
       "passed": true,
       "httpStatusCode": 200,
       "responsePayload": "{\u0022statusCode\u0022:1,\u0022remark\u0022:\u0022Configs\u0022,\u0022data\u0022:{\u0022globalConfiguration\u0022:{\u0022versionNo\u0022:1,\u0022taxRates\u0022:[{\u0022id\u0022:\u0022A\u0022,\u0022rate\u0022:17.5}]},\u0022terminalConfiguration\u0022:{\u0022versionNo\u0022:1,\u0022tradingName\u0022:\u0022Cert Terminal\u0022},\u0022taxpayerConfiguration\u0022:{\u0022versionNo\u0022:1,\u0022tin\u0022:\u00221234567890\u0022}},\u0022errors\u0022:null,\u0022IsSuccess\u0022:true}",
-      "durationMs": 45
+      "durationMs": 129
     },
     {
       "scenario": "Initial Inventory Staging/Upload",
       "endpoint": "stock/upload-initial-inventory",
-      "timestampUtc": "2026-07-21T18:43:41.2766596Z",
+      "timestampUtc": "2026-07-21T19:29:34.8715452Z",
       "passed": true,
       "httpStatusCode": 200,
       "requestPayload": "{\u0022itemCount\u0022:55}",
       "responsePayload": "{\u0022uploaded\u0022:55,\u0022batches\u0022:2}",
-      "durationMs": 51
+      "durationMs": 129
     },
     {
       "scenario": "Online Transaction Submission",
       "endpoint": "sales/submit-sales-transaction",
-      "timestampUtc": "2026-07-21T18:43:41.3280037Z",
+      "timestampUtc": "2026-07-21T19:29:35.0009063Z",
       "passed": true,
       "httpStatusCode": 200,
-      "requestPayload": "{\u0022invoiceHeader\u0022:{\u0022invoiceNumber\u0022:\u0022CERT-ONLINE-001\u0022,\u0022invoiceDateTime\u0022:\u00222026-07-21T18:43:41.3301491Z\u0022,\u0022sellerTIN\u0022:\u00221234567890\u0022,\u0022siteId\u0022:\u0022SITE-CERT\u0022,\u0022globalConfigVersion\u0022:1,\u0022taxpayerConfigVersion\u0022:1,\u0022terminalConfigVersion\u0022:1,\u0022isReliefSupply\u0022:false,\u0022paymentMethod\u0022:\u0022Cash\u0022},\u0022invoiceLineItems\u0022:[{\u0022id\u0022:1,\u0022productCode\u0022:\u0022CERT-SKU-001\u0022,\u0022description\u0022:\u0022Certification Item\u0022,\u0022unitPrice\u0022:100,\u0022quantity\u0022:1,\u0022discount\u0022:0,\u0022total\u0022:100,\u0022totalVAT\u0022:17.5,\u0022taxRateId\u0022:\u0022A\u0022,\u0022isProduct\u0022:true}],\u0022invoiceSummary\u0022:{\u0022taxBreakDown\u0022:[{\u0022rateId\u0022:\u0022A\u0022,\u0022taxableAmount\u0022:100,\u0022taxAmount\u0022:17.5}],\u0022totalVAT\u0022:17.5,\u0022invoiceTotal\u0022:117.5,\u0022amountTendered\u0022:117.5}}",
+      "requestPayload": "{\u0022invoiceHeader\u0022:{\u0022invoiceNumber\u0022:\u0022CERT-ONLINE-001\u0022,\u0022invoiceDateTime\u0022:\u00222026-07-21T19:29:35.0037967Z\u0022,\u0022sellerTIN\u0022:\u00221234567890\u0022,\u0022siteId\u0022:\u0022SITE-CERT\u0022,\u0022globalConfigVersion\u0022:1,\u0022taxpayerConfigVersion\u0022:1,\u0022terminalConfigVersion\u0022:1,\u0022isReliefSupply\u0022:false,\u0022paymentMethod\u0022:\u0022Cash\u0022},\u0022invoiceLineItems\u0022:[{\u0022id\u0022:1,\u0022productCode\u0022:\u0022CERT-SKU-001\u0022,\u0022description\u0022:\u0022Certification Item\u0022,\u0022unitPrice\u0022:100,\u0022quantity\u0022:1,\u0022discount\u0022:0,\u0022total\u0022:100,\u0022totalVAT\u0022:17.5,\u0022taxRateId\u0022:\u0022A\u0022,\u0022isProduct\u0022:true}],\u0022invoiceSummary\u0022:{\u0022taxBreakDown\u0022:[{\u0022rateId\u0022:\u0022A\u0022,\u0022taxableAmount\u0022:100,\u0022taxAmount\u0022:17.5}],\u0022totalVAT\u0022:17.5,\u0022invoiceTotal\u0022:117.5,\u0022amountTendered\u0022:117.5}}",
       "responsePayload": "{\u0022invoiceNumber\u0022:\u0022CERT-ONLINE-001\u0022,\u0022fiscalSignature\u0022:\u0022FSIG-SANDBOX-001\u0022,\u0022verificationUrl\u0022:\u0022https://dev-eis-portal.mra.mw/verify/test\u0022,\u0022shouldDownloadLatestConfig\u0022:false}",
       "responseSignatureOrFiscalCode": "FSIG-SANDBOX-001",
-      "xSignatureHeader": "fIBdYo34vkHGPcA1xKmW2sNqYaROTHTPd2\u002BfADvhy4JUx6It\u002BOht2jomFYEUazmxBO3Vbx8IgPe5iF4bxyeq8Q==",
-      "durationMs": 6
+      "xSignatureHeader": "TsjztymgoyefaDLHRL970snYhYwDjAg1pP8nGCkCHC5w8f5TczSy5VUOIdJgg3AB1tugC1he8zdBxNthGYN5VQ==",
+      "durationMs": 3
     },
     {
       "scenario": "HMAC-SHA512 Signature Header Validation",
       "endpoint": "x-signature",
-      "timestampUtc": "2026-07-21T18:43:41.3343646Z",
+      "timestampUtc": "2026-07-21T19:29:35.0047312Z",
       "passed": true,
       "httpStatusCode": 200,
       "requestPayload": "{\u0022certificationProbe\u0022:true}",
@@ -62,25 +62,25 @@
     {
       "scenario": "Offline Signature Backup \u0026 Queue Insertion",
       "endpoint": "offline-queue",
-      "timestampUtc": "2026-07-21T18:43:41.3382034Z",
+      "timestampUtc": "2026-07-21T19:29:35.008643Z",
       "passed": true,
       "httpStatusCode": 200,
-      "requestPayload": "{\u0022invoiceHeader\u0022:{\u0022invoiceNumber\u0022:\u0022CERT-OFFLINE-001\u0022,\u0022invoiceDateTime\u0022:\u00222026-07-21T18:43:41.3401044Z\u0022,\u0022sellerTIN\u0022:\u00221234567890\u0022,\u0022siteId\u0022:\u0022SITE-CERT\u0022,\u0022globalConfigVersion\u0022:1,\u0022taxpayerConfigVersion\u0022:1,\u0022terminalConfigVersion\u0022:1,\u0022isReliefSupply\u0022:false,\u0022paymentMethod\u0022:\u0022Cash\u0022},\u0022invoiceLineItems\u0022:[{\u0022id\u0022:1,\u0022productCode\u0022:\u0022CERT-SKU-001\u0022,\u0022description\u0022:\u0022Certification Item\u0022,\u0022unitPrice\u0022:100,\u0022quantity\u0022:1,\u0022discount\u0022:0,\u0022total\u0022:100,\u0022totalVAT\u0022:17.5,\u0022taxRateId\u0022:\u0022A\u0022,\u0022isProduct\u0022:true}],\u0022invoiceSummary\u0022:{\u0022taxBreakDown\u0022:[{\u0022rateId\u0022:\u0022A\u0022,\u0022taxableAmount\u0022:100,\u0022taxAmount\u0022:17.5}],\u0022totalVAT\u0022:17.5,\u0022invoiceTotal\u0022:117.5,\u0022amountTendered\u0022:117.5}}",
-      "responsePayload": "{\u0022QueueId\u0022:1,\u0022offlineSig\u0022:\u0022L/4wHII1/y8u7nFCmbeq8Iv8hWy1ORnNGgwkX6sUsE8Duv0/hrgchHai70M0XljrSZMH02Mla8rswX5aU9e2CQ==\u0022}",
-      "responseSignatureOrFiscalCode": "L/4wHII1/y8u7nFCmbeq8Iv8hWy1ORnNGgwkX6sUsE8Duv0/hrgchHai70M0XljrSZMH02Mla8rswX5aU9e2CQ==",
-      "xSignatureHeader": "L/4wHII1/y8u7nFCmbeq8Iv8hWy1ORnNGgwkX6sUsE8Duv0/hrgchHai70M0XljrSZMH02Mla8rswX5aU9e2CQ==",
-      "durationMs": 32
+      "requestPayload": "{\u0022invoiceHeader\u0022:{\u0022invoiceNumber\u0022:\u0022CERT-OFFLINE-001\u0022,\u0022invoiceDateTime\u0022:\u00222026-07-21T19:29:35.0145272Z\u0022,\u0022sellerTIN\u0022:\u00221234567890\u0022,\u0022siteId\u0022:\u0022SITE-CERT\u0022,\u0022globalConfigVersion\u0022:1,\u0022taxpayerConfigVersion\u0022:1,\u0022terminalConfigVersion\u0022:1,\u0022isReliefSupply\u0022:false,\u0022paymentMethod\u0022:\u0022Cash\u0022},\u0022invoiceLineItems\u0022:[{\u0022id\u0022:1,\u0022productCode\u0022:\u0022CERT-SKU-001\u0022,\u0022description\u0022:\u0022Certification Item\u0022,\u0022unitPrice\u0022:100,\u0022quantity\u0022:1,\u0022discount\u0022:0,\u0022total\u0022:100,\u0022totalVAT\u0022:17.5,\u0022taxRateId\u0022:\u0022A\u0022,\u0022isProduct\u0022:true}],\u0022invoiceSummary\u0022:{\u0022taxBreakDown\u0022:[{\u0022rateId\u0022:\u0022A\u0022,\u0022taxableAmount\u0022:100,\u0022taxAmount\u0022:17.5}],\u0022totalVAT\u0022:17.5,\u0022invoiceTotal\u0022:117.5,\u0022amountTendered\u0022:117.5}}",
+      "responsePayload": "{\u0022QueueId\u0022:1,\u0022offlineSig\u0022:\u0022\\u002BC/hweUcQuS1xT/HTqYIxBH8VBZJVHs02cC2DVleJwRB9imQ0ltb5LezU4coZOzPQ4T3s31qYAgrso3I1MCUTw==\u0022}",
+      "responseSignatureOrFiscalCode": "\u002BC/hweUcQuS1xT/HTqYIxBH8VBZJVHs02cC2DVleJwRB9imQ0ltb5LezU4coZOzPQ4T3s31qYAgrso3I1MCUTw==",
+      "xSignatureHeader": "\u002BC/hweUcQuS1xT/HTqYIxBH8VBZJVHs02cC2DVleJwRB9imQ0ltb5LezU4coZOzPQ4T3s31qYAgrso3I1MCUTw==",
+      "durationMs": 94
     },
     {
       "scenario": "Credit/Debit Note Processing",
       "endpoint": "sales/process-credit-debit-note",
-      "timestampUtc": "2026-07-21T18:43:41.3708572Z",
+      "timestampUtc": "2026-07-21T19:29:35.103495Z",
       "passed": true,
       "httpStatusCode": 200,
-      "requestPayload": "{\u0022originalInvoiceNumber\u0022:\u0022CERT-ONLINE-001\u0022,\u0022noteType\u0022:\u0022Credit\u0022,\u0022invoiceHeader\u0022:{\u0022invoiceNumber\u0022:\u0022CERT-CDN-001\u0022,\u0022invoiceDateTime\u0022:\u00222026-07-21T18:43:41.3727415Z\u0022,\u0022sellerTIN\u0022:\u00221234567890\u0022,\u0022siteId\u0022:\u0022SITE-CERT\u0022,\u0022globalConfigVersion\u0022:1,\u0022taxpayerConfigVersion\u0022:1,\u0022terminalConfigVersion\u0022:1,\u0022isReliefSupply\u0022:false,\u0022paymentMethod\u0022:\u0022Cash\u0022},\u0022invoiceLineItems\u0022:[{\u0022id\u0022:1,\u0022productCode\u0022:\u0022CERT-SKU-001\u0022,\u0022description\u0022:\u0022Certification Item\u0022,\u0022unitPrice\u0022:100,\u0022quantity\u0022:1,\u0022discount\u0022:0,\u0022total\u0022:100,\u0022totalVAT\u0022:17.5,\u0022taxRateId\u0022:\u0022A\u0022,\u0022isProduct\u0022:true}],\u0022invoiceSummary\u0022:{\u0022taxBreakDown\u0022:[{\u0022rateId\u0022:\u0022A\u0022,\u0022taxableAmount\u0022:100,\u0022taxAmount\u0022:17.5}],\u0022totalVAT\u0022:17.5,\u0022invoiceTotal\u0022:117.5,\u0022amountTendered\u0022:117.5}}",
+      "requestPayload": "{\u0022originalInvoiceNumber\u0022:\u0022CERT-ONLINE-001\u0022,\u0022noteType\u0022:\u0022Credit\u0022,\u0022invoiceHeader\u0022:{\u0022invoiceNumber\u0022:\u0022CERT-CDN-001\u0022,\u0022invoiceDateTime\u0022:\u00222026-07-21T19:29:35.1050811Z\u0022,\u0022sellerTIN\u0022:\u00221234567890\u0022,\u0022siteId\u0022:\u0022SITE-CERT\u0022,\u0022globalConfigVersion\u0022:1,\u0022taxpayerConfigVersion\u0022:1,\u0022terminalConfigVersion\u0022:1,\u0022isReliefSupply\u0022:false,\u0022paymentMethod\u0022:\u0022Cash\u0022},\u0022invoiceLineItems\u0022:[{\u0022id\u0022:1,\u0022productCode\u0022:\u0022CERT-SKU-001\u0022,\u0022description\u0022:\u0022Certification Item\u0022,\u0022unitPrice\u0022:100,\u0022quantity\u0022:1,\u0022discount\u0022:0,\u0022total\u0022:100,\u0022totalVAT\u0022:17.5,\u0022taxRateId\u0022:\u0022A\u0022,\u0022isProduct\u0022:true}],\u0022invoiceSummary\u0022:{\u0022taxBreakDown\u0022:[{\u0022rateId\u0022:\u0022A\u0022,\u0022taxableAmount\u0022:100,\u0022taxAmount\u0022:17.5}],\u0022totalVAT\u0022:17.5,\u0022invoiceTotal\u0022:117.5,\u0022amountTendered\u0022:117.5}}",
       "responsePayload": "{\u0022invoiceNumber\u0022:\u0022CERT-CDN-001\u0022,\u0022fiscalSignature\u0022:\u0022FSIG-CDN-001\u0022,\u0022verificationUrl\u0022:\u0022https://dev-eis-portal.mra.mw/verify/test\u0022,\u0022shouldDownloadLatestConfig\u0022:false}",
       "responseSignatureOrFiscalCode": "FSIG-CDN-001",
-      "durationMs": 5
+      "durationMs": 4
     }
   ]
 }

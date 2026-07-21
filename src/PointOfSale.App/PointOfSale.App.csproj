@@ -64,6 +64,9 @@
     <None Include="..\..\Scripts\006_DatabaseBackup.sql" Link="Scripts\006_DatabaseBackup.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\007_OperatorSecurity.sql" Link="Scripts\007_OperatorSecurity.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
