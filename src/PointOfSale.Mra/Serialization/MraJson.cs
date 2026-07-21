@@ -1,0 +1,22 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace PointOfSale.Mra.Serialization;
+
+internal static class MraJson
+{
+    public static JsonSerializerOptions SerializerOptions { get; } = CreateOptions();
+
+    public static JsonSerializerOptions CreateOptions()
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            PropertyNameCaseInsensitive = true,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
+        };
+
+        return options;
+    }
+}
