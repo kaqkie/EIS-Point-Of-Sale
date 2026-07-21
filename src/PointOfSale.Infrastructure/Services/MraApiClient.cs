@@ -56,9 +56,17 @@ public sealed class MraApiClient
     public Task<EisApiResponse<TResponse>> GetAsync<TResponse>(
         string relativePath,
         MraRequestContext? context = null,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<TResponse>(relativePath, query: null, context, cancellationToken);
+
+    public Task<EisApiResponse<TResponse>> GetAsync<TResponse>(
+        string relativePath,
+        IReadOnlyDictionary<string, string>? query,
+        MraRequestContext? context = null,
         CancellationToken cancellationToken = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, relativePath);
+        var path = BuildPathWithQuery(relativePath, query);
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
         ApplyContext(request, context, signaturePlainText: context?.SignaturePlainText, jsonBody: null);
         return SendAsync<TResponse>(request, cancellationToken);
     }
@@ -136,6 +144,21 @@ public sealed class MraApiClient
         }
 
         return parsed;
+    }
+
+    private static string BuildPathWithQuery(string relativePath, IReadOnlyDictionary<string, string>? query)
+    {
+        if (query is null || query.Count == 0)
+        {
+            return relativePath;
+        }
+
+        var qs = string.Join(
+            "&",
+            query.Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+        return relativePath.Contains('?', StringComparison.Ordinal)
+            ? $"{relativePath}&{qs}"
+            : $"{relativePath}?{qs}";
     }
 }
 

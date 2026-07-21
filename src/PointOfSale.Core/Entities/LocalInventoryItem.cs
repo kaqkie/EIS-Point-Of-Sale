@@ -9,4 +9,5 @@ public sealed class LocalInventoryItem
     public decimal StockQuantity { get; set; }
     public string? HsCode { get; set; }
     public string? UnitOfMeasure { get; set; }
+    public string? TaxRateId { get; set; }
 }

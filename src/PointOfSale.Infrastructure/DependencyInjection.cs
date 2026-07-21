@@ -33,7 +33,9 @@ public static class DependencyInjection
         services.AddScoped<ILocalInventoryRepository, LocalInventoryRepository>();
 
         services.AddHttpClient<MraApiClient>();
+        services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
+        services.AddScoped<StockManagementService>();
 
         return services;
     }

@@ -79,6 +79,7 @@ BEGIN
         StockQuantity   DECIMAL(18, 2)  NOT NULL CONSTRAINT DF_LocalInventory_Stock DEFAULT (0),
         HsCode          VARCHAR(50)     NULL,
         UnitOfMeasure   VARCHAR(20)     NULL,
+        TaxRateId       VARCHAR(20)     NULL,
         CONSTRAINT PK_LocalInventory PRIMARY KEY CLUSTERED (ProductId)
     );
 

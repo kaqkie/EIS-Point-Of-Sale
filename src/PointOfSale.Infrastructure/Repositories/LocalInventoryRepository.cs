@@ -7,6 +7,7 @@ namespace PointOfSale.Infrastructure.Repositories;
 public interface ILocalInventoryRepository
 {
     Task<IReadOnlyList<LocalInventoryItem>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<LocalInventoryItem?> GetByProductCodeAsync(string productCode, CancellationToken cancellationToken = default);
     Task UpsertAsync(LocalInventoryItem item, CancellationToken cancellationToken = default);
 }
 
@@ -22,7 +23,7 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
     public async Task<IReadOnlyList<LocalInventoryItem>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         const string sql = """
-            SELECT ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure
+            SELECT ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId
             FROM dbo.LocalInventory
             ORDER BY Name;
             """;
@@ -33,6 +34,23 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
             new CommandDefinition(sql, cancellationToken: cancellationToken))
             .ConfigureAwait(false);
         return rows.AsList();
+    }
+
+    public async Task<LocalInventoryItem?> GetByProductCodeAsync(
+        string productCode,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId
+            FROM dbo.LocalInventory
+            WHERE ProductCode = @ProductCode;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return await connection.QuerySingleOrDefaultAsync<LocalInventoryItem>(
+            new CommandDefinition(sql, new { ProductCode = productCode }, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
     }
 
     public async Task UpsertAsync(LocalInventoryItem item, CancellationToken cancellationToken = default)
@@ -48,10 +66,11 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
                     UnitPrice = @UnitPrice,
                     StockQuantity = @StockQuantity,
                     HsCode = @HsCode,
-                    UnitOfMeasure = @UnitOfMeasure
+                    UnitOfMeasure = @UnitOfMeasure,
+                    TaxRateId = @TaxRateId
             WHEN NOT MATCHED THEN
-                INSERT (ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure)
-                VALUES (@ProductId, @ProductCode, @Name, @UnitPrice, @StockQuantity, @HsCode, @UnitOfMeasure);
+                INSERT (ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId)
+                VALUES (@ProductId, @ProductCode, @Name, @UnitPrice, @StockQuantity, @HsCode, @UnitOfMeasure, @TaxRateId);
             """;
 
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)

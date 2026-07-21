@@ -9,6 +9,8 @@ public static class MraConfigurationKeys
     public const string TerminalActivationCode = "mra.onboarding.terminalActivationCode";
     public const string PendingSecretKey = "mra.onboarding.pendingSecretKey";
     public const string ActiveTerminalId = "pos.terminal.activeId";
+    public const string StockHsCodesCache = "mra.stock.hscodes.cache";
+    public const string StockUnitsOfMeasureCache = "mra.stock.uom.cache";
 }
 
 public static class TerminalActivationStates
