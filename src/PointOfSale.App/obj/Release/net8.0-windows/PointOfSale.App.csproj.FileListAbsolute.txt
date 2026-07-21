@@ -102,3 +102,11 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Rel
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\AlbertRetailTerminal.pdb
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\PointOfSale.App.genruntimeconfig.cache
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\ref\AlbertRetailTerminal.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\appsettings.Production.json
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\appsettings.Sandbox.json
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyModel.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Serilog.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Serilog.Extensions.Hosting.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Serilog.Extensions.Logging.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Serilog.Settings.Configuration.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Serilog.Sinks.File.dll
