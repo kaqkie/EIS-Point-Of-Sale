@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "pB14RGjU8f4=",
+  "dgSpecHash": "dgaZ8mqjTs4=",
   "success": true,
   "projectFilePath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\PointOfSale.Tests.csproj",
   "expectedPackageFiles": [
@@ -98,7 +98,8 @@
     "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget\\xunit.core\\2.9.2\\xunit.core.2.9.2.nupkg.sha512",
     "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget\\xunit.extensibility.core\\2.9.2\\xunit.extensibility.core.2.9.2.nupkg.sha512",
     "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget\\xunit.extensibility.execution\\2.9.2\\xunit.extensibility.execution.2.9.2.nupkg.sha512",
-    "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget\\xunit.runner.visualstudio\\2.8.2\\xunit.runner.visualstudio.2.8.2.nupkg.sha512"
+    "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget\\xunit.runner.visualstudio\\2.8.2\\xunit.runner.visualstudio.2.8.2.nupkg.sha512",
+    "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget\\zxing.net\\0.16.9\\zxing.net.0.16.9.nupkg.sha512"
   ],
   "logs": []
 }

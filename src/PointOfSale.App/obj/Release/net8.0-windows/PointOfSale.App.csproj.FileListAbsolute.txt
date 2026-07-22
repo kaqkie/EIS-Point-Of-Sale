@@ -138,3 +138,12 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Rel
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\UserManagementView.baml
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\LoginView.g.cs
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\UserManagementView.g.cs
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\CustomerLoyaltyView.baml
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\DiscountManagementView.baml
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\CustomerLoyaltyView.g.cs
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\DiscountManagementView.g.cs
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Scripts\008_LoyaltyAndPricing.sql
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Scripts\009_LabelPrinting.sql
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\zxing.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\BarcodePrintingView.baml
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\BarcodePrintingView.g.cs

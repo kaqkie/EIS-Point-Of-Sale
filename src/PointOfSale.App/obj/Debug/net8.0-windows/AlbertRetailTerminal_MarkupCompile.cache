@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\App.xaml
-101590195337
+131059948372
 
-56-792364621
-256275691070
-MainWindow.xaml;Views\AdminAnalyticsView.xaml;Views\BackupRecoveryView.xaml;Views\CheckoutView.xaml;Views\ComplianceExportView.xaml;Views\HeadOfficeSyncView.xaml;Views\InventoryView.xaml;Views\LoginView.xaml;Views\QueueSyncStatusView.xaml;Views\UserManagementView.xaml;
+681800817816
+257-1203739122
+MainWindow.xaml;Views\AdminAnalyticsView.xaml;Views\BackupRecoveryView.xaml;Views\BarcodePrintingView.xaml;Views\CheckoutView.xaml;Views\ComplianceExportView.xaml;Views\CustomerLoyaltyView.xaml;Views\DiscountManagementView.xaml;Views\HeadOfficeSyncView.xaml;Views\InventoryView.xaml;Views\LoginView.xaml;Views\QueueSyncStatusView.xaml;Views\UserManagementView.xaml;
 
 True
 

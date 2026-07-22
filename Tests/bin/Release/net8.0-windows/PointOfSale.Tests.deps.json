@@ -1161,6 +1161,14 @@
           }
         }
       },
+      "ZXing.Net/0.16.9": {
+        "runtime": {
+          "lib/net7.0/zxing.dll": {
+            "assemblyVersion": "0.16.9.0",
+            "fileVersion": "0.16.9.0"
+          }
+        }
+      },
       "AlbertRetailTerminal/1.0.0": {
         "dependencies": {
           "CommunityToolkit.Mvvm": "8.3.2",
@@ -1174,7 +1182,8 @@
           "Serilog.Extensions.Hosting": "8.0.0",
           "Serilog.Settings.Configuration": "8.0.4",
           "Serilog.Sinks.File": "6.0.0",
-          "System.IO.Ports": "8.0.0"
+          "System.IO.Ports": "8.0.0",
+          "ZXing.Net": "0.16.9"
         },
         "runtime": {
           "AlbertRetailTerminal.dll": {
@@ -1760,6 +1769,13 @@
       "sha512": "sha512-rKMpq4GsIUIJibXuZoZ8lYp5EpROlnYaRpwu9Zr0sRZXE7JqJfEEbCsUriZqB+ByXCLFBJyjkTRULMdC+U566g==",
       "path": "xunit.extensibility.execution/2.9.2",
       "hashPath": "xunit.extensibility.execution.2.9.2.nupkg.sha512"
+    },
+    "ZXing.Net/0.16.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-7WaVMHklpT3Ye2ragqRIwlFRsb6kOk63BOGADV0fan3ulVfGLUYkDi5yNUsZS/7FVNkWbtHAlDLmu4WnHGfqvQ==",
+      "path": "zxing.net/0.16.9",
+      "hashPath": "zxing.net.0.16.9.nupkg.sha512"
     },
     "AlbertRetailTerminal/1.0.0": {
       "type": "project",

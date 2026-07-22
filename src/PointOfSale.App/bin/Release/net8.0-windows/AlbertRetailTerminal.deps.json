@@ -19,7 +19,8 @@
           "Serilog.Extensions.Hosting": "8.0.0",
           "Serilog.Settings.Configuration": "8.0.4",
           "Serilog.Sinks.File": "6.0.0",
-          "System.IO.Ports": "8.0.0"
+          "System.IO.Ports": "8.0.0",
+          "ZXing.Net": "0.16.9"
         },
         "runtime": {
           "AlbertRetailTerminal.dll": {}
@@ -849,6 +850,14 @@
           }
         }
       },
+      "ZXing.Net/0.16.9": {
+        "runtime": {
+          "lib/net7.0/zxing.dll": {
+            "assemblyVersion": "0.16.9.0",
+            "fileVersion": "0.16.9.0"
+          }
+        }
+      },
       "PointOfSale.Core/1.0.0": {
         "runtime": {
           "PointOfSale.Core.dll": {
@@ -1342,6 +1351,13 @@
       "sha512": "sha512-4TmlmvGp4kzZomm7J2HJn6IIx0UUrQyhBDyb5O1XiunZlQImXW+B8b7W/sTPcXhSf9rp5NR5aDtQllwbB5elOQ==",
       "path": "system.runtime.caching/8.0.0",
       "hashPath": "system.runtime.caching.8.0.0.nupkg.sha512"
+    },
+    "ZXing.Net/0.16.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-7WaVMHklpT3Ye2ragqRIwlFRsb6kOk63BOGADV0fan3ulVfGLUYkDi5yNUsZS/7FVNkWbtHAlDLmu4WnHGfqvQ==",
+      "path": "zxing.net/0.16.9",
+      "hashPath": "zxing.net.0.16.9.nupkg.sha512"
     },
     "PointOfSale.Core/1.0.0": {
       "type": "project",
