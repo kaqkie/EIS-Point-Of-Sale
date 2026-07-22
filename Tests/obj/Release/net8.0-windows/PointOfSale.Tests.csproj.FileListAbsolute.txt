@@ -209,3 +209,5 @@ C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-wi
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\013_FinancialClosure.sql
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\014_FiscalYearArchive.sql
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\obj\Release\net8.0-windows\PointOfSale.Tests.sourcelink.json
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Castle.Core.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Moq.dll

@@ -47,6 +47,22 @@
           }
         }
       },
+      "Castle.Core/5.1.1": {
+        "type": "package",
+        "dependencies": {
+          "System.Diagnostics.EventLog": "6.0.0"
+        },
+        "compile": {
+          "lib/net6.0/Castle.Core.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Castle.Core.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "CommunityToolkit.Mvvm/8.3.2": {
         "type": "package",
         "compile": {
@@ -1267,6 +1283,18 @@
           }
         }
       },
+      "Moq/4.20.72": {
+        "type": "package",
+        "dependencies": {
+          "Castle.Core": "5.1.1"
+        },
+        "compile": {
+          "lib/net6.0/Moq.dll": {}
+        },
+        "runtime": {
+          "lib/net6.0/Moq.dll": {}
+        }
+      },
       "Newtonsoft.Json/13.0.1": {
         "type": "package",
         "compile": {
@@ -2021,6 +2049,30 @@
         "azureicon.png",
         "lib/netstandard2.0/Azure.Identity.dll",
         "lib/netstandard2.0/Azure.Identity.xml"
+      ]
+    },
+    "Castle.Core/5.1.1": {
+      "sha512": "rpYtIczkzGpf+EkZgDr9CClTdemhsrwA/W5hMoPjLkRFnXzH44zDLoovXeKtmxb1ykXK9aJVODSpiJml8CTw2g==",
+      "type": "package",
+      "path": "castle.core/5.1.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "ASL - Apache Software Foundation License.txt",
+        "CHANGELOG.md",
+        "LICENSE",
+        "castle-logo.png",
+        "castle.core.5.1.1.nupkg.sha512",
+        "castle.core.nuspec",
+        "lib/net462/Castle.Core.dll",
+        "lib/net462/Castle.Core.xml",
+        "lib/net6.0/Castle.Core.dll",
+        "lib/net6.0/Castle.Core.xml",
+        "lib/netstandard2.0/Castle.Core.dll",
+        "lib/netstandard2.0/Castle.Core.xml",
+        "lib/netstandard2.1/Castle.Core.dll",
+        "lib/netstandard2.1/Castle.Core.xml",
+        "readme.txt"
       ]
     },
     "CommunityToolkit.Mvvm/8.3.2": {
@@ -3744,6 +3796,23 @@
         "useSharedDesignerContext.txt"
       ]
     },
+    "Moq/4.20.72": {
+      "sha512": "EA55cjyNn8eTNWrgrdZJH5QLFp2L43oxl1tlkoYUKIE9pRwL784OWiTXeCV5ApS+AMYEAlt7Fo03A2XfouvHmQ==",
+      "type": "package",
+      "path": "moq/4.20.72",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "icon.png",
+        "lib/net462/Moq.dll",
+        "lib/net6.0/Moq.dll",
+        "lib/netstandard2.0/Moq.dll",
+        "lib/netstandard2.1/Moq.dll",
+        "moq.4.20.72.nupkg.sha512",
+        "moq.nuspec",
+        "readme.md"
+      ]
+    },
     "Newtonsoft.Json/13.0.1": {
       "sha512": "ppPFpBcvxdsfUonNcvITKqLl3bqxWbDCZIzDWHzjpdAHRFfZe0Dw9HmA0+za13IdyrgJwpkDTDA9fHaxOrt20A==",
       "type": "package",
@@ -5031,6 +5100,7 @@
       "Microsoft.Extensions.Logging.Abstractions >= 8.0.2",
       "Microsoft.Extensions.Options >= 8.0.2",
       "Microsoft.NET.Test.Sdk >= 17.11.1",
+      "Moq >= 4.20.72",
       "PointOfSale.Core >= 1.0.0",
       "PointOfSale.Infrastructure >= 1.0.0",
       "PointOfSale.Mra >= 1.0.0",
@@ -5045,11 +5115,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\PointOfSale.Tests.csproj",
+      "projectUniqueName": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\PointOfSale.Tests.csproj",
       "projectName": "PointOfSale.Tests",
-      "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\PointOfSale.Tests.csproj",
+      "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\PointOfSale.Tests.csproj",
       "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
-      "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\obj\\",
+      "outputPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -5072,17 +5142,17 @@
           "framework": "net8.0-windows7.0",
           "targetAlias": "net8.0-windows",
           "projectReferences": {
-            "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj": {
-              "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj"
+            "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj": {
+              "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj"
             },
-            "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj": {
-              "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj"
+            "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj": {
+              "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj"
             },
-            "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj": {
-              "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj"
+            "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj": {
+              "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj"
             },
-            "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj": {
-              "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj"
+            "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj": {
+              "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj"
             }
           }
         }
@@ -5115,6 +5185,10 @@
           "Microsoft.NET.Test.Sdk": {
             "target": "Package",
             "version": "[17.11.1, )"
+          },
+          "Moq": {
+            "target": "Package",
+            "version": "[4.20.72, )"
           },
           "xunit": {
             "target": "Package",

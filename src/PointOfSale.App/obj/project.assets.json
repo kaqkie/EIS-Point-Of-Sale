@@ -4164,11 +4164,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj",
+      "projectUniqueName": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj",
       "projectName": "AlbertRetailTerminal",
-      "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj",
+      "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj",
       "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
-      "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\obj\\",
+      "outputPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -4191,14 +4191,14 @@
           "framework": "net8.0-windows7.0",
           "targetAlias": "net8.0-windows",
           "projectReferences": {
-            "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj": {
-              "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj"
+            "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj": {
+              "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj"
             },
-            "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj": {
-              "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj"
+            "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj": {
+              "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj"
             },
-            "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj": {
-              "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj"
+            "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj": {
+              "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj"
             }
           }
         }

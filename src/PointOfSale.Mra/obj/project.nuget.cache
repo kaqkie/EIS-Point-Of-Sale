@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "r8XerhbZN+o=",
+  "dgSpecHash": "D9auOlhrXQs=",
   "success": true,
-  "projectFilePath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj",
+  "projectFilePath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget\\microsoft.extensions.configuration\\8.0.0\\microsoft.extensions.configuration.8.0.0.nupkg.sha512",
     "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget\\microsoft.extensions.configuration.abstractions\\8.0.0\\microsoft.extensions.configuration.abstractions.8.0.0.nupkg.sha512",

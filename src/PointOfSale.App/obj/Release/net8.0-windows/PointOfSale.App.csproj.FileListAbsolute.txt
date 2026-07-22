@@ -169,3 +169,7 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Rel
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\PointOfSale.App.sourcelink.json
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\TerminalProvisioningView.baml
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\TerminalProvisioningView.g.cs
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\TestRunnerDashboardView.baml
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\TestRunnerDashboardView.g.cs
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\EnterpriseMaintenanceView.baml
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\EnterpriseMaintenanceView.g.cs

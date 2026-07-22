@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright © Albert Retail")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f7bcc5e130965dbf9f3aec90bd88f36c9d0dddd0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4d1522729ca537aa0e1479b017c09aab04a3af21")]
 [assembly: System.Reflection.AssemblyProductAttribute("Albert Retail Terminal")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PointOfSale.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
