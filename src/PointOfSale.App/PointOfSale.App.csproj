@@ -142,6 +142,15 @@
     <None Include="..\..\Database\MigrationScripts\015_SystemHealthMonitor.sql" Link="Database\MigrationScripts\015_SystemHealthMonitor.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Database\Scripts\InitialSetup.sql" Link="Database\Scripts\InitialSetup.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Scripts\024_ReservedKeywordTriggerSyntax.sql" Link="Scripts\024_ReservedKeywordTriggerSyntax.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Database\MigrationScripts\016_ReservedKeywordTriggerSyntax.sql" Link="Database\MigrationScripts\016_ReservedKeywordTriggerSyntax.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
