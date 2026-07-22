@@ -29,7 +29,12 @@ public sealed class InstallerPackagingOptions
 
     public bool AttemptSqlExpressDetection { get; set; } = true;
 
+    /// <summary>When Express is unreachable, try SQL Server LocalDB before failing first-run bootstrap.</summary>
+    public bool AllowLocalDbFallback { get; set; } = true;
+
     public string SqlExpressInstanceName { get; set; } = "SQLEXPRESS";
+
+    public string LocalDbInstanceName { get; set; } = @"MSSQLLocalDB";
 
     public string SqlExpressSetupMediaPath { get; set; } = string.Empty;
 }

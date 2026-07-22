@@ -1085,6 +1085,26 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
                 VALUES (N'Schema.Phase34Applied', N'true', GETUTCDATE());
             END;
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.Configurations WHERE ConfigKey = N'Schema.Phase35Applied')
+            BEGIN
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'FirstRun.SetupWizardAvailable' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'FirstRun.SetupWizardAvailable', N'true', GETUTCDATE());
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Fiscal.StandardVatRatePercent' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Fiscal.StandardVatRatePercent', N'17.5', GETUTCDATE());
+
+                INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
+                VALUES (N'Schema.Phase35Applied', N'true', GETUTCDATE());
+            END;
             """;
 
         await using var command = connection.CreateCommand();

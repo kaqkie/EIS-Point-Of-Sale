@@ -236,6 +236,9 @@
             </Grid>
         </Grid>
 
+        <ContentControl Content="{Binding FirstRunSetup}"
+                        Visibility="{Binding ShowFirstRunOverlay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
         <ContentControl Content="{Binding Activation}"
                         Visibility="{Binding ShowActivationOverlay, Converter={StaticResource BooleanToVisibilityConverter}}" />
 

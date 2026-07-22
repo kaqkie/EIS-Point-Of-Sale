@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,23 @@ public partial class App : Application
             ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
             ?? "Sandbox";
 
+        // Phase 35: ProgramData layout + LocalDB connection override before DI binds PosDatabase.
+        try
+        {
+            InstallerConfiguration.EnsureStandardDirectories();
+            var engine = InstallerConfiguration.DetectSqlEngine();
+            if (engine == SqlEngineKind.LocalDb)
+            {
+                InstallerConfiguration.WriteDeploymentConnectionOverride(
+                    InstallerConfiguration.BuildLocalDbConnectionString(),
+                    @"(localdb)\MSSQLLocalDB");
+            }
+        }
+        catch
+        {
+            // Non-fatal — FirstRunBootstrapService will surface a clear error in the wizard.
+        }
+
         _host = Host.CreateDefaultBuilder()
             .UseSerilog((context, _, configuration) =>
                 configuration.ReadFrom.Configuration(context.Configuration))
@@ -34,6 +52,11 @@ public partial class App : Application
                 config.SetBasePath(AppContext.BaseDirectory);
                 config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
                 config.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: true);
+                var deploymentOverride = InstallerConfiguration.ResolveDeploymentOverridePath();
+                if (File.Exists(deploymentOverride))
+                {
+                    config.AddJsonFile(deploymentOverride, optional: true, reloadOnChange: true);
+                }
             })
             .ConfigureServices((context, services) =>
             {
@@ -101,6 +124,7 @@ public partial class App : Application
                 services.AddSingleton<IHardwareIntegrationService, HardwareIntegrationService>();
                 services.AddHostedService<HardwareIntegrationWatchdogService>();
                 services.AddSingleton<IDatabaseBootstrapService, DatabaseBootstrapService>();
+                services.AddSingleton<IFirstRunBootstrapService, FirstRunBootstrapService>();
                 services.AddSingleton<IApplicationUpdateService, ApplicationUpdateService>();
                 services.AddHostedService<ApplicationUpdateBackgroundService>();
                 services.AddSingleton<IMraCertificationAuditStore, PointOfSale.App.Services.Compliance.MraCertificationAuditStore>();
@@ -185,11 +209,13 @@ public partial class App : Application
                 services.AddTransient<CashierDashboardView>();
                 services.AddTransient<AdminDashboardView>();
                 services.AddTransient<ActivationView>();
+                services.AddTransient<FirstRunSetupView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
                 services.AddSingleton<AuthenticationViewModel>();
                 services.AddSingleton<ActivationViewModel>();
+                services.AddSingleton<FirstRunSetupViewModel>();
                 services.AddTransient<CheckoutViewModel>();
                 services.AddTransient<InventoryViewModel>();
                 services.AddTransient<QueueSyncStatusViewModel>();
@@ -233,15 +259,13 @@ public partial class App : Application
                 return;
             }
 
-            await _host.Services.GetRequiredService<IDatabaseBootstrapService>()
-                .EnsureDatabaseReadyAsync()
-                .ConfigureAwait(true);
-
-            InstallerConfiguration.EnsureStandardDirectories();
-
-            await _host.Services.GetRequiredService<IAuthenticationAuthorizationService>()
-                .EnsureSeededAsync()
-                .ConfigureAwait(true);
+            var firstRun = _host.Services.GetRequiredService<IFirstRunBootstrapService>();
+            var bootstrap = await firstRun.EnsureInfrastructureAsync().ConfigureAwait(true);
+            if (!bootstrap.Success)
+            {
+                // Still show the UI so the first-run wizard can surface remediation steps.
+                System.Diagnostics.Debug.WriteLine(bootstrap.Message);
+            }
         }
         catch (Exception ex)
         {

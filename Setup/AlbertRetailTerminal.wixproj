@@ -20,6 +20,9 @@
     <None Include="ConfigureFirewall.ps1" />
     <None Include="Sign-Release.ps1" />
     <None Include="Build-Installer.ps1" />
+    <None Include="Bootstrap-SqlExpressOrLocalDb.ps1" />
+    <None Include="FIRST-RUN.md" />
+    <None Include="ProductInstaller.wxs" />
   </ItemGroup>
 
 </Project>

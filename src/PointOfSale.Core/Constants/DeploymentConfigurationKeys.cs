@@ -7,4 +7,8 @@ public static class DeploymentConfigurationKeys
     public const string SiteIdOverride = "deployment.siteId";
     public const string ProvisionedAtUtc = "deployment.provisionedAtUtc";
     public const string PackagingChannel = "deployment.packagingChannel";
+    public const string TerminalDisplayName = "deployment.terminal.displayName";
+    public const string BranchId = "deployment.branchId";
+    public const string FirstRunCompleted = "FirstRun.Completed";
+    public const string MraEnvironmentPreference = "FirstRun.MraEnvironment";
 }

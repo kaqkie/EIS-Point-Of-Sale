@@ -130,6 +130,12 @@
     <None Include="..\..\Database\MigrationScripts\013_SupervisorAuthorization.sql" Link="Database\MigrationScripts\013_SupervisorAuthorization.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\022_FirstRunSetupWizard.sql" Link="Scripts\022_FirstRunSetupWizard.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Database\MigrationScripts\014_FirstRunSetupWizard.sql" Link="Database\MigrationScripts\014_FirstRunSetupWizard.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

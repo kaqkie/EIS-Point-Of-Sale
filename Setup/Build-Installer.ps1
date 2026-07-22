@@ -17,6 +17,7 @@ $publishDir = Join-Path $repoRoot 'publish\AlbertRetailTerminal'
 $msiOutDir = Join-Path $repoRoot 'publish\Installer'
 $appProject = Join-Path $repoRoot 'src\PointOfSale.App\PointOfSale.App.csproj'
 $wixProject = Join-Path $PSScriptRoot 'AlbertRetailTerminal.wixproj'
+# Phase 35 primary authoring file: ProductInstaller.wxs (compiled by the WiX SDK project)
 
 Write-Host "=== Albert Retail Terminal — Installer build ($ProductVersion) ==="
 

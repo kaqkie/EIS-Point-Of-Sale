@@ -7,6 +7,13 @@ using PointOfSale.App.Options;
 
 namespace PointOfSale.App.Deployment;
 
+public enum SqlEngineKind
+{
+    None = 0,
+    SqlExpress = 1,
+    LocalDb = 2
+}
+
 /// <summary>
 /// Central packaging metadata, directory layout, hardware binding, and SQL Express provisioning helpers
 /// for MSI / ClickOnce / MSIX deployments of Albert Retail Terminal.
@@ -130,6 +137,76 @@ public static class InstallerConfiguration
             "SQLSYSADMINACCOUNTS=\"BUILTIN\\Administrators\"",
             "TCPENABLED=1",
             "NPENABLED=0");
+    }
+
+    public static string BuildLocalDbConnectionString(string databaseName = "PointOfSale", string instance = "MSSQLLocalDB") =>
+        $"Server=(localdb)\\{instance};Database={databaseName};Trusted_Connection=True;TrustServerCertificate=True;";
+
+    public static string BuildSqlExpressConnectionString(string databaseName = "PointOfSale", string instance = "SQLEXPRESS") =>
+        $"Server=.\\{instance};Database={databaseName};Trusted_Connection=True;TrustServerCertificate=True;";
+
+    public static string ResolveDeploymentOverridePath() =>
+        Path.Combine(ResolveProgramDataRoot(), "appsettings.Deployment.json");
+
+    public static SqlEngineKind DetectSqlEngine(
+        string expressInstance = "SQLEXPRESS",
+        string localDbInstance = "MSSQLLocalDB",
+        bool allowLocalDbFallback = true)
+    {
+        if (CanOpenMaster($@".\{expressInstance}"))
+        {
+            return SqlEngineKind.SqlExpress;
+        }
+
+        if (allowLocalDbFallback && CanOpenMaster($@"(localdb)\{localDbInstance}"))
+        {
+            return SqlEngineKind.LocalDb;
+        }
+
+        return SqlEngineKind.None;
+    }
+
+    public static void WriteDeploymentConnectionOverride(string connectionString, string requiredInstanceHint)
+    {
+        var path = ResolveDeploymentOverridePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var payload = new Dictionary<string, object>
+        {
+            ["ConnectionStrings"] = new Dictionary<string, string>
+            {
+                ["PosDatabase"] = connectionString
+            },
+            ["DatabaseBootstrap"] = new Dictionary<string, string>
+            {
+                ["RequiredInstanceHint"] = requiredInstanceHint
+            }
+        };
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            payload,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(path, json);
+    }
+
+    private static bool CanOpenMaster(string server)
+    {
+        try
+        {
+            var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder
+            {
+                DataSource = server,
+                InitialCatalog = "master",
+                IntegratedSecurity = true,
+                TrustServerCertificate = true,
+                ConnectTimeout = 3
+            };
+            using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
+            connection.Open();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public static string BuildClickOncePublishCommand(string repoRoot, string configuration = "Release")

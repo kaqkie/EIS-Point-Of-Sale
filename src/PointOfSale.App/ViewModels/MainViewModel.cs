@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IAuthenticationAuthorizationService _auth;
     private readonly ITelemetryDiagnosticService _telemetry;
     private readonly ITerminalActivationService _activation;
+    private readonly IFirstRunBootstrapService _firstRun;
 
     public MainViewModel(
         INavigationService navigationService,
@@ -21,19 +22,35 @@ public partial class MainViewModel : ObservableObject
         IAuthenticationAuthorizationService auth,
         ITelemetryDiagnosticService telemetry,
         ITerminalActivationService activation,
+        IFirstRunBootstrapService firstRun,
         AuthenticationViewModel authentication,
-        ActivationViewModel activationViewModel)
+        ActivationViewModel activationViewModel,
+        FirstRunSetupViewModel firstRunSetupViewModel)
     {
         _navigationService = navigationService;
         _connectionStatusService = connectionStatusService;
         _auth = auth;
         _telemetry = telemetry;
         _activation = activation;
+        _firstRun = firstRun;
         Authentication = authentication;
         Activation = activationViewModel;
+        FirstRunSetup = firstRunSetupViewModel;
 
         _navigationService.CurrentViewModelChanged += (_, _) => CurrentViewModel = _navigationService.CurrentViewModel;
         _connectionStatusService.StatusChanged += (_, _) => RefreshConnectionState();
+        _firstRun.FirstRunStatusChanged += (_, _) =>
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess())
+            {
+                RefreshActivationState();
+            }
+            else
+            {
+                dispatcher.Invoke(RefreshActivationState);
+            }
+        };
         _activation.ActivationStatusChanged += (_, _) =>
         {
             var dispatcher = Application.Current?.Dispatcher;
@@ -80,6 +97,7 @@ public partial class MainViewModel : ObservableObject
 
     public AuthenticationViewModel Authentication { get; }
     public ActivationViewModel Activation { get; }
+    public FirstRunSetupViewModel FirstRunSetup { get; }
 
     [ObservableProperty]
     private object? _currentViewModel;
@@ -104,6 +122,9 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _showActivationOverlay = true;
+
+    [ObservableProperty]
+    private bool _showFirstRunOverlay = true;
 
     [ObservableProperty]
     private bool _isTerminalActivated;
@@ -311,6 +332,7 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
+            await _firstRun.RefreshStatusAsync().ConfigureAwait(true);
             await _activation.GetStatusAsync().ConfigureAwait(true);
         }
         catch
@@ -325,13 +347,15 @@ public partial class MainViewModel : ObservableObject
     private void RefreshActivationState()
     {
         IsTerminalActivated = _activation.IsActivated;
-        ShowActivationOverlay = !_activation.IsActivated;
+        ShowFirstRunOverlay = !_firstRun.IsFirstRunComplete;
+        ShowActivationOverlay = _firstRun.IsFirstRunComplete && !_activation.IsActivated;
+        ShowLoginOverlay = _firstRun.IsFirstRunComplete && _activation.IsActivated && !_auth.IsAuthenticated;
     }
 
     private void RefreshAuthState()
     {
         IsAuthenticated = _auth.IsAuthenticated;
-        ShowLoginOverlay = _activation.IsActivated && !_auth.IsAuthenticated;
+        ShowLoginOverlay = _firstRun.IsFirstRunComplete && _activation.IsActivated && !_auth.IsAuthenticated;
         var session = _auth.CurrentOperator;
         OperatorDisplay = session is null
             ? "Not signed in"

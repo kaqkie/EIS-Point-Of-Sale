@@ -43,6 +43,9 @@
             <DataTemplate DataType="{x:Type vm:ActivationViewModel}">
                 <v:ActivationView />
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:FirstRunSetupViewModel}">
+                <v:FirstRunSetupView />
+            </DataTemplate>
             <DataTemplate DataType="{x:Type vm:CashierDashboardViewModel}">
                 <v:CashierDashboardView />
             </DataTemplate>
