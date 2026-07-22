@@ -64,6 +64,8 @@ public partial class App : Application
                     context.Configuration.GetSection(SystemDiagnosticsOptions.SectionName));
                 services.Configure<FinancialClosureOptions>(
                     context.Configuration.GetSection(FinancialClosureOptions.SectionName));
+                services.Configure<FiscalArchivalOptions>(
+                    context.Configuration.GetSection(FiscalArchivalOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -87,6 +89,9 @@ public partial class App : Application
                 services.AddTransient<IShiftManagementService, ShiftManagementService>();
                 services.AddTransient<IFinancialClosureService, FinancialClosureService>();
                 services.AddTransient<IZReportPrintingService, ZReportPrintingService>();
+                services.AddTransient<IFiscalYearRolloverService, FiscalYearRolloverService>();
+                services.AddTransient<IArchivalCompressionService, ArchivalCompressionService>();
+                services.AddHostedService<ArchivalCompressionBackgroundService>();
                 services.AddTransient<IAnalyticsReportExportService, AnalyticsReportExportService>();
                 services.AddTransient<ICentralInventoryReplicationService, CentralInventoryReplicationService>();
                 services.AddSingleton<IHeadOfficeSyncService, HeadOfficeSyncService>();
@@ -128,6 +133,7 @@ public partial class App : Application
                 services.AddTransient<SupplierInvoiceReconciliationView>();
                 services.AddTransient<SystemDiagnosticsView>();
                 services.AddTransient<EndofDaySummaryView>();
+                services.AddTransient<FiscalRolloverView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -148,6 +154,7 @@ public partial class App : Application
                 services.AddTransient<SupplierInvoiceReconciliationViewModel>();
                 services.AddTransient<SystemDiagnosticsViewModel>();
                 services.AddTransient<EndofDaySummaryViewModel>();
+                services.AddTransient<FiscalRolloverViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

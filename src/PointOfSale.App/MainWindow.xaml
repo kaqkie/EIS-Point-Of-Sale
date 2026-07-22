@@ -129,6 +129,12 @@
                                 Margin="0,4"
                                 Padding="12,10"
                                 FontSize="16" />
+                        <Button Content="Fiscal Rollover"
+                                Command="{Binding NavigateFiscalRolloverCommand}"
+                                Visibility="{Binding CanFiscalRollover, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
                         <Button Content="Toggle Drawer"
                                 Command="{Binding ToggleDrawerCommand}"
                                 Margin="0,16,0,0"

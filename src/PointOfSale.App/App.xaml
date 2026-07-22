@@ -59,6 +59,9 @@
         <DataTemplate DataType="{x:Type vm:EndofDaySummaryViewModel}">
             <v:EndofDaySummaryView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:FiscalRolloverViewModel}">
+            <v:FiscalRolloverView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

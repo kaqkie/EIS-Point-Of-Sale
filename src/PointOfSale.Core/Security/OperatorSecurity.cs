@@ -41,6 +41,7 @@ public static class OperatorPermissions
     public const string ReconcileSupplierInvoices = "ReconcileSupplierInvoices";
     public const string ViewSystemDiagnostics = "ViewSystemDiagnostics";
     public const string CloseFinancialDay = "CloseFinancialDay";
+    public const string ExecuteFiscalYearRollover = "ExecuteFiscalYearRollover";
 
     public static readonly string[] All =
     [
@@ -66,7 +67,8 @@ public static class OperatorPermissions
         ProcessGoodsReceipt,
         ReconcileSupplierInvoices,
         ViewSystemDiagnostics,
-        CloseFinancialDay
+        CloseFinancialDay,
+        ExecuteFiscalYearRollover
     ];
 }
 
