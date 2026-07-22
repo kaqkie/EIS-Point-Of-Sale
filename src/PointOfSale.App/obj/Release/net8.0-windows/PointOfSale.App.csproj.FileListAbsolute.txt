@@ -160,3 +160,6 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Rel
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Scripts\012_SystemDiagnostics.sql
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\SystemDiagnosticsView.baml
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\SystemDiagnosticsView.g.cs
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Scripts\013_FinancialClosure.sql
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\EndofDaySummaryView.baml
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\EndofDaySummaryView.g.cs
