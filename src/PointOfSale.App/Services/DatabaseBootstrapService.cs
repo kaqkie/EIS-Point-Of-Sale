@@ -997,6 +997,36 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
                 VALUES (N'Schema.Phase31Applied', N'true', GETUTCDATE());
             END;
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.Configurations WHERE ConfigKey = N'Schema.Phase32Applied')
+            BEGIN
+                IF OBJECT_ID(N'dbo.TerminalLicenseActivation', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.TerminalLicenseActivation
+                    (
+                        ActivationId        INT             IDENTITY(1,1) NOT NULL,
+                        LicenseKeyHash      CHAR(64)        NOT NULL,
+                        MaskedLicenseKey    VARCHAR(32)     NOT NULL,
+                        ActivatedAtUtc      DATETIME2(7)    NOT NULL CONSTRAINT DF_TerminalLicenseActivation_ActivatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                        ActivatedByHost     NVARCHAR(128)   NULL,
+                        IsActive            BIT             NOT NULL CONSTRAINT DF_TerminalLicenseActivation_IsActive DEFAULT (1),
+                        CONSTRAINT PK_TerminalLicenseActivation PRIMARY KEY CLUSTERED (ActivationId)
+                    );
+                    CREATE UNIQUE INDEX UX_TerminalLicenseActivation_Hash
+                        ON dbo.TerminalLicenseActivation (LicenseKeyHash)
+                        WHERE IsActive = 1;
+                END;
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Terminal.License.RequireActivation' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Terminal.License.RequireActivation', N'true', GETUTCDATE());
+
+                INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
+                VALUES (N'Schema.Phase32Applied', N'true', GETUTCDATE());
+            END;
             """;
 
         await using var command = connection.CreateCommand();

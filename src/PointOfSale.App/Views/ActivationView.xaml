@@ -1,0 +1,80 @@
+<UserControl x:Class="PointOfSale.App.Views.ActivationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#ECFDF5" Offset="0" />
+                <GradientStop Color="#FFFFFF" Offset="0.5" />
+                <GradientStop Color="#E0F2FE" Offset="1" />
+            </LinearGradientBrush>
+        </Grid.Background>
+
+        <Ellipse Width="380" Height="380" HorizontalAlignment="Left" VerticalAlignment="Top"
+                 Margin="-100,-60,0,0" Fill="#A7F3D0" Opacity="0.5" />
+        <Ellipse Width="320" Height="320" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                 Margin="0,0,-80,-80" Fill="#BAE6FD" Opacity="0.55" />
+
+        <Border Style="{StaticResource Art.Card}"
+                Width="520"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Padding="36">
+            <StackPanel>
+                <Border Background="{StaticResource Art.Brush.SuccessSoft}"
+                        CornerRadius="12"
+                        Padding="12,8"
+                        HorizontalAlignment="Left"
+                        Margin="0,0,0,16">
+                    <TextBlock Text="TERMINAL LICENSE"
+                               FontWeight="Bold"
+                               FontSize="12"
+                               Foreground="{StaticResource Art.Brush.Success}" />
+                </Border>
+
+                <TextBlock Text="Activate this register"
+                           Style="{StaticResource Art.Text.Hero}"
+                           Margin="0,0,0,6" />
+                <TextBlock Text="Enter the store license key before operator sign-in. Retail functions stay locked until activation succeeds."
+                           Style="{StaticResource Art.Text.Subtitle}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,20" />
+
+                <TextBlock Text="License key" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                <TextBox Text="{Binding LicenseKey, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource Art.TextBox}"
+                         FontFamily="{StaticResource Art.Font.Mono}"
+                         FontSize="18"
+                         CharacterCasing="Upper"
+                         Margin="0,0,0,10" />
+
+                <DockPanel Margin="0,0,0,16">
+                    <TextBlock Text="{Binding SampleHint, StringFormat='Format example: {0}'}"
+                               Style="{StaticResource Art.Text.Caption}"
+                               VerticalAlignment="Center" />
+                    <Button DockPanel.Dock="Right"
+                            Content="Use sample"
+                            Style="{StaticResource Art.Button.Ghost}"
+                            Command="{Binding PasteSampleKeyCommand}"
+                            HorizontalAlignment="Right"
+                            Padding="12,6"
+                            MinHeight="34" />
+                </DockPanel>
+
+                <Button Content="Activate terminal"
+                        Style="{StaticResource Art.Button.Success}"
+                        Command="{Binding ActivateCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                        Margin="0,0,0,14" />
+
+                <TextBlock Text="{Binding StatusMessage}"
+                           Style="{StaticResource Art.Text.Subtitle}"
+                           TextWrapping="Wrap" />
+
+                <TextBlock Text="{Binding MaskedLicenseKey, StringFormat='Active key: {0}', TargetNullValue=''}"
+                           Style="{StaticResource Art.Text.Caption}"
+                           Margin="0,10,0,0" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

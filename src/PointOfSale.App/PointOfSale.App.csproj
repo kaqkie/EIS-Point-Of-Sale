@@ -112,6 +112,12 @@
     <None Include="..\..\Database\MigrationScripts\010_LightThemeAndRoleWorkspaces.sql" Link="Database\MigrationScripts\010_LightThemeAndRoleWorkspaces.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\019_TerminalLicenseAndDefaultOperators.sql" Link="Scripts\019_TerminalLicenseAndDefaultOperators.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Database\MigrationScripts\011_TerminalLicenseActivation.sql" Link="Database\MigrationScripts\011_TerminalLicenseActivation.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

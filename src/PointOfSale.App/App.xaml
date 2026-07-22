@@ -37,6 +37,9 @@
             <DataTemplate DataType="{x:Type vm:AuthenticationViewModel}">
                 <v:AuthenticationView />
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ActivationViewModel}">
+                <v:ActivationView />
+            </DataTemplate>
             <DataTemplate DataType="{x:Type vm:CashierDashboardViewModel}">
                 <v:CashierDashboardView />
             </DataTemplate>

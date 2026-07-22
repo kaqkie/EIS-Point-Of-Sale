@@ -236,6 +236,9 @@
             </Grid>
         </Grid>
 
+        <ContentControl Content="{Binding Activation}"
+                        Visibility="{Binding ShowActivationOverlay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
         <ContentControl Content="{Binding Authentication}"
                         Visibility="{Binding ShowLoginOverlay, Converter={StaticResource BooleanToVisibilityConverter}}" />
     </Grid>

@@ -13,22 +13,39 @@ public partial class MainViewModel : ObservableObject
     private readonly IConnectionStatusService _connectionStatusService;
     private readonly IAuthenticationAuthorizationService _auth;
     private readonly ITelemetryDiagnosticService _telemetry;
+    private readonly ITerminalActivationService _activation;
 
     public MainViewModel(
         INavigationService navigationService,
         IConnectionStatusService connectionStatusService,
         IAuthenticationAuthorizationService auth,
         ITelemetryDiagnosticService telemetry,
-        AuthenticationViewModel authentication)
+        ITerminalActivationService activation,
+        AuthenticationViewModel authentication,
+        ActivationViewModel activationViewModel)
     {
         _navigationService = navigationService;
         _connectionStatusService = connectionStatusService;
         _auth = auth;
         _telemetry = telemetry;
+        _activation = activation;
         Authentication = authentication;
+        Activation = activationViewModel;
 
         _navigationService.CurrentViewModelChanged += (_, _) => CurrentViewModel = _navigationService.CurrentViewModel;
         _connectionStatusService.StatusChanged += (_, _) => RefreshConnectionState();
+        _activation.ActivationStatusChanged += (_, _) =>
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess())
+            {
+                RefreshActivationState();
+            }
+            else
+            {
+                dispatcher.Invoke(RefreshActivationState);
+            }
+        };
         _telemetry.HealthChanged += (_, snapshot) =>
         {
             var dispatcher = Application.Current?.Dispatcher;
@@ -55,11 +72,14 @@ public partial class MainViewModel : ObservableObject
         };
 
         RefreshConnectionState();
+        RefreshActivationState();
         RefreshAuthState();
         ApplyHealthSnapshot(_telemetry.LatestSnapshot);
+        _ = InitializeLicenseAsync();
     }
 
     public AuthenticationViewModel Authentication { get; }
+    public ActivationViewModel Activation { get; }
 
     [ObservableProperty]
     private object? _currentViewModel;
@@ -81,6 +101,12 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _showLoginOverlay = true;
+
+    [ObservableProperty]
+    private bool _showActivationOverlay = true;
+
+    [ObservableProperty]
+    private bool _isTerminalActivated;
 
     [ObservableProperty]
     private string _operatorDisplay = "Not signed in";
@@ -281,10 +307,31 @@ public partial class MainViewModel : ObservableObject
             : $"System health warning: {snapshot.Summary}";
     }
 
+    private async Task InitializeLicenseAsync()
+    {
+        try
+        {
+            await _activation.GetStatusAsync().ConfigureAwait(true);
+        }
+        catch
+        {
+            // Status text already reflects failures; overlay remains until activated.
+        }
+
+        RefreshActivationState();
+        RefreshAuthState();
+    }
+
+    private void RefreshActivationState()
+    {
+        IsTerminalActivated = _activation.IsActivated;
+        ShowActivationOverlay = !_activation.IsActivated;
+    }
+
     private void RefreshAuthState()
     {
         IsAuthenticated = _auth.IsAuthenticated;
-        ShowLoginOverlay = !_auth.IsAuthenticated;
+        ShowLoginOverlay = _activation.IsActivated && !_auth.IsAuthenticated;
         var session = _auth.CurrentOperator;
         OperatorDisplay = session is null
             ? "Not signed in"

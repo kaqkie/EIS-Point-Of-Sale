@@ -63,8 +63,11 @@ public sealed class AuthenticationOptions
     public int MaxFailedLogins { get; set; } = 5;
     public int LockoutMinutes { get; set; } = 15;
     public string DefaultAdminUsername { get; set; } = "admin";
-    public string DefaultAdminPassword { get; set; } = "ChangeMe!123";
+    public string DefaultAdminPassword { get; set; } = "admin123";
     public string DefaultAdminDisplayName { get; set; } = "Store Administrator";
+    public string DefaultCashierUsername { get; set; } = "cashier";
+    public string DefaultCashierPassword { get; set; } = "cashier123";
+    public string DefaultCashierDisplayName { get; set; } = "Front Counter Cashier";
 }
 
 /// <summary>
@@ -127,39 +130,8 @@ public sealed class AuthenticationAuthorizationService : IAuthenticationAuthoriz
     public async Task EnsureSeededAsync(CancellationToken cancellationToken = default)
     {
         using var scope = _scopeFactory.CreateScope();
-        var repo = scope.ServiceProvider.GetRequiredService<IOperatorRepository>();
-        var count = await repo.CountAsync(cancellationToken).ConfigureAwait(false);
-        if (count > 0)
-        {
-            return;
-        }
-
-        var (hash, salt, iterations) = _passwordHasher.HashPassword(_options.DefaultAdminPassword);
-        await repo.CreateAsync(
-                new OperatorAccount
-                {
-                    Username = _options.DefaultAdminUsername.Trim().ToLowerInvariant(),
-                    DisplayName = _options.DefaultAdminDisplayName,
-                    Role = OperatorRoles.Administrator,
-                    PasswordHash = hash,
-                    PasswordSalt = salt,
-                    PasswordIterations = iterations,
-                    IsActive = true
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        await _auditLogger.LogAsync(
-                SecurityAuditActions.CreateUser,
-                detail: $"Seeded default administrator '{_options.DefaultAdminUsername}'.",
-                success: true,
-                username: "system",
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-
-        _logger.LogWarning(
-            "Seeded default administrator '{Username}'. Change the password immediately after first login.",
-            _options.DefaultAdminUsername);
+        var seeder = scope.ServiceProvider.GetRequiredService<PointOfSale.App.Database.Seeders.IInitialDataSeeder>();
+        await seeder.SeedAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<AuthResult> SignInAsync(

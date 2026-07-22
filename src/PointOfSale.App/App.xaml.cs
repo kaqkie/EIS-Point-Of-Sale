@@ -57,6 +57,8 @@ public partial class App : Application
                     context.Configuration.GetSection(DatabaseBackupOptions.SectionName));
                 services.Configure<AuthenticationOptions>(
                     context.Configuration.GetSection(AuthenticationOptions.SectionName));
+                services.Configure<TerminalLicenseOptions>(
+                    context.Configuration.GetSection(TerminalLicenseOptions.SectionName));
                 services.Configure<LoyaltyProgramOptions>(
                     context.Configuration.GetSection(LoyaltyProgramOptions.SectionName));
                 services.Configure<LabelPrintingOptions>(
@@ -119,6 +121,8 @@ public partial class App : Application
                 services.AddSingleton<IMultiTerminalSyncBroker, MultiTerminalSyncBroker>();
                 services.AddHostedService<MultiTerminalSyncBackgroundService>();
                 services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+                services.AddTransient<PointOfSale.App.Database.Seeders.IInitialDataSeeder, PointOfSale.App.Database.Seeders.InitialDataSeeder>();
+                services.AddSingleton<ITerminalActivationService, TerminalActivationService>();
                 services.AddSingleton<IAuditSecurityLogger, AuditSecurityLogger>();
                 services.AddSingleton<IAuthenticationAuthorizationService, AuthenticationAuthorizationService>();
                 services.AddTransient<ILoyaltyProgramService, LoyaltyProgramService>();
@@ -173,10 +177,12 @@ public partial class App : Application
                 services.AddTransient<AuthenticationView>();
                 services.AddTransient<CashierDashboardView>();
                 services.AddTransient<AdminDashboardView>();
+                services.AddTransient<ActivationView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
                 services.AddSingleton<AuthenticationViewModel>();
+                services.AddSingleton<ActivationViewModel>();
                 services.AddTransient<CheckoutViewModel>();
                 services.AddTransient<InventoryViewModel>();
                 services.AddTransient<QueueSyncStatusViewModel>();
