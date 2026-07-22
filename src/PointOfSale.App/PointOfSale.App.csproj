@@ -80,6 +80,9 @@
     <None Include="..\..\Scripts\011_GoodsReceiptAndReconciliation.sql" Link="Scripts\011_GoodsReceiptAndReconciliation.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\012_SystemDiagnostics.sql" Link="Scripts\012_SystemDiagnostics.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -2,6 +2,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PointOfSale.App.Services;
+using PointOfSale.Core.Entities;
 using PointOfSale.Core.Security;
 
 namespace PointOfSale.App.ViewModels;
@@ -11,20 +12,35 @@ public partial class MainViewModel : ObservableObject
     private readonly INavigationService _navigationService;
     private readonly IConnectionStatusService _connectionStatusService;
     private readonly IAuthenticationAuthorizationService _auth;
+    private readonly ITelemetryDiagnosticService _telemetry;
 
     public MainViewModel(
         INavigationService navigationService,
         IConnectionStatusService connectionStatusService,
         IAuthenticationAuthorizationService auth,
+        ITelemetryDiagnosticService telemetry,
         LoginViewModel loginViewModel)
     {
         _navigationService = navigationService;
         _connectionStatusService = connectionStatusService;
         _auth = auth;
+        _telemetry = telemetry;
         Login = loginViewModel;
 
         _navigationService.CurrentViewModelChanged += (_, _) => CurrentViewModel = _navigationService.CurrentViewModel;
         _connectionStatusService.StatusChanged += (_, _) => RefreshConnectionState();
+        _telemetry.HealthChanged += (_, snapshot) =>
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess())
+            {
+                ApplyHealthSnapshot(snapshot);
+            }
+            else
+            {
+                dispatcher.Invoke(() => ApplyHealthSnapshot(snapshot));
+            }
+        };
         _auth.SessionChanged += (_, _) =>
         {
             var dispatcher = Application.Current?.Dispatcher;
@@ -40,6 +56,7 @@ public partial class MainViewModel : ObservableObject
 
         RefreshConnectionState();
         RefreshAuthState();
+        ApplyHealthSnapshot(_telemetry.LatestSnapshot);
     }
 
     public LoginViewModel Login { get; }
@@ -113,6 +130,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _canSupplierRecon;
 
+    [ObservableProperty]
+    private bool _canSystemDiagnostics;
+
+    [ObservableProperty]
+    private bool _hasHealthWarning;
+
+    [ObservableProperty]
+    private string _healthWarningText = string.Empty;
+
     [RelayCommand(CanExecute = nameof(CanCheckout))]
     private void NavigateCheckout() => _navigationService.NavigateTo<CheckoutViewModel>();
 
@@ -158,6 +184,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSupplierRecon))]
     private void NavigateSupplierRecon() => _navigationService.NavigateTo<SupplierInvoiceReconciliationViewModel>();
 
+    [RelayCommand(CanExecute = nameof(CanSystemDiagnostics))]
+    private void NavigateSystemDiagnostics() => _navigationService.NavigateTo<SystemDiagnosticsViewModel>();
+
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
 
@@ -178,6 +207,21 @@ public partial class MainViewModel : ObservableObject
         IsOnline = _connectionStatusService.IsOnline;
         IsMraReachable = _connectionStatusService.IsMraReachable;
         ConnectionStatusText = _connectionStatusService.StatusText;
+    }
+
+    private void ApplyHealthSnapshot(SystemHealthSnapshot? snapshot)
+    {
+        if (snapshot is null)
+        {
+            HasHealthWarning = false;
+            HealthWarningText = string.Empty;
+            return;
+        }
+
+        HasHealthWarning = !snapshot.OverallHealthy;
+        HealthWarningText = snapshot.OverallHealthy
+            ? string.Empty
+            : $"System health warning: {snapshot.Summary}";
     }
 
     private void RefreshAuthState()
@@ -204,6 +248,7 @@ public partial class MainViewModel : ObservableObject
         CanPurchaseOrders = _auth.HasPermission(OperatorPermissions.ManagePurchaseOrders);
         CanGoodsReceipt = _auth.HasPermission(OperatorPermissions.ProcessGoodsReceipt);
         CanSupplierRecon = _auth.HasPermission(OperatorPermissions.ReconcileSupplierInvoices);
+        CanSystemDiagnostics = _auth.HasPermission(OperatorPermissions.ViewSystemDiagnostics);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -220,5 +265,6 @@ public partial class MainViewModel : ObservableObject
         NavigatePurchaseOrdersCommand.NotifyCanExecuteChanged();
         NavigateGoodsReceiptCommand.NotifyCanExecuteChanged();
         NavigateSupplierReconCommand.NotifyCanExecuteChanged();
+        NavigateSystemDiagnosticsCommand.NotifyCanExecuteChanged();
     }
 }

@@ -60,11 +60,15 @@ public partial class App : Application
                     context.Configuration.GetSection(InventoryAlertOptions.SectionName));
                 services.Configure<GoodsReceiptOptions>(
                     context.Configuration.GetSection(GoodsReceiptOptions.SectionName));
+                services.Configure<SystemDiagnosticsOptions>(
+                    context.Configuration.GetSection(SystemDiagnosticsOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
+                services.AddHttpClient(nameof(TelemetryDiagnosticService));
 
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
+                services.AddSingleton<ITelemetryDiagnosticService, TelemetryDiagnosticService>();
                 services.AddSingleton<GlobalExceptionHandler>();
                 services.AddSingleton<IProductionSecretGuard, ProductionSecretGuard>();
                 services.AddSingleton<IThermalPrinterHardwareService, ThermalPrinterHardwareService>();
@@ -95,6 +99,7 @@ public partial class App : Application
                 services.AddTransient<IGoodsReceiptService, GoodsReceiptService>();
                 services.AddTransient<ISupplierInvoiceReconciliationService, SupplierInvoiceReconciliationService>();
                 services.AddHostedService<InventoryAlertBackgroundService>();
+                services.AddHostedService<HealthCheckWorker>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -117,6 +122,7 @@ public partial class App : Application
                 services.AddTransient<PurchaseOrderManagementView>();
                 services.AddTransient<GoodsReceiptView>();
                 services.AddTransient<SupplierInvoiceReconciliationView>();
+                services.AddTransient<SystemDiagnosticsView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -135,6 +141,7 @@ public partial class App : Application
                 services.AddTransient<PurchaseOrderManagementViewModel>();
                 services.AddTransient<GoodsReceiptViewModel>();
                 services.AddTransient<SupplierInvoiceReconciliationViewModel>();
+                services.AddTransient<SystemDiagnosticsViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

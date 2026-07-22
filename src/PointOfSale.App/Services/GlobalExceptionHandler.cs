@@ -3,17 +3,22 @@ using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
+using PointOfSale.App.Options;
 
 namespace PointOfSale.App.Services;
 
 public sealed class GlobalExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
+    private readonly ITelemetryDiagnosticService? _telemetry;
     private readonly string _criticalLogDirectory;
 
-    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    public GlobalExceptionHandler(
+        ILogger<GlobalExceptionHandler> logger,
+        ITelemetryDiagnosticService? telemetry = null)
     {
         _logger = logger;
+        _telemetry = telemetry;
         _criticalLogDirectory = Path.Combine(AppContext.BaseDirectory, "Logs", "Critical");
         Directory.CreateDirectory(_criticalLogDirectory);
     }
@@ -52,6 +57,15 @@ public sealed class GlobalExceptionHandler
     private void LogCritical(string source, Exception exception)
     {
         _logger.LogCritical(exception, "{Source}: unhandled exception.", source);
+        try
+        {
+            _ = _telemetry?.RecordExceptionAsync(source, exception, DiagnosticSeverities.Critical);
+        }
+        catch
+        {
+            // telemetry is advisory during crash paths
+        }
+
         try
         {
             var path = Path.Combine(_criticalLogDirectory, $"critical-{DateTime.UtcNow:yyyyMMdd}.log");

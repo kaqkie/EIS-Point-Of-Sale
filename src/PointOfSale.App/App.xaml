@@ -53,6 +53,9 @@
         <DataTemplate DataType="{x:Type vm:SupplierInvoiceReconciliationViewModel}">
             <v:SupplierInvoiceReconciliationView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SystemDiagnosticsViewModel}">
+            <v:SystemDiagnosticsView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

@@ -117,6 +117,12 @@
                                 Margin="0,4"
                                 Padding="12,10"
                                 FontSize="16" />
+                        <Button Content="Diagnostics"
+                                Command="{Binding NavigateSystemDiagnosticsCommand}"
+                                Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
                         <Button Content="Toggle Drawer"
                                 Command="{Binding ToggleDrawerCommand}"
                                 Margin="0,16,0,0"
@@ -140,6 +146,15 @@
                 <Border Grid.Row="0" Background="White" Padding="16" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
                     <DockPanel LastChildFill="True">
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                            <Border Padding="10,6" CornerRadius="8" Margin="0,0,8,0"
+                                    Background="#B45309"
+                                    Visibility="{Binding HasHealthWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{Binding HealthWarningText}"
+                                           Foreground="White"
+                                           FontWeight="SemiBold"
+                                           MaxWidth="420"
+                                           TextWrapping="Wrap" />
+                            </Border>
                             <Border Padding="10,6" CornerRadius="8" Margin="0,0,8,0" Background="#2563EB">
                                 <TextBlock Text="{Binding ConnectionStatusText}" Foreground="White" FontWeight="SemiBold" />
                             </Border>
