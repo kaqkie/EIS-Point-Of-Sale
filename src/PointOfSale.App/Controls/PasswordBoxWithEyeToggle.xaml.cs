@@ -5,9 +5,8 @@ using System.Windows.Input;
 namespace PointOfSale.App.Controls;
 
 /// <summary>
-/// Secure password entry with an interactive eye toggle that reveals/masks text
-/// without dropping caret context. Password is exposed as a bindable string for MVVM
-/// (clear on navigation); prefer short-lived binding only on login forms.
+/// Secure password entry with a press-and-hold eye control that reveals text while held
+/// and remasks immediately on release, mouse leave, lost capture, or focus leaving the control.
 /// </summary>
 public partial class PasswordBoxWithEyeToggle : UserControl
 {
@@ -36,11 +35,13 @@ public partial class PasswordBoxWithEyeToggle : UserControl
             new PropertyMetadata("Password"));
 
     private bool _syncing;
+    private bool _peekHeld;
 
     public PasswordBoxWithEyeToggle()
     {
         InitializeComponent();
         Loaded += (_, _) => ApplyVisibilityState();
+        Unloaded += (_, _) => ForceMask();
     }
 
     public string Password
@@ -64,6 +65,7 @@ public partial class PasswordBoxWithEyeToggle : UserControl
     /// <summary>Clears both editors and the bound password (call after successful sign-in).</summary>
     public void Clear()
     {
+        ForceMask();
         _syncing = true;
         try
         {
@@ -111,7 +113,7 @@ public partial class PasswordBoxWithEyeToggle : UserControl
     {
         if (d is PasswordBoxWithEyeToggle control)
         {
-            control.ApplyVisibilityState(focusAfterToggle: true);
+            control.ApplyVisibilityState(focusAfterToggle: false);
         }
     }
 
@@ -127,13 +129,7 @@ public partial class PasswordBoxWithEyeToggle : UserControl
                 MaskedBox.Visibility = Visibility.Collapsed;
                 EyeOpen.Visibility = Visibility.Collapsed;
                 EyeClosed.Visibility = Visibility.Visible;
-                ToggleButton.ToolTip = "Hide password";
-                if (focusAfterToggle)
-                {
-                    PlainBox.Focus();
-                    PlainBox.CaretIndex = PlainBox.Text.Length;
-                    Keyboard.Focus(PlainBox);
-                }
+                ToggleButton.ToolTip = "Release to hide password";
             }
             else
             {
@@ -142,7 +138,7 @@ public partial class PasswordBoxWithEyeToggle : UserControl
                 PlainBox.Visibility = Visibility.Collapsed;
                 EyeOpen.Visibility = Visibility.Visible;
                 EyeClosed.Visibility = Visibility.Collapsed;
-                ToggleButton.ToolTip = "Show password";
+                ToggleButton.ToolTip = "Hold to show password";
                 if (focusAfterToggle)
                 {
                     MaskedBox.Focus();
@@ -153,6 +149,98 @@ public partial class PasswordBoxWithEyeToggle : UserControl
         finally
         {
             _syncing = false;
+        }
+    }
+
+    private void BeginPeek()
+    {
+        if (_peekHeld)
+        {
+            return;
+        }
+
+        _peekHeld = true;
+        IsPasswordVisible = true;
+    }
+
+    private void EndPeek()
+    {
+        if (!_peekHeld && !IsPasswordVisible)
+        {
+            return;
+        }
+
+        _peekHeld = false;
+        if (ToggleButton.IsMouseCaptured)
+        {
+            ToggleButton.ReleaseMouseCapture();
+        }
+
+        IsPasswordVisible = false;
+    }
+
+    private void ForceMask()
+    {
+        _peekHeld = false;
+        if (ToggleButton.IsMouseCaptured)
+        {
+            ToggleButton.ReleaseMouseCapture();
+        }
+
+        if (IsPasswordVisible)
+        {
+            IsPasswordVisible = false;
+        }
+    }
+
+    private void ToggleButton_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        ToggleButton.CaptureMouse();
+        BeginPeek();
+        e.Handled = true;
+    }
+
+    private void ToggleButton_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndPeek();
+        e.Handled = true;
+    }
+
+    private void ToggleButton_OnMouseLeave(object sender, MouseEventArgs e)
+    {
+        // If the pointer leaves without an active capture hold, remask immediately.
+        if (!_peekHeld)
+        {
+            ForceMask();
+            return;
+        }
+
+        // While held with capture, keep peeking until mouse up / lost capture.
+        if (!ToggleButton.IsMouseCaptured)
+        {
+            EndPeek();
+        }
+    }
+
+    private void ToggleButton_OnLostMouseCapture(object sender, MouseEventArgs e) => EndPeek();
+
+    private void ToggleButton_OnPreviewTouchDown(object sender, TouchEventArgs e)
+    {
+        BeginPeek();
+        e.Handled = true;
+    }
+
+    private void ToggleButton_OnPreviewTouchUp(object sender, TouchEventArgs e)
+    {
+        EndPeek();
+        e.Handled = true;
+    }
+
+    private void OnIsKeyboardFocusWithinChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is false)
+        {
+            ForceMask();
         }
     }
 
@@ -192,7 +280,4 @@ public partial class PasswordBoxWithEyeToggle : UserControl
             _syncing = false;
         }
     }
-
-    private void ToggleButton_OnClick(object sender, RoutedEventArgs e) =>
-        IsPasswordVisible = !IsPasswordVisible;
 }
