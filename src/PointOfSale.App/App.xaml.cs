@@ -54,6 +54,8 @@ public partial class App : Application
                     context.Configuration.GetSection(AuthenticationOptions.SectionName));
                 services.Configure<LoyaltyProgramOptions>(
                     context.Configuration.GetSection(LoyaltyProgramOptions.SectionName));
+                services.Configure<LabelPrintingOptions>(
+                    context.Configuration.GetSection(LabelPrintingOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -82,6 +84,8 @@ public partial class App : Application
                 services.AddSingleton<IAuthenticationAuthorizationService, AuthenticationAuthorizationService>();
                 services.AddTransient<ILoyaltyProgramService, LoyaltyProgramService>();
                 services.AddTransient<IPricingRulesEngine, PricingRulesEngine>();
+                services.AddSingleton<IBarcodeGenerationService, BarcodeGenerationService>();
+                services.AddTransient<ILabelTemplateService, LabelTemplateService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -99,6 +103,7 @@ public partial class App : Application
                 services.AddTransient<UserManagementView>();
                 services.AddTransient<CustomerLoyaltyView>();
                 services.AddTransient<DiscountManagementView>();
+                services.AddTransient<BarcodePrintingView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -112,6 +117,7 @@ public partial class App : Application
                 services.AddTransient<UserManagementViewModel>();
                 services.AddTransient<CustomerLoyaltyViewModel>();
                 services.AddTransient<DiscountManagementViewModel>();
+                services.AddTransient<BarcodePrintingViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

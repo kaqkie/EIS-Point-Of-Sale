@@ -13,6 +13,8 @@ public interface IThermalPrinterHardwareService
 
     Task PrintReceiptAsync(ReceiptPrintRequest request, CancellationToken cancellationToken = default);
 
+    Task PrintRawAsync(byte[] payload, string documentName, CancellationToken cancellationToken = default);
+
     byte[] BuildEscPosPayload(ReceiptPrintRequest request);
 }
 
@@ -41,6 +43,16 @@ public sealed class ThermalPrinterHardwareService : IThermalPrinterHardwareServi
     {
         ArgumentNullException.ThrowIfNull(request);
         var payload = BuildEscPosPayload(request);
+        await PrintRawAsync(payload, "Albert Retail Terminal Receipt", cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task PrintRawAsync(byte[] payload, string documentName, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        if (payload.Length == 0)
+        {
+            throw new ArgumentException("ESC/POS payload is empty.", nameof(payload));
+        }
 
         if (_options.ConnectionMode == ThermalPrinterConnectionMode.Serial)
         {
@@ -48,7 +60,7 @@ public sealed class ThermalPrinterHardwareService : IThermalPrinterHardwareServi
             return;
         }
 
-        await Task.Run(() => WriteSpooler(payload), cancellationToken).ConfigureAwait(false);
+        await Task.Run(() => WriteSpooler(payload, documentName), cancellationToken).ConfigureAwait(false);
     }
 
     private void WriteSerial(byte[] payload)
@@ -79,17 +91,18 @@ public sealed class ThermalPrinterHardwareService : IThermalPrinterHardwareServi
             payload.Length);
     }
 
-    private void WriteSpooler(byte[] payload)
+    private void WriteSpooler(byte[] payload, string documentName = "Albert Retail Terminal Receipt")
     {
         var printerName = ResolvePrinterName();
-        if (!RawPrinterHelper.SendBytesToPrinter(printerName, payload))
+        if (!RawPrinterHelper.SendBytesToPrinter(printerName, payload, documentName))
         {
             throw new InvalidOperationException(
                 $"Failed to send ESC/POS data to Windows printer '{printerName}'.");
         }
 
         _logger.LogInformation(
-            "ESC/POS receipt sent to spooler printer {Printer} ({Bytes} bytes, {Width}mm).",
+            "ESC/POS job '{Document}' sent to spooler printer {Printer} ({Bytes} bytes, {Width}mm).",
+            documentName,
             printerName,
             payload.Length,
             _options.PaperWidthMm);
@@ -149,7 +162,7 @@ internal static class RawPrinterHelper
     [DllImport("winspool.drv", SetLastError = true)]
     private static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
 
-    public static bool SendBytesToPrinter(string printerName, byte[] bytes)
+    public static bool SendBytesToPrinter(string printerName, byte[] bytes, string? documentName = null)
     {
         if (!OpenPrinter(printerName, out var printer, IntPtr.Zero))
         {
@@ -158,7 +171,9 @@ internal static class RawPrinterHelper
 
         var di = new DocInfo1
         {
-            pDocName = "Albert Retail Terminal Receipt",
+            pDocName = string.IsNullOrWhiteSpace(documentName)
+                ? "Albert Retail Terminal Receipt"
+                : documentName,
             pDatatype = "RAW"
         };
 

@@ -98,6 +98,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _canDiscounts;
 
+    [ObservableProperty]
+    private bool _canLabels;
+
     [RelayCommand(CanExecute = nameof(CanCheckout))]
     private void NavigateCheckout() => _navigationService.NavigateTo<CheckoutViewModel>();
 
@@ -127,6 +130,9 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanDiscounts))]
     private void NavigateDiscounts() => _navigationService.NavigateTo<DiscountManagementViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanLabels))]
+    private void NavigateLabels() => _navigationService.NavigateTo<BarcodePrintingViewModel>();
 
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
@@ -169,6 +175,7 @@ public partial class MainViewModel : ObservableObject
         CanManageUsers = _auth.HasPermission(OperatorPermissions.ManageUsers);
         CanLoyalty = _auth.HasPermission(OperatorPermissions.LookupLoyaltyCustomer);
         CanDiscounts = _auth.HasPermission(OperatorPermissions.ManageLoyaltyPrograms);
+        CanLabels = _auth.HasPermission(OperatorPermissions.PrintProductLabels);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -180,5 +187,6 @@ public partial class MainViewModel : ObservableObject
         NavigateUsersCommand.NotifyCanExecuteChanged();
         NavigateLoyaltyCommand.NotifyCanExecuteChanged();
         NavigateDiscountsCommand.NotifyCanExecuteChanged();
+        NavigateLabelsCommand.NotifyCanExecuteChanged();
     }
 }

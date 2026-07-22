@@ -33,6 +33,8 @@ public static class OperatorPermissions
     public const string RedeemLoyaltyPoints = "RedeemLoyaltyPoints";
     public const string ManageLoyaltyPrograms = "ManageLoyaltyPrograms";
     public const string ApplyCartDiscount = "ApplyCartDiscount";
+    public const string PrintProductLabels = "PrintProductLabels";
+    public const string ManageLabelBatches = "ManageLabelBatches";
 
     public static readonly string[] All =
     [
@@ -50,7 +52,9 @@ public static class OperatorPermissions
         LookupLoyaltyCustomer,
         RedeemLoyaltyPoints,
         ManageLoyaltyPrograms,
-        ApplyCartDiscount
+        ApplyCartDiscount,
+        PrintProductLabels,
+        ManageLabelBatches
     ];
 }
 

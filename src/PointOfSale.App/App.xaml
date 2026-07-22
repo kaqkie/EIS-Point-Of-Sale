@@ -38,6 +38,9 @@
         <DataTemplate DataType="{x:Type vm:DiscountManagementViewModel}">
             <v:DiscountManagementView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:BarcodePrintingViewModel}">
+            <v:BarcodePrintingView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>
