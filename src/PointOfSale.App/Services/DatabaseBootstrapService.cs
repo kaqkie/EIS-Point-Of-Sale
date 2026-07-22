@@ -285,7 +285,7 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 (
                     BackupId        BIGINT          IDENTITY(1,1) NOT NULL,
                     CreatedAtUtc    DATETIME2(7)    NOT NULL CONSTRAINT DF_DatabaseBackupHistory_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
-                    Trigger         VARCHAR(40)     NOT NULL,
+                    [Trigger]       VARCHAR(40)     NOT NULL,
                     BackupFilePath  NVARCHAR(500)   NOT NULL,
                     Sha256Checksum  VARCHAR(64)     NOT NULL CONSTRAINT DF_DatabaseBackupHistory_Sha DEFAULT (N''),
                     BackupBytes     BIGINT          NOT NULL CONSTRAINT DF_DatabaseBackupHistory_Bytes DEFAULT (0),
@@ -1124,6 +1124,34 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
 
                 INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
                 VALUES (N'Schema.Phase36Applied', N'true', GETUTCDATE());
+            END;
+
+            /* Phase 37 — reserved-keyword safety: [Trigger] column already delimited in CREATE TABLE.
+               Record migration so first-run / sqlcmd InitialSetup stays aligned with in-app bootstrap. */
+            IF NOT EXISTS (SELECT 1 FROM dbo.Configurations WHERE ConfigKey = N'Schema.Phase37Applied')
+            BEGIN
+                IF OBJECT_ID(N'dbo.DatabaseBackupHistory', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.DatabaseBackupHistory
+                    (
+                        BackupId        BIGINT          IDENTITY(1,1) NOT NULL,
+                        CreatedAtUtc    DATETIME2(7)    NOT NULL CONSTRAINT DF_DatabaseBackupHistory_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                        [Trigger]       VARCHAR(40)     NOT NULL,
+                        BackupFilePath  NVARCHAR(500)   NOT NULL,
+                        Sha256Checksum  VARCHAR(64)     NOT NULL CONSTRAINT DF_DatabaseBackupHistory_Sha DEFAULT (N''),
+                        BackupBytes     BIGINT          NOT NULL CONSTRAINT DF_DatabaseBackupHistory_Bytes DEFAULT (0),
+                        Success         BIT             NOT NULL,
+                        ErrorMessage    NVARCHAR(2000)  NULL,
+                        VerifiedSha256  BIT             NOT NULL CONSTRAINT DF_DatabaseBackupHistory_VerifiedSha256 DEFAULT (0),
+                        CONSTRAINT PK_DatabaseBackupHistory PRIMARY KEY CLUSTERED (BackupId)
+                    );
+
+                    CREATE INDEX IX_DatabaseBackupHistory_CreatedAtUtc
+                        ON dbo.DatabaseBackupHistory (CreatedAtUtc DESC, BackupId DESC);
+                END;
+
+                INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
+                VALUES (N'Schema.Phase37Applied', N'true', GETUTCDATE());
             END;
             """;
 

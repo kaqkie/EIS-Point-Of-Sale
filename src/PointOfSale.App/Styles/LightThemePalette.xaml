@@ -91,10 +91,17 @@
         </Setter>
     </Style>
 
-    <!-- Primary / secondary / danger buttons -->
-    <Style x:Key="Art.Button.Primary" TargetType="Button">
+    <!--
+      Phase 37 — Global Button ControlTemplate hover contrast.
+      Dark fills keep Foreground #FFFFFF; light fills keep #1E293B so label text never vanishes on IsMouseOver.
+    -->
+    <SolidColorBrush x:Key="Art.Brush.ButtonOnDark" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Art.Brush.ButtonOnLight" Color="#1E293B" />
+
+    <!-- Implicit default button (unstyled Button usages inherit high-contrast hover) -->
+    <Style TargetType="Button">
         <Setter Property="Background" Value="{StaticResource Art.Brush.Accent}" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
         <Setter Property="FontFamily" Value="{StaticResource Art.Font.Ui}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="14" />
@@ -102,18 +109,29 @@
         <Setter Property="MinHeight" Value="42" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd"
                             Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="10"
                             Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{StaticResource Art.Brush.AccentHover}" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#075985" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
@@ -124,36 +142,160 @@
         </Setter>
     </Style>
 
-    <Style x:Key="Art.Button.Secondary" TargetType="Button" BasedOn="{StaticResource Art.Button.Primary}">
+    <!-- Primary / secondary / danger buttons -->
+    <Style x:Key="Art.Button.Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{StaticResource Art.Brush.Accent}" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+    </Style>
+
+    <Style x:Key="Art.Button.Secondary" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource Art.Brush.AccentSoft}" />
-        <Setter Property="Foreground" Value="{StaticResource Art.Brush.AccentHover}" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnLight}" />
+        <Setter Property="FontFamily" Value="{StaticResource Art.Font.Ui}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="MinHeight" Value="42" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- Dark hover fill → force white label for WCAG contrast -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Art.Brush.AccentHover}" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#075985" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="Art.Button.Success" TargetType="Button" BasedOn="{StaticResource Art.Button.Primary}">
         <Setter Property="Background" Value="{StaticResource Art.Brush.Success}" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#059669" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#047857" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="Art.Button.Danger" TargetType="Button" BasedOn="{StaticResource Art.Button.Primary}">
         <Setter Property="Background" Value="{StaticResource Art.Brush.Danger}" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#DC2626" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#B91C1C" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="Art.Button.Ghost" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource Art.Brush.TextPrimary}" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnLight}" />
         <Setter Property="BorderBrush" Value="{StaticResource Art.Brush.Border}" />
         <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontFamily" Value="{StaticResource Art.Font.Ui}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="Padding" Value="14,8" />
         <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border Background="{TemplateBinding Background}"
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="10"
                             Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
                     </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- Light hover fill → force slate label for contrast -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Art.Brush.AccentSoft}" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnLight}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#BAE6FD" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnLight}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -162,22 +304,31 @@
     <!-- Nav rail buttons — Cashier (sky) vs Admin (deep cyan) -->
     <Style x:Key="Art.Nav.Cashier" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource Art.Brush.TextPrimary}" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnLight}" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="Padding" Value="14,12" />
         <Setter Property="Margin" Value="0,3" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <ContentPresenter HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{StaticResource Art.Brush.AccentSoft}" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnLight}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#BAE6FD" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnLight}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -186,16 +337,24 @@
     </Style>
 
     <Style x:Key="Art.Nav.Admin" TargetType="Button" BasedOn="{StaticResource Art.Nav.Cashier}">
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <ContentPresenter HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="#0369A1" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#075985" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

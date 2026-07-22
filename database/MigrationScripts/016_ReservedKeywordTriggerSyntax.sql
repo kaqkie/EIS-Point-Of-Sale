@@ -1,9 +1,8 @@
 /*
-    Albert Retail Terminal — Phase 14 disaster recovery backup history
-    Run: sqlcmd -S .\SQLEXPRESS -E -i Scripts\006_DatabaseBackup.sql
+    Phase 37 — MigrationScripts reserved-keyword hardening for DatabaseBackupHistory.[Trigger]
 */
 SET NOCOUNT ON;
-USE PointOfSale;
+SET XACT_ABORT ON;
 GO
 
 IF OBJECT_ID(N'dbo.DatabaseBackupHistory', N'U') IS NULL
@@ -18,10 +17,22 @@ BEGIN
         BackupBytes     BIGINT          NOT NULL CONSTRAINT DF_DatabaseBackupHistory_Bytes DEFAULT (0),
         Success         BIT             NOT NULL,
         ErrorMessage    NVARCHAR(2000)  NULL,
+        VerifiedSha256  BIT             NOT NULL CONSTRAINT DF_DatabaseBackupHistory_VerifiedSha256 DEFAULT (0),
         CONSTRAINT PK_DatabaseBackupHistory PRIMARY KEY CLUSTERED (BackupId)
     );
 
     CREATE INDEX IX_DatabaseBackupHistory_CreatedAtUtc
         ON dbo.DatabaseBackupHistory (CreatedAtUtc DESC, BackupId DESC);
 END
+GO
+
+MERGE dbo.Configurations AS target
+USING (SELECT N'Schema.Phase37Applied' AS ConfigKey) AS source
+ON target.ConfigKey = source.ConfigKey
+WHEN NOT MATCHED THEN
+    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+    VALUES (N'Schema.Phase37Applied', N'true', GETUTCDATE());
+GO
+
+PRINT N'Phase 37 MigrationScripts\016 applied.';
 GO

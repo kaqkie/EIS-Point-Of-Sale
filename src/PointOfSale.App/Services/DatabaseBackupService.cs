@@ -128,7 +128,7 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
 
         const string sql = """
             SELECT TOP (@Take)
-                BackupId, CreatedAtUtc, Trigger, BackupFilePath, Sha256Checksum,
+                BackupId, CreatedAtUtc, [Trigger], BackupFilePath, Sha256Checksum,
                 BackupBytes, Success, ErrorMessage
             FROM dbo.DatabaseBackupHistory
             ORDER BY CreatedAtUtc DESC, BackupId DESC;
@@ -504,7 +504,7 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
 
         const string sql = """
             INSERT INTO dbo.DatabaseBackupHistory
-                (CreatedAtUtc, Trigger, BackupFilePath, Sha256Checksum, BackupBytes, Success, ErrorMessage)
+                (CreatedAtUtc, [Trigger], BackupFilePath, Sha256Checksum, BackupBytes, Success, ErrorMessage)
             VALUES
                 (@CreatedAtUtc, @Trigger, @BackupFilePath, @Sha256Checksum, @BackupBytes, @Success, @ErrorMessage);
             """;
