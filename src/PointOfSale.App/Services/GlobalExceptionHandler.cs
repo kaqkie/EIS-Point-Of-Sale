@@ -9,9 +9,13 @@ namespace PointOfSale.App.Services;
 
 public sealed class GlobalExceptionHandler
 {
+    private static readonly TimeSpan OperatorMessageCooldown = TimeSpan.FromSeconds(30);
+
     private readonly ILogger<GlobalExceptionHandler> _logger;
     private readonly ITelemetryDiagnosticService? _telemetry;
     private readonly string _criticalLogDirectory;
+    private readonly object _messageGate = new();
+    private DateTime _lastOperatorMessageUtc = DateTime.MinValue;
 
     public GlobalExceptionHandler(
         ILogger<GlobalExceptionHandler> logger,
@@ -34,18 +38,35 @@ public sealed class GlobalExceptionHandler
     {
         LogCritical("DispatcherUnhandledException", e.Exception);
         ShowOperatorMessage(
-            "Albert Retail Terminal encountered an unexpected error. The sale screen will remain open. Please contact a supervisor if this continues.");
+            IsRecoverableUiFault(e.Exception)
+                ? "A display refresh failed and was recovered. You can continue working; contact a supervisor if this keeps happening."
+                : "Albert Retail Terminal encountered an unexpected error. The sale screen will remain open. Please contact a supervisor if this continues.",
+            MessageBoxImage.Warning);
         e.Handled = true;
     }
 
     private void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
-        if (e.ExceptionObject is Exception ex)
+        if (e.ExceptionObject is not Exception ex)
         {
-            LogCritical("AppDomainUnhandledException", ex);
-            ShowOperatorMessage(
-                "A critical error occurred. The application may need to restart after the current operation completes.");
+            return;
         }
+
+        LogCritical("AppDomainUnhandledException", ex);
+
+        // Prefer continuing the terminal workflow: log stack traces and warn the operator
+        // without forcing a restart for recoverable UI / binding faults.
+        if (IsRecoverableUiFault(ex) || !e.IsTerminating)
+        {
+            ShowOperatorMessage(
+                "A background error was logged and contained. You can continue; pending invoices stay in the sync queue until they succeed or are quarantined.",
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        ShowOperatorMessage(
+            "A critical error was logged. Finish the current sale if possible, then restart Albert Retail Terminal.",
+            MessageBoxImage.Error);
     }
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
@@ -82,21 +103,54 @@ public sealed class GlobalExceptionHandler
         }
     }
 
-    private static void ShowOperatorMessage(string message)
+    private void ShowOperatorMessage(string message, MessageBoxImage icon)
     {
-        if (Application.Current?.Dispatcher is null)
+        lock (_messageGate)
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastOperatorMessageUtc < OperatorMessageCooldown)
+            {
+                return;
+            }
+
+            _lastOperatorMessageUtc = now;
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null)
         {
             return;
         }
 
-        Application.Current.Dispatcher.InvokeAsync(() =>
+        dispatcher.InvokeAsync(() =>
         {
             MessageBox.Show(
-                Application.Current.MainWindow,
+                Application.Current?.MainWindow,
                 message,
                 "Albert Retail Terminal",
                 MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                icon);
         });
+    }
+
+    private static bool IsRecoverableUiFault(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is NotSupportedException &&
+                current.Message.Contains("CollectionView", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (current is InvalidOperationException &&
+                (current.Message.Contains("Dispatcher", StringComparison.OrdinalIgnoreCase) ||
+                 current.Message.Contains("calling thread", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

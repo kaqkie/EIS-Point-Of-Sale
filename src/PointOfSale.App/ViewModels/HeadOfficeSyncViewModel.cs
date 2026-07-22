@@ -18,7 +18,26 @@ public partial class HeadOfficeSyncViewModel : ObservableObject
         _syncService.StatusChanged += OnSyncStatusChanged;
 
         _refreshTimer = new Timer(
-            async _ => await RefreshAsync().ConfigureAwait(false),
+            _ =>
+            {
+                var dispatcher = Application.Current?.Dispatcher;
+                if (dispatcher is null)
+                {
+                    return;
+                }
+
+                _ = dispatcher.InvokeAsync(async () =>
+                {
+                    try
+                    {
+                        await RefreshAsync().ConfigureAwait(true);
+                    }
+                    catch
+                    {
+                        // Timer refresh is advisory.
+                    }
+                });
+            },
             null,
             TimeSpan.Zero,
             TimeSpan.FromSeconds(15));

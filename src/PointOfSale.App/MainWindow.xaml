@@ -189,14 +189,11 @@
                         </StackPanel>
                     </ScrollViewer>
                     <Button Content="Sign out"
-                            Background="#0C4A6E"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Style="{StaticResource Art.Button.Danger}"
                             Command="{Binding SignOutCommand}"
                             DockPanel.Dock="Bottom"
                             VerticalAlignment="Bottom"
-                            Margin="0,16,0,0"
-                            Padding="12,10" />
+                            Margin="0,16,0,0" />
                 </DockPanel>
             </Border>
 
@@ -212,6 +209,18 @@
                         BorderBrush="{StaticResource Art.Brush.Border}"
                         BorderThickness="0,0,0,1">
                     <DockPanel LastChildFill="True">
+                        <Border DockPanel.Dock="Left"
+                                Background="{StaticResource Art.Brush.AccentSoft}"
+                                CornerRadius="8"
+                                Padding="12,6"
+                                Margin="0,0,16,0"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CurrentDateTimeText}"
+                                       FontFamily="Consolas"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Art.Brush.AccentHover}" />
+                        </Border>
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
                             <Border Padding="10,6" CornerRadius="8" Margin="0,0,8,0"
                                     Background="{StaticResource Art.Brush.Warning}"

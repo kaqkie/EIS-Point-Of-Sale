@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
+using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PointOfSale.App.Services;
@@ -11,14 +13,16 @@ using PointOfSale.Mra.Serialization;
 
 namespace PointOfSale.App.ViewModels;
 
-public partial class QueueSyncStatusViewModel : ObservableObject
+public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 {
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly OfflineSalesQueueService _offlineSalesQueueService;
     private readonly SalesTransactionService _salesTransactionService;
     private readonly IReceiptPrintingService _receiptPrintingService;
     private readonly IPosConfigurationService _posConfigurationService;
-    private readonly Timer _refreshTimer;
+    private readonly DispatcherTimer _refreshTimer;
+    private bool _disposed;
+    private int _refreshGate;
 
     public QueueSyncStatusViewModel(
         IOfflineInvoiceQueueRepository queueRepository,
@@ -42,7 +46,11 @@ public partial class QueueSyncStatusViewModel : ObservableObject
             OfflineQueueStatuses.Synced
         };
         SelectedStatusFilter = "All";
-        _refreshTimer = new Timer(async _ => await RefreshAsync().ConfigureAwait(false), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+
+        // DispatcherTimer keeps collection mutations on the UI thread (avoids CollectionView crashes).
+        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _refreshTimer.Tick += OnRefreshTimerTick;
+        _refreshTimer.Start();
         _ = RefreshAsync();
     }
 
@@ -72,35 +80,68 @@ public partial class QueueSyncStatusViewModel : ObservableObject
 
     partial void OnSelectedStatusFilterChanged(string value) => _ = RefreshAsync();
 
+    private void OnRefreshTimerTick(object? sender, EventArgs e) => _ = RefreshAsync();
+
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        var counts = await _queueRepository.GetStatusCountsAsync().ConfigureAwait(true);
-        PendingCount = counts.GetValueOrDefault(OfflineQueueStatuses.Pending);
-        SyncingCount = counts.GetValueOrDefault(OfflineQueueStatuses.Syncing);
-        SyncedCount = counts.GetValueOrDefault(OfflineQueueStatuses.Synced);
-        QuarantinedCount = counts.GetValueOrDefault(OfflineQueueStatuses.Quarantined);
-
-        var filter = SelectedStatusFilter.Equals("All", StringComparison.OrdinalIgnoreCase)
-            ? null
-            : SelectedStatusFilter;
-
-        QueueItems.Clear();
-        var items = await _queueRepository.GetItemsAsync(filter, take: 250).ConfigureAwait(true);
-        foreach (var item in items.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id))
+        if (_disposed || Interlocked.Exchange(ref _refreshGate, 1) == 1)
         {
-            QueueItems.Add(QueueItemViewModel.FromEntity(item));
+            return;
+        }
+
+        try
+        {
+            var counts = await _queueRepository.GetStatusCountsAsync().ConfigureAwait(true);
+            var filter = SelectedStatusFilter.Equals("All", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : SelectedStatusFilter;
+            var items = await _queueRepository.GetItemsAsync(filter, take: 250).ConfigureAwait(true);
+            var rows = items
+                .OrderByDescending(x => x.CreatedAt)
+                .ThenByDescending(x => x.Id)
+                .Select(QueueItemViewModel.FromEntity)
+                .ToList();
+
+            ApplyOnUi(() =>
+            {
+                PendingCount = counts.GetValueOrDefault(OfflineQueueStatuses.Pending);
+                SyncingCount = counts.GetValueOrDefault(OfflineQueueStatuses.Syncing);
+                SyncedCount = counts.GetValueOrDefault(OfflineQueueStatuses.Synced);
+                QuarantinedCount = counts.GetValueOrDefault(OfflineQueueStatuses.Quarantined);
+
+                QueueItems.Clear();
+                foreach (var row in rows)
+                {
+                    QueueItems.Add(row);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            ApplyOnUi(() => StatusMessage = $"Queue refresh failed: {ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _refreshGate, 0);
         }
     }
 
     [RelayCommand]
     private async Task SyncNextAsync()
     {
-        var processed = await _offlineSalesQueueService.ProcessNextFifoAsync().ConfigureAwait(true);
-        StatusMessage = processed
-            ? "Processed next FIFO queue item (auto-print runs when MRA returns fiscal data)."
-            : "No eligible queue item.";
-        await RefreshAsync().ConfigureAwait(true);
+        try
+        {
+            var processed = await _offlineSalesQueueService.ProcessNextFifoAsync().ConfigureAwait(true);
+            StatusMessage = processed
+                ? "Processed next FIFO queue item (auto-print runs when MRA returns fiscal data)."
+                : "No eligible queue item.";
+            await RefreshAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Sync next failed: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -113,11 +154,18 @@ public partial class QueueSyncStatusViewModel : ObservableObject
             return;
         }
 
-        var ok = await _queueRepository.RetryQuarantinedAsync(item.Id).ConfigureAwait(true);
-        StatusMessage = ok
-            ? $"Queue item {item.Id} returned to PENDING."
-            : $"Unable to retry item {item.Id}.";
-        await RefreshAsync().ConfigureAwait(true);
+        try
+        {
+            var ok = await _queueRepository.RetryQuarantinedAsync(item.Id).ConfigureAwait(true);
+            StatusMessage = ok
+                ? $"Queue item {item.Id} returned to PENDING."
+                : $"Unable to retry item {item.Id}.";
+            await RefreshAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Retry failed: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -130,15 +178,22 @@ public partial class QueueSyncStatusViewModel : ObservableObject
             return;
         }
 
-        var result = await _offlineSalesQueueService.ForceSyncQueueItemAsync(item.Id).ConfigureAwait(true);
-        StatusMessage = result switch
+        try
         {
-            null => "Queue item not found.",
-            { SubmittedOnline: true } => $"Force sync succeeded for invoice {result.InvoiceNumber}. Receipt auto-print triggered when fiscal data is present.",
-            { IsQuarantined: true } => $"Force sync quarantined: {result.Remark}",
-            _ => result.Remark ?? "Force sync did not complete."
-        };
-        await RefreshAsync().ConfigureAwait(true);
+            var result = await _offlineSalesQueueService.ForceSyncQueueItemAsync(item.Id).ConfigureAwait(true);
+            StatusMessage = result switch
+            {
+                null => "Queue item not found.",
+                { SubmittedOnline: true } => $"Force sync succeeded for invoice {result.InvoiceNumber}. Receipt auto-print triggered when fiscal data is present.",
+                { IsQuarantined: true } => $"Force sync quarantined: {result.Remark}",
+                _ => result.Remark ?? "Force sync did not complete."
+            };
+            await RefreshAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Force sync failed: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -151,45 +206,76 @@ public partial class QueueSyncStatusViewModel : ObservableObject
             return;
         }
 
-        var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions);
-        if (payload is null)
+        try
         {
-            StatusMessage = "Unable to parse invoice payload.";
-            return;
-        }
+            var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions);
+            if (payload is null)
+            {
+                StatusMessage = "Unable to parse invoice payload.";
+                return;
+            }
 
-        var fiscal = item.ResolveFiscalResponse();
-        if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceHeader.InvoiceNumber))
-        {
-            var lookup = await _salesTransactionService
-                .GetInvoiceByNumberAsync(
-                    new InvoiceNumberQueryRequest { InvoiceNumber = payload.InvoiceHeader.InvoiceNumber })
-                .ConfigureAwait(true);
-            if (lookup.Success && lookup.Data is not null)
+            var fiscal = item.ResolveFiscalResponse();
+            if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceHeader.InvoiceNumber))
+            {
+                var lookup = await _salesTransactionService
+                    .GetInvoiceByNumberAsync(
+                        new InvoiceNumberQueryRequest { InvoiceNumber = payload.InvoiceHeader.InvoiceNumber })
+                    .ConfigureAwait(true);
+                if (lookup.Success && lookup.Data is not null)
+                {
+                    fiscal = new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = lookup.Data.InvoiceNumber,
+                        FiscalSignature = lookup.Data.FiscalCode,
+                        VerificationUrl = null
+                    };
+                }
+            }
+
+            if (fiscal is null &&
+                !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
             {
                 fiscal = new SubmitSalesTransactionResponseData
                 {
-                    InvoiceNumber = lookup.Data.InvoiceNumber,
-                    FiscalSignature = lookup.Data.FiscalCode,
-                    VerificationUrl = null
+                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                    FiscalSignature = payload.InvoiceSummary.OfflineSignature
                 };
             }
-        }
 
-        if (fiscal is null &&
-            !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+            var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+            await _receiptPrintingService.PrintAsync(
+                QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscal)).ConfigureAwait(true);
+            StatusMessage = $"Printed receipt for {payload.InvoiceHeader.InvoiceNumber}.";
+        }
+        catch (Exception ex)
         {
-            fiscal = new SubmitSalesTransactionResponseData
-            {
-                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                FiscalSignature = payload.InvoiceSummary.OfflineSignature
-            };
+            StatusMessage = $"Print failed: {ex.Message}";
+        }
+    }
+
+    private static void ApplyOnUi(Action action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+            return;
         }
 
-        var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
-        await _receiptPrintingService.PrintAsync(
-            QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscal)).ConfigureAwait(true);
-        StatusMessage = $"Printed receipt for {payload.InvoiceHeader.InvoiceNumber}.";
+        dispatcher.Invoke(action);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _refreshTimer.Stop();
+        _refreshTimer.Tick -= OnRefreshTimerTick;
     }
 }
 

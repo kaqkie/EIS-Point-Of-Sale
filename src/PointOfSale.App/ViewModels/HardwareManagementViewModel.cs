@@ -32,7 +32,26 @@ public partial class HardwareManagementViewModel : ObservableObject, IDisposable
         _syncBroker.StatusChanged += OnSyncStatusChanged;
 
         _refreshTimer = new Timer(
-            async _ => await RefreshAsync().ConfigureAwait(false),
+            _ =>
+            {
+                var dispatcher = Application.Current?.Dispatcher;
+                if (dispatcher is null)
+                {
+                    return;
+                }
+
+                _ = dispatcher.InvokeAsync(async () =>
+                {
+                    try
+                    {
+                        await RefreshAsync().ConfigureAwait(true);
+                    }
+                    catch
+                    {
+                        // Timer refresh is advisory; status message is set inside RefreshAsync.
+                    }
+                });
+            },
             null,
             TimeSpan.Zero,
             TimeSpan.FromSeconds(12));

@@ -271,6 +271,24 @@ public sealed class OfflineSalesQueueService
                 .ConfigureAwait(false);
             return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, ex.Message);
         }
+        catch (Exception ex)
+        {
+            // Never leave the item stuck in SYNCING — return to PENDING (or quarantine after max retries).
+            _logger.LogError(ex, "Unexpected MRA sync failure for queue id {QueueId}; scheduling retry.", queueId);
+            await ScheduleRetryAsync(
+                    new OfflineInvoiceQueueItem
+                    {
+                        Id = queueId,
+                        PayloadJson = string.Empty,
+                        CreatedAt = DateTime.UtcNow,
+                        Status = OfflineQueueStatuses.Syncing,
+                        RetryCount = currentRetryCount
+                    },
+                    ex.Message,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, ex.Message);
+        }
     }
 
     private async Task<SubmitSalesTransactionRequest> PreparePayloadAsync(
@@ -325,7 +343,11 @@ public sealed class OfflineSalesQueueService
     }
 
     private static bool IsTransientFailure(Exception ex) =>
-        ex is HttpRequestException or TaskCanceledException or MraApiException { HttpStatusCode: >= 500 };
+        ex is HttpRequestException
+            or TaskCanceledException
+            or TimeoutException
+            or IOException
+            or MraApiException { HttpStatusCode: >= 500 or 408 or 429 };
 
     private static bool IsPermanentBusinessFailure(SalesResult<SubmitSalesTransactionResponseData> submit) =>
         submit.Errors?.Any(e => e.ErrorCode is >= 40000 and < 50000) == true;

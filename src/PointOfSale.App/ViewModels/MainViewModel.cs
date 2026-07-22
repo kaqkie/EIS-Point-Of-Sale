@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PointOfSale.App.Services;
@@ -15,6 +16,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITelemetryDiagnosticService _telemetry;
     private readonly ITerminalActivationService _activation;
     private readonly IFirstRunBootstrapService _firstRun;
+    private readonly DispatcherTimer _clockTimer;
 
     public MainViewModel(
         INavigationService navigationService,
@@ -38,55 +40,16 @@ public partial class MainViewModel : ObservableObject
         FirstRunSetup = firstRunSetupViewModel;
 
         _navigationService.CurrentViewModelChanged += (_, _) => CurrentViewModel = _navigationService.CurrentViewModel;
-        _connectionStatusService.StatusChanged += (_, _) => RefreshConnectionState();
-        _firstRun.FirstRunStatusChanged += (_, _) =>
-        {
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher is null || dispatcher.CheckAccess())
-            {
-                RefreshActivationState();
-            }
-            else
-            {
-                dispatcher.Invoke(RefreshActivationState);
-            }
-        };
-        _activation.ActivationStatusChanged += (_, _) =>
-        {
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher is null || dispatcher.CheckAccess())
-            {
-                RefreshActivationState();
-            }
-            else
-            {
-                dispatcher.Invoke(RefreshActivationState);
-            }
-        };
-        _telemetry.HealthChanged += (_, snapshot) =>
-        {
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher is null || dispatcher.CheckAccess())
-            {
-                ApplyHealthSnapshot(snapshot);
-            }
-            else
-            {
-                dispatcher.Invoke(() => ApplyHealthSnapshot(snapshot));
-            }
-        };
-        _auth.SessionChanged += (_, _) =>
-        {
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher is null || dispatcher.CheckAccess())
-            {
-                RefreshAuthState();
-            }
-            else
-            {
-                dispatcher.Invoke(RefreshAuthState);
-            }
-        };
+        _connectionStatusService.StatusChanged += (_, _) => Dispatch(RefreshConnectionState);
+        _firstRun.FirstRunStatusChanged += (_, _) => Dispatch(RefreshActivationState);
+        _activation.ActivationStatusChanged += (_, _) => Dispatch(RefreshActivationState);
+        _telemetry.HealthChanged += (_, snapshot) => Dispatch(() => ApplyHealthSnapshot(snapshot));
+        _auth.SessionChanged += (_, _) => Dispatch(RefreshAuthState);
+
+        _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _clockTimer.Tick += (_, _) => TickClock();
+        TickClock();
+        _clockTimer.Start();
 
         RefreshConnectionState();
         RefreshActivationState();
@@ -213,6 +176,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _healthWarningText = string.Empty;
 
+    [ObservableProperty]
+    private string _currentDateTimeText = string.Empty;
+
     [RelayCommand(CanExecute = nameof(CanCheckout))]
     private void NavigateCheckout() => _navigationService.NavigateTo<CheckoutViewModel>();
 
@@ -314,6 +280,21 @@ public partial class MainViewModel : ObservableObject
         IsOnline = _connectionStatusService.IsOnline;
         IsMraReachable = _connectionStatusService.IsMraReachable;
         ConnectionStatusText = _connectionStatusService.StatusText;
+    }
+
+    private void TickClock() =>
+        CurrentDateTimeText = DateTime.Now.ToString("dddd, dd MMM yyyy  HH:mm:ss");
+
+    private static void Dispatch(Action action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        dispatcher.Invoke(action);
     }
 
     private void ApplyHealthSnapshot(SystemHealthSnapshot? snapshot)

@@ -17,7 +17,8 @@
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
                     <Button Content="Refresh" Style="{StaticResource Art.Button.Secondary}" Command="{Binding RefreshOverviewCommand}" Margin="0,0,8,0" />
                     <Button Content="Hardware" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenHardwareCommand}" Margin="0,0,8,0" />
-                    <Button Content="Compliance audit" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenComplianceAuditCommand}" />
+                    <Button Content="Compliance audit" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenComplianceAuditCommand}" Margin="0,0,8,0" />
+                    <Button Content="Sign out" Style="{StaticResource Art.Button.Danger}" Command="{Binding SignOutCommand}" />
                 </StackPanel>
             </DockPanel>
         </Border>

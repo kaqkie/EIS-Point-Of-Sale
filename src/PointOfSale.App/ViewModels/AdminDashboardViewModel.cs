@@ -241,6 +241,12 @@ public partial class AdminDashboardViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task SignOutAsync()
+    {
+        await _auth.SignOutAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
     private void OpenInventory() => _navigation.NavigateTo<InventoryViewModel>();
 
     [RelayCommand]
