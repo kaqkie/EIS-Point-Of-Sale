@@ -117,6 +117,7 @@ public partial class App : Application
 
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
                 services.AddSingleton<ITelemetryDiagnosticService, TelemetryDiagnosticService>();
+                services.AddSingleton<ISystemHealthMonitorService, SystemHealthMonitorService>();
                 services.AddSingleton<GlobalExceptionHandler>();
                 services.AddSingleton<IProductionSecretGuard, ProductionSecretGuard>();
                 services.AddSingleton<IThermalPrinterHardwareService, ThermalPrinterHardwareService>();
@@ -165,6 +166,7 @@ public partial class App : Application
                 services.AddTransient<ISupplierInvoiceReconciliationService, SupplierInvoiceReconciliationService>();
                 services.AddHostedService<InventoryAlertBackgroundService>();
                 services.AddHostedService<HealthCheckWorker>();
+                services.AddHostedService<SystemHealthMonitorBackgroundService>();
                 services.AddSingleton<IPerformanceProfilingService, PerformanceProfilingService>();
                 services.AddTransient<IEnterpriseMaintenanceService, EnterpriseMaintenanceService>();
                 services.AddHostedService<PerformanceProfilingBackgroundService>();
@@ -196,6 +198,7 @@ public partial class App : Application
                 services.AddTransient<GoodsReceiptView>();
                 services.AddTransient<SupplierInvoiceReconciliationView>();
                 services.AddTransient<SystemDiagnosticsView>();
+                services.AddTransient<SystemHealthDashboardView>();
                 services.AddTransient<EndofDaySummaryView>();
                 services.AddTransient<FiscalRolloverView>();
                 services.AddTransient<TerminalProvisioningView>();
@@ -233,6 +236,7 @@ public partial class App : Application
                 services.AddTransient<GoodsReceiptViewModel>();
                 services.AddTransient<SupplierInvoiceReconciliationViewModel>();
                 services.AddTransient<SystemDiagnosticsViewModel>();
+                services.AddTransient<SystemHealthDashboardViewModel>();
                 services.AddTransient<EndofDaySummaryViewModel>();
                 services.AddTransient<FiscalRolloverViewModel>();
                 services.AddTransient<TerminalProvisioningViewModel>();

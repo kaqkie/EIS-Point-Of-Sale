@@ -146,6 +146,10 @@
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateSystemDiagnosticsCommand}"
                                     Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Health"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateSystemHealthCommand}"
+                                    Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}" />
                             <Button Content="End of Day"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateEndOfDayCommand}"

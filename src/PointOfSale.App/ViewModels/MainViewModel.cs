@@ -264,6 +264,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSystemDiagnostics))]
     private void NavigateSystemDiagnostics() => _navigationService.NavigateTo<SystemDiagnosticsViewModel>();
 
+    [RelayCommand(CanExecute = nameof(CanSystemDiagnostics))]
+    private void NavigateSystemHealth() => _navigationService.NavigateTo<SystemHealthDashboardViewModel>();
+
     [RelayCommand(CanExecute = nameof(CanEndOfDay))]
     private void NavigateEndOfDay() => _navigationService.NavigateTo<EndofDaySummaryViewModel>();
 
@@ -406,6 +409,7 @@ public partial class MainViewModel : ObservableObject
         NavigateGoodsReceiptCommand.NotifyCanExecuteChanged();
         NavigateSupplierReconCommand.NotifyCanExecuteChanged();
         NavigateSystemDiagnosticsCommand.NotifyCanExecuteChanged();
+        NavigateSystemHealthCommand.NotifyCanExecuteChanged();
         NavigateEndOfDayCommand.NotifyCanExecuteChanged();
         NavigateFiscalRolloverCommand.NotifyCanExecuteChanged();
         NavigateTerminalProvisioningCommand.NotifyCanExecuteChanged();

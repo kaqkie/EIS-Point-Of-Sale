@@ -1105,6 +1105,26 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
                 VALUES (N'Schema.Phase35Applied', N'true', GETUTCDATE());
             END;
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.Configurations WHERE ConfigKey = N'Schema.Phase36Applied')
+            BEGIN
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Health.MonitorEnabled' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Health.MonitorEnabled', N'true', GETUTCDATE());
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Health.QueueBacklogWarnCount' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Health.QueueBacklogWarnCount', N'25', GETUTCDATE());
+
+                INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
+                VALUES (N'Schema.Phase36Applied', N'true', GETUTCDATE());
+            END;
             """;
 
         await using var command = connection.CreateCommand();

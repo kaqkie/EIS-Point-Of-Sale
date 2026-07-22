@@ -136,6 +136,12 @@
     <None Include="..\..\Database\MigrationScripts\014_FirstRunSetupWizard.sql" Link="Database\MigrationScripts\014_FirstRunSetupWizard.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\023_SystemHealthMonitor.sql" Link="Scripts\023_SystemHealthMonitor.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Database\MigrationScripts\015_SystemHealthMonitor.sql" Link="Database\MigrationScripts\015_SystemHealthMonitor.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

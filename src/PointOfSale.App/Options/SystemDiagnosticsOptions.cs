@@ -16,6 +16,12 @@ public sealed class SystemDiagnosticsOptions
     /// <summary>Warn when SQL round-trip exceeds this many milliseconds.</summary>
     public int DatabaseLatencyWarnMs { get; set; } = 1500;
 
+    /// <summary>Warn when pending+syncing offline invoices exceed this count.</summary>
+    public int QueueBacklogWarnCount { get; set; } = 25;
+
+    /// <summary>Minimum seconds between identical health alert codes.</summary>
+    public int HealthAlertCooldownSeconds { get; set; } = 120;
+
     /// <summary>Days to retain DiagnosticTelemetryEvents rows.</summary>
     public int TelemetryRetentionDays { get; set; } = 21;
 
