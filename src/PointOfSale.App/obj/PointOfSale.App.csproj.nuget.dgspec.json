@@ -10,7 +10,7 @@
         "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj",
         "projectName": "AlbertRetailTerminal",
         "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\PointOfSale.App.csproj",
-        "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget",
+        "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
         "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.App\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -137,7 +137,7 @@
         "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj",
         "projectName": "PointOfSale.Core",
         "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj",
-        "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget",
+        "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
         "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -205,7 +205,7 @@
         "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj",
         "projectName": "PointOfSale.Infrastructure",
         "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj",
-        "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget",
+        "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
         "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -326,7 +326,7 @@
         "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj",
         "projectName": "PointOfSale.Mra",
         "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj",
-        "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8d334819877c56cdd6650b6e3a1ce650\\nuget",
+        "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
         "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [

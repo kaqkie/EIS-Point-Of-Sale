@@ -26,6 +26,7 @@ public interface IPurchaseOrderRepository
     Task MarkExportedAsync(long poId, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(long poId, string status, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PurchaseOrder>> GetRecentAsync(int take = 50, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PurchaseOrder>> GetReceivableAsync(CancellationToken cancellationToken = default);
     Task<PurchaseOrder?> GetByIdAsync(long poId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PurchaseOrderLine>> GetLinesAsync(long poId, CancellationToken cancellationToken = default);
 }
@@ -337,6 +338,24 @@ public sealed class PurchaseOrderRepository : IPurchaseOrderRepository
             .ConfigureAwait(false);
         var rows = await connection.QueryAsync<PurchaseOrder>(
                 new CommandDefinition(sql, new { Take = Math.Clamp(take, 1, 200) }, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+        return rows.AsList();
+    }
+
+    public async Task<IReadOnlyList<PurchaseOrder>> GetReceivableAsync(CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT PoId, PoNumber, SupplierCode, SupplierName, Status, LineCount, TotalQuantity,
+                   TotalEstimatedCost, OperatorUsername, Notes, SummaryText, GeneratedAtUtc, ExportedAtUtc
+            FROM dbo.PurchaseOrders
+            WHERE Status IN ('ReadyForSignOff', 'Exported', 'PartiallyReceived')
+            ORDER BY GeneratedAtUtc DESC, PoId DESC;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var rows = await connection.QueryAsync<PurchaseOrder>(
+                new CommandDefinition(sql, cancellationToken: cancellationToken))
             .ConfigureAwait(false);
         return rows.AsList();
     }

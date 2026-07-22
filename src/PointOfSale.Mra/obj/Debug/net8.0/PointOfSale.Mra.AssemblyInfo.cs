@@ -10,13 +10,14 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("PointOfSale.Mra")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("Albert Retail")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright © Albert Retail")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute(("MRA EIS API integration — onboarding, configuration, and shared HTTP/HMAC infrast" +
     "ructure."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ff4d02315c526c37e4e04584d855f8147fd2c4ce")]
-[assembly: System.Reflection.AssemblyProductAttribute("PointOfSale.Mra")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bd335182e03450d14e5756e50994e533a71bce8a")]
+[assembly: System.Reflection.AssemblyProductAttribute("Albert Retail Terminal")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PointOfSale.Mra")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 

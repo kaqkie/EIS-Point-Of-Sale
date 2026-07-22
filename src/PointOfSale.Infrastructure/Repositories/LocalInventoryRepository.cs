@@ -19,6 +19,17 @@ public interface ILocalInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Posts a goods receipt: increases stock, updates weighted-average cost and optional retail price.
+    /// </summary>
+    Task ApplyGoodsReceiptAsync(
+        string productCode,
+        decimal goodQtyReceived,
+        decimal unitCost,
+        decimal newAverageUnitCost,
+        decimal? newRetailPrice,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Applies a head-office catalog row. Master fields always win; stock is preserved when
     /// <paramref name="preserveLocalStock"/> is true (active sales shift / transaction integrity).
     /// Local reorder thresholds and supplier assignment are preserved on match.
@@ -34,7 +45,7 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
     private const string SelectColumns = """
         ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId,
         CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc,
-        MinReorderQty, MaxStockCapacity, SupplierCode, SupplierName
+        MinReorderQty, MaxStockCapacity, SupplierCode, SupplierName, AverageUnitCost, MarkupPercent
         """;
 
     private readonly ISqlConnectionFactory _connectionFactory;
@@ -115,14 +126,16 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
                     MinReorderQty = @MinReorderQty,
                     MaxStockCapacity = @MaxStockCapacity,
                     SupplierCode = @SupplierCode,
-                    SupplierName = @SupplierName
+                    SupplierName = @SupplierName,
+                    AverageUnitCost = @AverageUnitCost,
+                    MarkupPercent = @MarkupPercent
             WHEN NOT MATCHED THEN
                 INSERT (ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId,
                         CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc,
-                        MinReorderQty, MaxStockCapacity, SupplierCode, SupplierName)
+                        MinReorderQty, MaxStockCapacity, SupplierCode, SupplierName, AverageUnitCost, MarkupPercent)
                 VALUES (@ProductId, @ProductCode, @Name, @UnitPrice, @StockQuantity, @HsCode, @UnitOfMeasure, @TaxRateId,
                         ISNULL(@CatalogSource, N'Local'), @HeadOfficeRevisionUtc, @LastReplicatedAtUtc,
-                        @MinReorderQty, @MaxStockCapacity, @SupplierCode, @SupplierName);
+                        @MinReorderQty, @MaxStockCapacity, @SupplierCode, @SupplierName, @AverageUnitCost, @MarkupPercent);
             """;
 
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
@@ -163,6 +176,43 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
                     },
                     cancellationToken: cancellationToken))
             .ConfigureAwait(false);
+    }
+
+    public async Task ApplyGoodsReceiptAsync(
+        string productCode,
+        decimal goodQtyReceived,
+        decimal unitCost,
+        decimal newAverageUnitCost,
+        decimal? newRetailPrice,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE dbo.LocalInventory
+            SET StockQuantity = StockQuantity + @GoodQty,
+                AverageUnitCost = @NewAverageUnitCost,
+                UnitPrice = COALESCE(@NewRetailPrice, UnitPrice)
+            WHERE ProductCode = @ProductCode;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var rows = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    sql,
+                    new
+                    {
+                        ProductCode = productCode,
+                        GoodQty = goodQtyReceived,
+                        NewAverageUnitCost = newAverageUnitCost,
+                        NewRetailPrice = newRetailPrice
+                    },
+                    cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+
+        if (rows == 0)
+        {
+            throw new InvalidOperationException($"Product '{productCode}' was not found for goods receipt.");
+        }
     }
 
     public async Task ApplyHeadOfficeCatalogAsync(
