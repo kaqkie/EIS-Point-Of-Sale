@@ -207,3 +207,5 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-wi
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\011_GoodsReceiptAndReconciliation.sql
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\012_SystemDiagnostics.sql
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\013_FinancialClosure.sql
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\014_FiscalYearArchive.sql
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\obj\Release\net8.0-windows\PointOfSale.Tests.sourcelink.json

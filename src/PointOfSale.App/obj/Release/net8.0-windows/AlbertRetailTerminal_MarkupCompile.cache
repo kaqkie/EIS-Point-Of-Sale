@@ -4,17 +4,17 @@
 winexe
 C#
 .cs
-C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\
 PointOfSale.App
 none
 false
 TRACE;RELEASE;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
-C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\App.xaml
-19966565445
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\App.xaml
+20-1877951167
 
-90-1533148446
-257495925954
-MainWindow.xaml;Views\AdminAnalyticsView.xaml;Views\BackupRecoveryView.xaml;Views\BarcodePrintingView.xaml;Views\CheckoutView.xaml;Views\ComplianceExportView.xaml;Views\CustomerLoyaltyView.xaml;Views\DiscountManagementView.xaml;Views\EndofDaySummaryView.xaml;Views\GoodsReceiptView.xaml;Views\HeadOfficeSyncView.xaml;Views\InventoryAlertsView.xaml;Views\InventoryView.xaml;Views\LoginView.xaml;Views\PurchaseOrderManagementView.xaml;Views\QueueSyncStatusView.xaml;Views\SupplierInvoiceReconciliationView.xaml;Views\SystemDiagnosticsView.xaml;Views\UserManagementView.xaml;
+96385970728
+257-2122317489
+MainWindow.xaml;Views\AdminAnalyticsView.xaml;Views\BackupRecoveryView.xaml;Views\BarcodePrintingView.xaml;Views\CheckoutView.xaml;Views\ComplianceExportView.xaml;Views\CustomerLoyaltyView.xaml;Views\DiscountManagementView.xaml;Views\EndofDaySummaryView.xaml;Views\FiscalRolloverView.xaml;Views\GoodsReceiptView.xaml;Views\HeadOfficeSyncView.xaml;Views\InventoryAlertsView.xaml;Views\InventoryView.xaml;Views\LoginView.xaml;Views\PurchaseOrderManagementView.xaml;Views\QueueSyncStatusView.xaml;Views\SupplierInvoiceReconciliationView.xaml;Views\SystemDiagnosticsView.xaml;Views\UserManagementView.xaml;
 
 False
 

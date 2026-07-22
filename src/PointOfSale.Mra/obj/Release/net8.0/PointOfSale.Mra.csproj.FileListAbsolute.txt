@@ -10,3 +10,4 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Rel
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Release\net8.0\refint\PointOfSale.Mra.dll
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Release\net8.0\PointOfSale.Mra.pdb
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Release\net8.0\ref\PointOfSale.Mra.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Release\net8.0\PointOfSale.Mra.sourcelink.json

@@ -16,3 +16,4 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastruct
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\obj\Release\net8.0\refint\PointOfSale.Infrastructure.dll
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\obj\Release\net8.0\PointOfSale.Infrastructure.pdb
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\obj\Release\net8.0\ref\PointOfSale.Infrastructure.dll
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\obj\Release\net8.0\PointOfSale.Infrastructure.sourcelink.json
