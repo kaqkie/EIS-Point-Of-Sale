@@ -173,3 +173,7 @@ C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Deb
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Debug\net8.0-windows\AlbertRetailTerminal.pdb
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Debug\net8.0-windows\PointOfSale.App.genruntimeconfig.cache
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Debug\net8.0-windows\ref\AlbertRetailTerminal.dll
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Debug\net8.0-windows\Scripts\015_PerformanceIndexOptimization.sql
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Debug\net8.0-windows\Database\MigrationScripts\007_PerformanceIndexOptimization.sql
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Debug\net8.0-windows\Views\DatabaseMaintenanceView.baml
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Debug\net8.0-windows\Views\DatabaseMaintenanceView.g.cs

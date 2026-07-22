@@ -212,4 +212,5 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\obj\Release\net8.0-wi
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Castle.Core.dll
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Moq.dll
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\015_PerformanceIndexOptimization.sql
-C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Database\MigrationScripts\007_PerformanceIndexOptimization.sql
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Database\MigrationScripts\008_ComplianceAuditChain.sql
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\016_ComplianceAuditChain.sql

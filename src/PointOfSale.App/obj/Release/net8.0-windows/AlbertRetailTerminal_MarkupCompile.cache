@@ -10,11 +10,11 @@ none
 false
 TRACE;RELEASE;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\App.xaml
-24-1920641963
+25228466467
 
-114-1248711620
+118-900351551
 257495925954
-MainWindow.xaml;Views\AdminAnalyticsView.xaml;Views\BackupRecoveryView.xaml;Views\BarcodePrintingView.xaml;Views\CheckoutView.xaml;Views\ComplianceExportView.xaml;Views\CustomerLoyaltyView.xaml;Views\DatabaseMaintenanceView.xaml;Views\DiscountManagementView.xaml;Views\EndofDaySummaryView.xaml;Views\EnterpriseMaintenanceView.xaml;Views\FiscalRolloverView.xaml;Views\GoodsReceiptView.xaml;Views\HeadOfficeSyncView.xaml;Views\InventoryAlertsView.xaml;Views\InventoryView.xaml;Views\LoginView.xaml;Views\PurchaseOrderManagementView.xaml;Views\QueueSyncStatusView.xaml;Views\SupplierInvoiceReconciliationView.xaml;Views\SystemDiagnosticsView.xaml;Views\TerminalProvisioningView.xaml;Views\TestRunnerDashboardView.xaml;Views\UserManagementView.xaml;
+MainWindow.xaml;Views\AdminAnalyticsView.xaml;Views\BackupRecoveryView.xaml;Views\BarcodePrintingView.xaml;Views\CheckoutView.xaml;Views\ComplianceAuditView.xaml;Views\ComplianceExportView.xaml;Views\CustomerLoyaltyView.xaml;Views\DatabaseMaintenanceView.xaml;Views\DiscountManagementView.xaml;Views\EndofDaySummaryView.xaml;Views\EnterpriseMaintenanceView.xaml;Views\FiscalRolloverView.xaml;Views\GoodsReceiptView.xaml;Views\HeadOfficeSyncView.xaml;Views\InventoryAlertsView.xaml;Views\InventoryView.xaml;Views\LoginView.xaml;Views\PurchaseOrderManagementView.xaml;Views\QueueSyncStatusView.xaml;Views\SupplierInvoiceReconciliationView.xaml;Views\SystemDiagnosticsView.xaml;Views\TerminalProvisioningView.xaml;Views\TestRunnerDashboardView.xaml;Views\UserManagementView.xaml;
 
 False
 

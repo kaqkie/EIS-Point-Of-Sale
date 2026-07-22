@@ -1,7 +1,6 @@
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\bin\Debug\net8.0\PointOfSale.Mra.deps.json
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\bin\Debug\net8.0\PointOfSale.Mra.dll
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\bin\Debug\net8.0\PointOfSale.Mra.pdb
-C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Debug\net8.0\PointOfSale.Mra.csproj.AssemblyReference.cache
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Debug\net8.0\PointOfSale.Mra.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Debug\net8.0\PointOfSale.Mra.AssemblyInfoInputs.cache
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Mra\obj\Debug\net8.0\PointOfSale.Mra.AssemblyInfo.cs
