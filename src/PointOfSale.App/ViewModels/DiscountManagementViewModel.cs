@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PointOfSale.App.Services;
 using PointOfSale.Core.Entities;
+using PointOfSale.Core.Pricing;
 using PointOfSale.Core.Security;
 using PointOfSale.Infrastructure.Repositories;
 
@@ -177,7 +178,7 @@ public partial class DiscountManagementViewModel : ObservableObject
                     CategoryCode = "T",
                     UnitPrice = 1000m,
                     Quantity = 3,
-                    VatRatePercent = 17.5m
+                    VatRatePercent = PosTaxCalculator.MalawiStandardVatRatePercent
                 }
             };
             var result = await _pricingEngine.EvaluateAsync(sample).ConfigureAwait(true);
