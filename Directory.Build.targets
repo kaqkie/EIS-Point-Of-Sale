@@ -1,0 +1,6 @@
+<Project>
+  <!-- Ensure WPF host runs with project directory as cwd (appsettings, Scripts, logs). -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'PointOfSale.App'">
+    <RunWorkingDirectory>$(MSBuildProjectDirectory)</RunWorkingDirectory>
+  </PropertyGroup>
+</Project>

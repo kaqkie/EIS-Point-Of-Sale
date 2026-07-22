@@ -8,5 +8,24 @@
     <Product>Albert Retail Terminal</Product>
     <Authors>Albert Retail</Authors>
     <Copyright>Copyright © Albert Retail</Copyright>
+
+    <!-- Repository root (this file lives at solution root). -->
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</RepoRoot>
+    <ArtifactsDir>$(RepoRoot)artifacts\</ArtifactsDir>
+    <AppProject>$(RepoRoot)src\PointOfSale.App\PointOfSale.App.csproj</AppProject>
+  </PropertyGroup>
+
+  <!-- Centralize bin/obj under artifacts/ to reduce file-lock churn during parallel builds. -->
+  <PropertyGroup>
+    <_UseArtifactsOutput Condition="'$(_UseArtifactsOutput)' == ''">true</_UseArtifactsOutput>
+    <_UseArtifactsOutput Condition="$(MSBuildProjectName.Contains('_wpftmp'))">false</_UseArtifactsOutput>
+    <_UseArtifactsOutput Condition="'$(MSBuildProjectName)' == 'AlbertRetailTerminal.Host'">false</_UseArtifactsOutput>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(_UseArtifactsOutput)' == 'true' and '$(MSBuildProjectExtension)' == '.csproj'">
+    <BaseOutputPath>$(ArtifactsDir)bin\$(MSBuildProjectName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(ArtifactsDir)obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <!-- After relocating obj/bin, SDK excludes only the new paths; keep legacy folders out of @(Compile). -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\bin\**;$(MSBuildProjectDirectory)\obj\**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>
