@@ -374,6 +374,22 @@
         <Setter Property="CaretBrush" Value="{StaticResource Art.Brush.Accent}" />
     </Style>
 
+    <!-- Phase 41 — masked license key (XXXX-XXXX-XXXX-XXXX); danger border on format errors -->
+    <Style x:Key="Art.TextBox.LicenseKey" TargetType="TextBox" BasedOn="{StaticResource Art.TextBox}">
+        <Setter Property="FontFamily" Value="{StaticResource Art.Font.Mono}" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="MaxLength" Value="19" />
+        <Setter Property="CharacterCasing" Value="Upper" />
+        <Setter Property="ToolTip" Value="Format: XXXX-XXXX-XXXX-XXXX (A–Z / 0–9). Hyphens are inserted automatically." />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding HasLicenseKeyFormatError}" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource Art.Brush.Danger}" />
+                <Setter Property="BorderThickness" Value="2" />
+                <Setter Property="Background" Value="{StaticResource Art.Brush.DangerSoft}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="Art.Badge.Success" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Art.Brush.SuccessSoft}" />
         <Setter Property="CornerRadius" Value="8" />

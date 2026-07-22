@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -62,7 +61,7 @@ public sealed class TerminalActivationResult
 /// Validates Albert Retail Terminal software license keys (e.g. I4CV-M5YY-AKY6-Z9BT),
 /// persists activation in SQL Express + HKCU registry, and gates retail use until activated.
 /// </summary>
-public sealed partial class TerminalActivationService : ITerminalActivationService
+public sealed class TerminalActivationService : ITerminalActivationService
 {
     public const string ConfigActivatedKey = "Terminal.License.Activated";
     public const string ConfigPayloadKey = "Terminal.License.Payload";
@@ -218,11 +217,10 @@ public sealed partial class TerminalActivationService : ITerminalActivationServi
             return false;
         }
 
-        var cleaned = licenseKey.Trim().ToUpperInvariant().Replace('–', '-').Replace('—', '-');
-        cleaned = Regex.Replace(cleaned, @"\s+", string.Empty);
-        if (!LicenseKeyRegex().IsMatch(cleaned))
+        var cleaned = LicenseKeyInputFormatter.ApplyMask(licenseKey);
+        if (!LicenseKeyInputFormatter.IsExactFormat(cleaned))
         {
-            error = "License key must match ####-####-####-#### (A–Z / 0–9), e.g. I4CV-M5YY-AKY6-Z9BT.";
+            error = LicenseKeyInputFormatter.FormatErrorMessage;
             return false;
         }
 
@@ -403,9 +401,6 @@ public sealed partial class TerminalActivationService : ITerminalActivationServi
     };
 
     private void RaiseChanged() => ActivationStatusChanged?.Invoke(this, EventArgs.Empty);
-
-    [GeneratedRegex(@"^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$", RegexOptions.CultureInvariant)]
-    private static partial Regex LicenseKeyRegex();
 
     private sealed class LicensePayload
     {

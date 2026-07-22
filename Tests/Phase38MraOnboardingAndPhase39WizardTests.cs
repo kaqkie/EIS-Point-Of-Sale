@@ -36,15 +36,18 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
         Assert.False(CanGoNext(3, isBusy: false));
         Assert.True(CanGoNext(2, isBusy: false));
         Assert.False(CanGoNext(1, isBusy: true));
-        Assert.True(CanFinish(3, isBusy: false));
-        Assert.False(CanFinish(3, isBusy: true));
-        Assert.False(CanFinish(2, isBusy: false));
+        // Phase 41 — Finish also requires exact XXXX-XXXX-XXXX-XXXX format.
+        Assert.True(CanFinish(3, isBusy: false, formatValid: true));
+        Assert.False(CanFinish(3, isBusy: false, formatValid: false));
+        Assert.False(CanFinish(3, isBusy: true, formatValid: true));
+        Assert.False(CanFinish(2, isBusy: false, formatValid: true));
 
         static bool IsFinal(int step) => step >= FirstRunSetupViewModel.FinalWizardStep;
         static bool IsNextVisible(int step) => !IsFinal(step);
         static bool IsFinishVisible(int step) => IsFinal(step);
         static bool CanGoNext(int step, bool isBusy) => IsNextVisible(step) && !isBusy;
-        static bool CanFinish(int step, bool isBusy) => IsFinishVisible(step) && !isBusy;
+        static bool CanFinish(int step, bool isBusy, bool formatValid) =>
+            IsFinishVisible(step) && !isBusy && formatValid;
     }
 
     [Fact]

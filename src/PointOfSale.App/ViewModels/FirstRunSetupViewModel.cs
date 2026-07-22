@@ -5,9 +5,8 @@ using PointOfSale.App.Services;
 namespace PointOfSale.App.ViewModels;
 
 /// <summary>
-/// Phase 35/39/40 light-themed first-run onboarding wizard for store managers.
-/// Dynamic stepper actions: intermediate steps expose Next; Step 3 collapses Next and
-/// promotes Finish setup as the sole primary CTA (activation + SQL Express persistence).
+/// Phase 35/39/40/41 first-run onboarding wizard. Step 3 uses masked license key input
+/// (auto-hyphen, uppercase, exact <c>XXXX-XXXX-XXXX-XXXX</c> regex) before Finish setup.
 /// </summary>
 public partial class FirstRunSetupViewModel : ObservableObject
 {
@@ -17,6 +16,7 @@ public partial class FirstRunSetupViewModel : ObservableObject
     private readonly IFirstRunBootstrapService _bootstrap;
     private readonly ITerminalActivationService _activation;
     private readonly IMraOnboardingService _mraOnboarding;
+    private bool _isFormattingLicenseKey;
 
     public FirstRunSetupViewModel(
         IFirstRunBootstrapService bootstrap,
@@ -33,6 +33,18 @@ public partial class FirstRunSetupViewModel : ObservableObject
 
     public string SampleLicenseHint => TerminalActivationService.SampleLicenseKey;
 
+    public string LicenseKeyPlaceholder => LicenseKeyInputFormatter.Placeholder;
+
+    public bool IsLicenseKeyEmpty => string.IsNullOrEmpty(LicenseKey);
+
+    public bool IsLicenseKeyFormatValid => LicenseKeyInputFormatter.IsExactFormat(LicenseKey);
+
+    public bool HasLicenseKeyFormatError => LicenseKeyInputFormatter.ShouldShowFormatError(LicenseKey);
+
+    public bool IsLicenseKeyIncomplete => LicenseKeyInputFormatter.IsIncomplete(LicenseKey);
+
+    public string? LicenseKeyFormatFeedback => LicenseKeyInputFormatter.GetLiveFeedbackMessage(LicenseKey);
+
     /// <summary>True on Step 3 of 3 (License Activation &amp; Finalization).</summary>
     public bool IsFinalStep => WizardStep >= FinalWizardStep;
 
@@ -45,8 +57,8 @@ public partial class FirstRunSetupViewModel : ObservableObject
     /// <summary>True while intermediate wizard steps allow forward navigation.</summary>
     public bool CanGoNext => IsNextButtonVisible && !IsBusy;
 
-    /// <summary>Finish is enabled on the final step when the wizard is idle.</summary>
-    public bool CanFinish => IsFinishButtonVisible && !IsBusy;
+    /// <summary>Finish requires an exact-format activation key on the final step.</summary>
+    public bool CanFinish => IsFinishButtonVisible && !IsBusy && IsLicenseKeyFormatValid;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsFinalStep))]
@@ -71,6 +83,12 @@ public partial class FirstRunSetupViewModel : ObservableObject
     private string _mraEnvironment = "Sandbox";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLicenseKeyEmpty))]
+    [NotifyPropertyChangedFor(nameof(IsLicenseKeyFormatValid))]
+    [NotifyPropertyChangedFor(nameof(HasLicenseKeyFormatError))]
+    [NotifyPropertyChangedFor(nameof(IsLicenseKeyIncomplete))]
+    [NotifyPropertyChangedFor(nameof(LicenseKeyFormatFeedback))]
+    [NotifyPropertyChangedFor(nameof(CanFinish))]
     private string _licenseKey = string.Empty;
 
     [ObservableProperty]
@@ -97,6 +115,30 @@ public partial class FirstRunSetupViewModel : ObservableObject
 
     /// <summary>Dynamic primary action label for the stepper footer.</summary>
     public string PrimaryActionCaption => IsFinalStep ? "Finish setup" : "Next";
+
+    partial void OnLicenseKeyChanged(string value)
+    {
+        if (_isFormattingLicenseKey)
+        {
+            return;
+        }
+
+        var formatted = LicenseKeyInputFormatter.ApplyMask(value);
+        if (!string.Equals(formatted, value, StringComparison.Ordinal))
+        {
+            _isFormattingLicenseKey = true;
+            try
+            {
+                LicenseKey = formatted;
+            }
+            finally
+            {
+                _isFormattingLicenseKey = false;
+            }
+        }
+
+        FinishCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand]
     private async Task InitializeAsync()
@@ -154,7 +196,7 @@ public partial class FirstRunSetupViewModel : ObservableObject
         {
             1 => "Name this counter and assign the branch / outlet code.",
             2 => "Select the MRA EIS endpoint environment for this store.",
-            3 => "Enter the activation key, then choose Finish setup.",
+            3 => "Enter the activation key (XXXX-XXXX-XXXX-XXXX), then choose Finish setup.",
             _ => StatusMessage
         };
 
@@ -208,10 +250,10 @@ public partial class FirstRunSetupViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(LicenseKey))
+        if (!LicenseKeyInputFormatter.IsExactFormat(LicenseKey))
         {
             WizardStep = FinalWizardStep;
-            StatusMessage = "An activation key is required to complete first-run setup.";
+            StatusMessage = LicenseKeyInputFormatter.FormatErrorMessage;
             return;
         }
 
@@ -222,7 +264,7 @@ public partial class FirstRunSetupViewModel : ObservableObject
         try
         {
             var mra = await _mraOnboarding
-                .ActivateAndConfirmAsync(LicenseKey.Trim(), BranchId.Trim())
+                .ActivateAndConfirmAsync(LicenseKey, BranchId.Trim())
                 .ConfigureAwait(true);
             if (!mra.Success)
             {
@@ -240,7 +282,7 @@ public partial class FirstRunSetupViewModel : ObservableObject
                         BranchId = BranchId.Trim(),
                         SiteId = string.IsNullOrWhiteSpace(SiteId) ? null : SiteId.Trim(),
                         MraEnvironment = MraEnvironment,
-                        LicenseKey = LicenseKey.Trim()
+                        LicenseKey = LicenseKey
                     })
                 .ConfigureAwait(true);
 

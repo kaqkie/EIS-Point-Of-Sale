@@ -5,13 +5,14 @@ using PointOfSale.App.Services;
 namespace PointOfSale.App.ViewModels;
 
 /// <summary>
-/// Phase 40 light-themed terminal activation — ART license + MRA EIS onboarding
-/// with sandbox/mock endpoint error handling and encrypted TerminalCredentials persistence.
+/// Phase 40/41 terminal activation — ART license + MRA EIS onboarding with
+/// masked license key input (auto-hyphen, uppercase, exact format regex).
 /// </summary>
 public partial class ActivationViewModel : ObservableObject
 {
     private readonly ITerminalActivationService _activation;
     private readonly IMraOnboardingService _mraOnboarding;
+    private bool _isFormattingLicenseKey;
 
     public ActivationViewModel(
         ITerminalActivationService activation,
@@ -22,7 +23,27 @@ public partial class ActivationViewModel : ObservableObject
         _ = RefreshAsync();
     }
 
+    public string LicenseKeyPlaceholder => LicenseKeyInputFormatter.Placeholder;
+
+    public bool IsLicenseKeyEmpty => string.IsNullOrEmpty(LicenseKey);
+
+    public bool IsLicenseKeyFormatValid => LicenseKeyInputFormatter.IsExactFormat(LicenseKey);
+
+    public bool HasLicenseKeyFormatError => LicenseKeyInputFormatter.ShouldShowFormatError(LicenseKey);
+
+    public bool IsLicenseKeyIncomplete => LicenseKeyInputFormatter.IsIncomplete(LicenseKey);
+
+    public string? LicenseKeyFormatFeedback => LicenseKeyInputFormatter.GetLiveFeedbackMessage(LicenseKey);
+
+    public bool CanActivate => !IsBusy && IsLicenseKeyFormatValid;
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLicenseKeyEmpty))]
+    [NotifyPropertyChangedFor(nameof(IsLicenseKeyFormatValid))]
+    [NotifyPropertyChangedFor(nameof(HasLicenseKeyFormatError))]
+    [NotifyPropertyChangedFor(nameof(IsLicenseKeyIncomplete))]
+    [NotifyPropertyChangedFor(nameof(LicenseKeyFormatFeedback))]
+    [NotifyPropertyChangedFor(nameof(CanActivate))]
     private string _licenseKey = string.Empty;
 
     [ObservableProperty]
@@ -30,6 +51,7 @@ public partial class ActivationViewModel : ObservableObject
         "Enter your Albert Retail Terminal activation key to bind this register to MRA EIS and unlock sign-in.";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanActivate))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -47,6 +69,30 @@ public partial class ActivationViewModel : ObservableObject
     [ObservableProperty]
     private bool _usedSandboxFallback;
 
+    partial void OnLicenseKeyChanged(string value)
+    {
+        if (_isFormattingLicenseKey)
+        {
+            return;
+        }
+
+        var formatted = LicenseKeyInputFormatter.ApplyMask(value);
+        if (!string.Equals(formatted, value, StringComparison.Ordinal))
+        {
+            _isFormattingLicenseKey = true;
+            try
+            {
+                LicenseKey = formatted;
+            }
+            finally
+            {
+                _isFormattingLicenseKey = false;
+            }
+        }
+
+        ActivateCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand]
     private async Task RefreshAsync()
     {
@@ -63,7 +109,7 @@ public partial class ActivationViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanActivate))]
     private async Task ActivateAsync()
     {
         if (IsBusy)
@@ -72,13 +118,14 @@ public partial class ActivationViewModel : ObservableObject
         }
 
         IsBusy = true;
+        ActivateCommand.NotifyCanExecuteChanged();
         UsedSandboxFallback = false;
         StatusMessage = "Validating activation key and contacting MRA EIS onboarding (activate-terminal)…";
         try
         {
             if (!_activation.ValidateLicenseKeyFormat(LicenseKey, out var normalized, out var formatError))
             {
-                StatusMessage = formatError ?? "Invalid activation key format.";
+                StatusMessage = formatError ?? LicenseKeyInputFormatter.FormatErrorMessage;
                 return;
             }
 
@@ -121,11 +168,14 @@ public partial class ActivationViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            ActivateCommand.NotifyCanExecuteChanged();
         }
     }
 
     [RelayCommand]
     private void PasteSampleKey() => LicenseKey = TerminalActivationService.SampleLicenseKey;
+
+    partial void OnIsBusyChanged(bool value) => ActivateCommand.NotifyCanExecuteChanged();
 
     private static string FormatFailure(MraOnboardingResult mra)
     {

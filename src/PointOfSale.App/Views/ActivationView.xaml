@@ -41,12 +41,32 @@
                            Margin="0,0,0,20" />
 
                 <TextBlock Text="Activation key" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
-                <TextBox Text="{Binding LicenseKey, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource Art.TextBox}"
-                         FontFamily="{StaticResource Art.Font.Mono}"
-                         FontSize="18"
-                         CharacterCasing="Upper"
-                         Margin="0,0,0,10" />
+                <Grid Margin="0,0,0,4">
+                    <TextBox Text="{Binding LicenseKey, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource Art.TextBox.LicenseKey}"
+                             MaxLength="19"
+                             CharacterCasing="Upper" />
+                    <TextBlock Text="{Binding LicenseKeyPlaceholder}"
+                               FontFamily="{StaticResource Art.Font.Mono}"
+                               FontSize="18"
+                               Foreground="{StaticResource Art.Brush.TextMuted}"
+                               Opacity="0.55"
+                               Margin="12,0,0,0"
+                               VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               Visibility="{Binding IsLicenseKeyEmpty, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </Grid>
+                <TextBlock Text="{Binding LicenseKeyFormatFeedback}"
+                           Style="{StaticResource Art.Text.Caption}"
+                           Foreground="{StaticResource Art.Brush.Danger}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8"
+                           Visibility="{Binding HasLicenseKeyFormatError, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <TextBlock Text="{Binding LicenseKeyFormatFeedback}"
+                           Style="{StaticResource Art.Text.Caption}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8"
+                           Visibility="{Binding IsLicenseKeyIncomplete, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
                 <DockPanel Margin="0,0,0,16">
                     <TextBlock Text="{Binding SampleHint, StringFormat='Format example: {0}'}"
@@ -64,7 +84,7 @@
                 <Button Content="Activate with MRA"
                         Style="{StaticResource Art.Button.Success}"
                         Command="{Binding ActivateCommand}"
-                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                        IsEnabled="{Binding CanActivate}"
                         Margin="0,0,0,14" />
 
                 <TextBlock Text="{Binding StatusMessage}"
