@@ -132,7 +132,7 @@
                                   Padding="8,6" />
                     </StackPanel>
 
-                    <!-- Step 3: License -->
+                    <!-- Step 3: License Activation & Finalization -->
                     <StackPanel>
                         <StackPanel.Style>
                             <Style TargetType="StackPanel">
@@ -148,7 +148,7 @@
                                    Style="{StaticResource Art.Text.Title}"
                                    FontSize="18"
                                    Margin="0,0,0,10" />
-                        <TextBlock Text="Enter the activation key, then choose Finish setup. Next is unavailable on this final step."
+                        <TextBlock Text="Enter the activation key, then choose Finish setup. Next is hidden on this final step so you cannot loop past activation."
                                    Style="{StaticResource Art.Text.Subtitle}"
                                    TextWrapping="Wrap"
                                    Margin="0,0,0,10" />
@@ -178,6 +178,7 @@
                                TextWrapping="Wrap"
                                Margin="0,18,0,16" />
 
+                    <!-- Phase 40: dynamic stepper actions — Next collapsed on final; Finish promoted -->
                     <DockPanel LastChildFill="False">
                         <Button Content="Back"
                                 Style="{StaticResource Art.Button.Ghost}"
@@ -186,41 +187,22 @@
                                 MinWidth="100"
                                 IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                            <!-- Phase 39: hide Next on final license step -->
                             <Button Content="Next"
+                                    Style="{StaticResource Art.Button.Secondary}"
                                     Command="{Binding NextStepCommand}"
                                     MinWidth="100"
                                     Margin="0,0,8,0"
-                                    IsEnabled="{Binding CanGoNext}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource Art.Button.Secondary}">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsFinalStep}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <!-- Phase 39: Finish is the primary CTA on the final step -->
+                                    Visibility="{Binding IsNextButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    IsEnabled="{Binding CanGoNext}" />
                             <Button Content="Finish setup"
+                                    Style="{StaticResource Art.Button.Success}"
                                     Command="{Binding FinishCommand}"
-                                    MinWidth="160"
-                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource Art.Button.Success}">
-                                        <Setter Property="FontSize" Value="14" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsFinalStep}" Value="True">
-                                                <Setter Property="MinWidth" Value="180" />
-                                                <Setter Property="FontWeight" Value="Bold" />
-                                                <Setter Property="Padding" Value="20,12" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
+                                    MinWidth="180"
+                                    FontSize="14"
+                                    FontWeight="Bold"
+                                    Padding="20,12"
+                                    Visibility="{Binding IsFinishButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    IsEnabled="{Binding CanFinish}" />
                         </StackPanel>
                     </DockPanel>
                 </StackPanel>

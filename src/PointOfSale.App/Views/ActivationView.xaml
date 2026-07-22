@@ -77,6 +77,12 @@
                 <TextBlock Text="{Binding MraTerminalId, StringFormat='MRA terminal: {0}', TargetNullValue=''}"
                            Style="{StaticResource Art.Text.Caption}"
                            Margin="0,4,0,0" />
+                <TextBlock Text="Sandbox/mock credentials stored (live EIS unavailable or returned a non-activation status)."
+                           Style="{StaticResource Art.Text.Caption}"
+                           Foreground="{StaticResource Art.Brush.AccentHover}"
+                           TextWrapping="Wrap"
+                           Margin="0,6,0,0"
+                           Visibility="{Binding UsedSandboxFallback, Converter={StaticResource BooleanToVisibilityConverter}}" />
             </StackPanel>
         </Border>
     </Grid>

@@ -5,7 +5,8 @@ using PointOfSale.App.Services;
 namespace PointOfSale.App.ViewModels;
 
 /// <summary>
-/// Phase 38 light-themed terminal activation — ART license + MRA EIS onboarding.
+/// Phase 40 light-themed terminal activation — ART license + MRA EIS onboarding
+/// with sandbox/mock endpoint error handling and encrypted TerminalCredentials persistence.
 /// </summary>
 public partial class ActivationViewModel : ObservableObject
 {
@@ -43,6 +44,9 @@ public partial class ActivationViewModel : ObservableObject
     [ObservableProperty]
     private string _sampleHint = TerminalActivationService.SampleLicenseKey;
 
+    [ObservableProperty]
+    private bool _usedSandboxFallback;
+
     [RelayCommand]
     private async Task RefreshAsync()
     {
@@ -68,7 +72,8 @@ public partial class ActivationViewModel : ObservableObject
         }
 
         IsBusy = true;
-        StatusMessage = "Validating activation key and contacting MRA EIS onboarding…";
+        UsedSandboxFallback = false;
+        StatusMessage = "Validating activation key and contacting MRA EIS onboarding (activate-terminal)…";
         try
         {
             if (!_activation.ValidateLicenseKeyFormat(LicenseKey, out var normalized, out var formatError))
@@ -87,11 +92,12 @@ public partial class ActivationViewModel : ObservableObject
             var mra = await _mraOnboarding.ActivateAndConfirmAsync(normalized).ConfigureAwait(true);
             if (!mra.Success)
             {
-                StatusMessage = mra.Message;
+                StatusMessage = FormatFailure(mra);
                 return;
             }
 
             MraTerminalId = mra.TerminalId;
+            UsedSandboxFallback = mra.UsedSandboxLocalFallback;
 
             var license = await _activation.ActivateAsync(normalized).ConfigureAwait(true);
             if (!license.Success)
@@ -104,7 +110,8 @@ public partial class ActivationViewModel : ObservableObject
             await RefreshAsync().ConfigureAwait(true);
 
             StatusMessage = mra.UsedSandboxLocalFallback
-                ? $"{license.Message} MRA sandbox credentials stored for terminal {mra.TerminalId}."
+                ? $"{license.Message} Sandbox/mock MRA path stored encrypted TerminalCredentials for {mra.TerminalId}."
+                  + FormatUpstreamHint(mra)
                 : $"{license.Message} MRA terminal {mra.TerminalId} confirmed — you can sign in.";
         }
         catch (Exception ex)
@@ -119,4 +126,24 @@ public partial class ActivationViewModel : ObservableObject
 
     [RelayCommand]
     private void PasteSampleKey() => LicenseKey = TerminalActivationService.SampleLicenseKey;
+
+    private static string FormatFailure(MraOnboardingResult mra)
+    {
+        if (mra.UpstreamHttpStatus is int http)
+        {
+            return $"{mra.Message} (HTTP {http})";
+        }
+
+        return mra.Message;
+    }
+
+    private static string FormatUpstreamHint(MraOnboardingResult mra)
+    {
+        if (mra.UpstreamHttpStatus is int http)
+        {
+            return $" Upstream EIS returned HTTP {http}.";
+        }
+
+        return string.Empty;
+    }
 }

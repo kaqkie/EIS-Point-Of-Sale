@@ -1,4 +1,7 @@
+using System.Net.Http;
 using PointOfSale.App.Services;
+using PointOfSale.App.ViewModels;
+using PointOfSale.Mra.Http;
 using Xunit;
 
 namespace PointOfSale.Tests;
@@ -23,27 +26,61 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
     [Fact]
     public void FirstRunWizard_FinalStepHidesNextAndPromotesFinish()
     {
-        // Constructing the VM hits infrastructure — assert pure step helpers via a lightweight stand-in.
+        Assert.Equal(3, FirstRunSetupViewModel.FinalWizardStep);
         Assert.True(IsFinal(3));
         Assert.False(IsFinal(2));
+        Assert.False(IsNextVisible(3));
+        Assert.True(IsFinishVisible(3));
+        Assert.True(IsNextVisible(2));
+        Assert.False(IsFinishVisible(1));
         Assert.False(CanGoNext(3, isBusy: false));
         Assert.True(CanGoNext(2, isBusy: false));
         Assert.False(CanGoNext(1, isBusy: true));
+        Assert.True(CanFinish(3, isBusy: false));
+        Assert.False(CanFinish(3, isBusy: true));
+        Assert.False(CanFinish(2, isBusy: false));
 
-        static bool IsFinal(int step) => step >= 3;
-        static bool CanGoNext(int step, bool isBusy) => step < 3 && !isBusy;
+        static bool IsFinal(int step) => step >= FirstRunSetupViewModel.FinalWizardStep;
+        static bool IsNextVisible(int step) => !IsFinal(step);
+        static bool IsFinishVisible(int step) => IsFinal(step);
+        static bool CanGoNext(int step, bool isBusy) => IsNextVisible(step) && !isBusy;
+        static bool CanFinish(int step, bool isBusy) => IsFinishVisible(step) && !isBusy;
     }
 
     [Fact]
     public void MraOnboardingResult_OkAndFailFactories()
     {
-        var ok = MraOnboardingResult.Ok("done", "TERM-1", sandboxFallback: true);
+        var ok = MraOnboardingResult.Ok(
+            "done",
+            "TERM-1",
+            sandboxFallback: true,
+            upstreamHttpStatus: 404,
+            upstreamDiagnostic: "not found");
         Assert.True(ok.Success);
         Assert.Equal("TERM-1", ok.TerminalId);
         Assert.True(ok.UsedSandboxLocalFallback);
+        Assert.Equal(404, ok.UpstreamHttpStatus);
+        Assert.Equal("not found", ok.UpstreamDiagnostic);
 
-        var fail = MraOnboardingResult.Fail("bad key");
+        var fail = MraOnboardingResult.Fail("bad key", upstreamHttpStatus: 502);
         Assert.False(fail.Success);
         Assert.Equal("bad key", fail.Message);
+        Assert.Equal(502, fail.UpstreamHttpStatus);
+    }
+
+    [Fact]
+    public void Phase40_MraApiException_IsRecoverableForSandboxFallback()
+    {
+        var mra404 = new MraApiException("Not Found", 404, "{\"statusCode\":0,\"remark\":\"missing\"}");
+        Assert.True(MraOnboardingService.IsRecoverableMraEndpointFailure(mra404));
+
+        var mra502 = new MraApiException("Bad Gateway", 502, "upstream");
+        Assert.True(MraOnboardingService.IsRecoverableMraEndpointFailure(mra502));
+
+        var wrapped = new InvalidOperationException("wrap", mra404);
+        Assert.True(MraOnboardingService.IsRecoverableMraEndpointFailure(wrapped));
+
+        Assert.True(MraOnboardingService.IsRecoverableMraEndpointFailure(new HttpRequestException("offline")));
+        Assert.False(MraOnboardingService.IsRecoverableMraEndpointFailure(new ArgumentException("bad arg")));
     }
 }

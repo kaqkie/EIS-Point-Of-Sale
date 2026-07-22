@@ -5,11 +5,15 @@ using PointOfSale.App.Services;
 namespace PointOfSale.App.ViewModels;
 
 /// <summary>
-/// Phase 35/39 light-themed first-run onboarding wizard for store managers.
-/// Final step hides Next and promotes Finish setup as the primary CTA.
+/// Phase 35/39/40 light-themed first-run onboarding wizard for store managers.
+/// Dynamic stepper actions: intermediate steps expose Next; Step 3 collapses Next and
+/// promotes Finish setup as the sole primary CTA (activation + SQL Express persistence).
 /// </summary>
 public partial class FirstRunSetupViewModel : ObservableObject
 {
+    public const int FinalWizardStep = 3;
+    public const int TotalWizardSteps = 3;
+
     private readonly IFirstRunBootstrapService _bootstrap;
     private readonly ITerminalActivationService _activation;
     private readonly IMraOnboardingService _mraOnboarding;
@@ -29,16 +33,29 @@ public partial class FirstRunSetupViewModel : ObservableObject
 
     public string SampleLicenseHint => TerminalActivationService.SampleLicenseKey;
 
-    /// <summary>True on Step 3 (License Activation &amp; Finalization) — Next is hidden.</summary>
-    public bool IsFinalStep => WizardStep >= 3;
+    /// <summary>True on Step 3 of 3 (License Activation &amp; Finalization).</summary>
+    public bool IsFinalStep => WizardStep >= FinalWizardStep;
+
+    /// <summary>Phase 40 — Next is only offered on intermediate steps.</summary>
+    public bool IsNextButtonVisible => !IsFinalStep;
+
+    /// <summary>Phase 40 — Finish setup is the primary CTA on the final step only.</summary>
+    public bool IsFinishButtonVisible => IsFinalStep;
 
     /// <summary>True while intermediate wizard steps allow forward navigation.</summary>
-    public bool CanGoNext => WizardStep < 3 && !IsBusy;
+    public bool CanGoNext => IsNextButtonVisible && !IsBusy;
+
+    /// <summary>Finish is enabled on the final step when the wizard is idle.</summary>
+    public bool CanFinish => IsFinishButtonVisible && !IsBusy;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsFinalStep))]
+    [NotifyPropertyChangedFor(nameof(IsNextButtonVisible))]
+    [NotifyPropertyChangedFor(nameof(IsFinishButtonVisible))]
     [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    [NotifyPropertyChangedFor(nameof(CanFinish))]
     [NotifyPropertyChangedFor(nameof(StepCaption))]
+    [NotifyPropertyChangedFor(nameof(PrimaryActionCaption))]
     private int _wizardStep;
 
     [ObservableProperty]
@@ -64,14 +81,22 @@ public partial class FirstRunSetupViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    [NotifyPropertyChangedFor(nameof(CanFinish))]
     private bool _isBusy;
 
     [ObservableProperty]
     private bool _infrastructureReady;
 
-    public string StepCaption => IsFinalStep
-        ? "Step 3 of 3 — License activation & finalization"
-        : $"Step {WizardStep} of 3";
+    public string StepCaption => WizardStep switch
+    {
+        0 => "Step 1 of 3 — Local database bootstrap",
+        1 => "Step 2 of 3 — Terminal identity & MRA environment",
+        2 => "Step 2 of 3 — MRA EIS endpoint",
+        _ => "Step 3 of 3 — License activation & finalization"
+    };
+
+    /// <summary>Dynamic primary action label for the stepper footer.</summary>
+    public string PrimaryActionCaption => IsFinalStep ? "Finish setup" : "Next";
 
     [RelayCommand]
     private async Task InitializeAsync()
@@ -100,10 +125,10 @@ public partial class FirstRunSetupViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanGoNext))]
     private void NextStep()
     {
-        if (IsFinalStep)
+        if (IsFinalStep || !IsNextButtonVisible)
         {
             StatusMessage = "This is the final step — use Finish setup to complete onboarding.";
             return;
@@ -132,6 +157,9 @@ public partial class FirstRunSetupViewModel : ObservableObject
             3 => "Enter the activation key, then choose Finish setup.",
             _ => StatusMessage
         };
+
+        NextStepCommand.NotifyCanExecuteChanged();
+        FinishCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -140,17 +168,28 @@ public partial class FirstRunSetupViewModel : ObservableObject
         if (WizardStep > 0)
         {
             WizardStep--;
+            NextStepCommand.NotifyCanExecuteChanged();
+            FinishCommand.NotifyCanExecuteChanged();
         }
     }
 
     [RelayCommand]
     private void PasteSampleLicense() => LicenseKey = TerminalActivationService.SampleLicenseKey;
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanFinish))]
     private async Task FinishAsync()
     {
         if (IsBusy)
         {
+            return;
+        }
+
+        if (!IsFinalStep)
+        {
+            WizardStep = FinalWizardStep;
+            StatusMessage = "Complete license activation on this final step, then choose Finish setup.";
+            FinishCommand.NotifyCanExecuteChanged();
+            NextStepCommand.NotifyCanExecuteChanged();
             return;
         }
 
@@ -164,18 +203,22 @@ public partial class FirstRunSetupViewModel : ObservableObject
         {
             WizardStep = 1;
             StatusMessage = "Terminal name and branch ID are required.";
+            NextStepCommand.NotifyCanExecuteChanged();
+            FinishCommand.NotifyCanExecuteChanged();
             return;
         }
 
         if (string.IsNullOrWhiteSpace(LicenseKey))
         {
-            WizardStep = 3;
+            WizardStep = FinalWizardStep;
             StatusMessage = "An activation key is required to complete first-run setup.";
             return;
         }
 
         IsBusy = true;
-        StatusMessage = "Contacting MRA EIS onboarding, then saving first-run configuration…";
+        NextStepCommand.NotifyCanExecuteChanged();
+        FinishCommand.NotifyCanExecuteChanged();
+        StatusMessage = "Contacting MRA EIS onboarding (activate-terminal), then saving first-run configuration to SQL Express…";
         try
         {
             var mra = await _mraOnboarding
@@ -183,8 +226,10 @@ public partial class FirstRunSetupViewModel : ObservableObject
                 .ConfigureAwait(true);
             if (!mra.Success)
             {
-                WizardStep = 3;
-                StatusMessage = mra.Message;
+                WizardStep = FinalWizardStep;
+                StatusMessage = mra.UpstreamHttpStatus is int http
+                    ? $"{mra.Message} (HTTP {http})"
+                    : mra.Message;
                 return;
             }
 
@@ -208,7 +253,7 @@ public partial class FirstRunSetupViewModel : ObservableObject
             LicenseKey = string.Empty;
             await _activation.GetStatusAsync().ConfigureAwait(true);
             StatusMessage = mra.UsedSandboxLocalFallback
-                ? $"{result.Message} Sandbox MRA terminal {mra.TerminalId} staged."
+                ? $"{result.Message} Sandbox MRA terminal {mra.TerminalId} staged with encrypted TerminalCredentials."
                 : $"{result.Message} MRA terminal {mra.TerminalId} confirmed.";
         }
         catch (Exception ex)
@@ -218,9 +263,23 @@ public partial class FirstRunSetupViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            NextStepCommand.NotifyCanExecuteChanged();
+            FinishCommand.NotifyCanExecuteChanged();
         }
     }
 
     [RelayCommand]
     private async Task RetryInfrastructureAsync() => await InitializeAsync().ConfigureAwait(true);
+
+    partial void OnWizardStepChanged(int value)
+    {
+        NextStepCommand.NotifyCanExecuteChanged();
+        FinishCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        NextStepCommand.NotifyCanExecuteChanged();
+        FinishCommand.NotifyCanExecuteChanged();
+    }
 }

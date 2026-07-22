@@ -13,6 +13,7 @@ using PointOfSale.Core.Models;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Security;
 using PointOfSale.Infrastructure.Services;
+using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Options;
 using PointOfSale.Mra.Serialization;
 using InfraTerminalActivationResult = PointOfSale.Infrastructure.Services.TerminalActivationResult;
@@ -48,26 +49,46 @@ public sealed class MraOnboardingResult
     public string? TerminalId { get; init; }
     public bool UsedSandboxLocalFallback { get; init; }
 
+    /// <summary>Upstream HTTP status when the EIS endpoint returned a non-success transport result.</summary>
+    public int? UpstreamHttpStatus { get; init; }
+
+    /// <summary>Truncated upstream body / remark captured for diagnostics (never contains raw secrets).</summary>
+    public string? UpstreamDiagnostic { get; init; }
+
     public static MraOnboardingResult Ok(
         string message,
         string? terminalId = null,
-        bool sandboxFallback = false) =>
+        bool sandboxFallback = false,
+        int? upstreamHttpStatus = null,
+        string? upstreamDiagnostic = null) =>
         new()
         {
             Success = true,
             Message = message,
             TerminalId = terminalId,
-            UsedSandboxLocalFallback = sandboxFallback
+            UsedSandboxLocalFallback = sandboxFallback,
+            UpstreamHttpStatus = upstreamHttpStatus,
+            UpstreamDiagnostic = upstreamDiagnostic
         };
 
-    public static MraOnboardingResult Fail(string message) =>
-        new() { Success = false, Message = message };
+    public static MraOnboardingResult Fail(
+        string message,
+        int? upstreamHttpStatus = null,
+        string? upstreamDiagnostic = null) =>
+        new()
+        {
+            Success = false,
+            Message = message,
+            UpstreamHttpStatus = upstreamHttpStatus,
+            UpstreamDiagnostic = upstreamDiagnostic
+        };
 }
 
 /// <summary>
-/// Phase 38 — App-layer facade over official MRA EIS onboarding endpoints
+/// Phase 40 — App-layer facade over official MRA EIS onboarding endpoints
 /// (<c>onboarding/activate-terminal</c>, <c>onboarding/terminal-activated-confirmation</c>).
-/// Persists JWT / secret keys via DPAPI into SQL Express and marks the terminal Activated.
+/// Handles sandbox/mock HTTP errors gracefully, persists JWT / secret keys via DPAPI into SQL Express,
+/// and marks the terminal Activated.
 /// </summary>
 public sealed class MraOnboardingService : IMraOnboardingService
 {
@@ -121,6 +142,7 @@ public sealed class MraOnboardingService : IMraOnboardingService
 
             if (!result.Success || string.IsNullOrWhiteSpace(result.TerminalId))
             {
+                LogActivationEndpointRejection(result.Remark, result.Errors);
                 return await TrySandboxFallbackOrFailAsync(
                         scope,
                         normalized,
@@ -130,20 +152,26 @@ public sealed class MraOnboardingService : IMraOnboardingService
                     .ConfigureAwait(false);
             }
 
+            _logger.LogInformation(
+                "MRA activate-terminal succeeded for terminal {TerminalId}. Credentials staged pending confirmation.",
+                result.TerminalId);
+
             return MraOnboardingResult.Ok(
                 result.Remark ?? $"Terminal {result.TerminalId} pending MRA confirmation.",
                 result.TerminalId);
         }
-        catch (Exception ex) when (IsTransientMraFailure(ex))
+        catch (Exception ex) when (IsRecoverableMraEndpointFailure(ex))
         {
-            _logger.LogWarning(ex, "MRA activate-terminal unreachable; evaluating sandbox fallback.");
+            LogRecoverableEndpointFailure(ex, "activate-terminal");
             using var scope = _scopeFactory.CreateScope();
             return await TrySandboxFallbackOrFailAsync(
                     scope,
                     normalized,
-                    ex.Message,
+                    BuildUpstreamMessage(ex),
                     confirm: false,
-                    cancellationToken)
+                    cancellationToken,
+                    upstreamHttpStatus: ExtractHttpStatus(ex),
+                    upstreamDiagnostic: ExtractDiagnostic(ex))
                 .ConfigureAwait(false);
         }
     }
@@ -179,6 +207,10 @@ public sealed class MraOnboardingService : IMraOnboardingService
 
             if (!result.Success)
             {
+                _logger.LogWarning(
+                    "MRA terminal-activated-confirmation rejected for {TerminalId}: {Remark}",
+                    terminalId,
+                    result.Remark);
                 return MraOnboardingResult.Fail(
                     result.Remark ?? "MRA terminal-activated-confirmation failed.");
             }
@@ -189,17 +221,19 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 result.Remark ?? $"Terminal {terminalId} confirmed with MRA.",
                 terminalId.Trim());
         }
-        catch (Exception ex) when (IsTransientMraFailure(ex))
+        catch (Exception ex) when (IsRecoverableMraEndpointFailure(ex))
         {
-            _logger.LogWarning(ex, "MRA confirmation unreachable for {TerminalId}.", terminalId);
+            LogRecoverableEndpointFailure(ex, "terminal-activated-confirmation");
             using var scope = _scopeFactory.CreateScope();
             return await TrySandboxFallbackOrFailAsync(
                     scope,
                     normalized,
-                    ex.Message,
+                    BuildUpstreamMessage(ex),
                     confirm: true,
                     cancellationToken,
-                    preferredTerminalId: terminalId.Trim())
+                    preferredTerminalId: terminalId.Trim(),
+                    upstreamHttpStatus: ExtractHttpStatus(ex),
+                    upstreamDiagnostic: ExtractDiagnostic(ex))
                 .ConfigureAwait(false);
         }
     }
@@ -233,28 +267,44 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 activate = await onboarding.ActivateTerminalAsync(request, cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (Exception ex) when (IsTransientMraFailure(ex))
+            catch (Exception ex) when (IsRecoverableMraEndpointFailure(ex))
             {
-                _logger.LogWarning(ex, "MRA activate-terminal unreachable during ActivateAndConfirm.");
-                return await CompleteSandboxLocalOnboardingAsync(scope, normalized, cancellationToken)
+                LogRecoverableEndpointFailure(ex, "activate-terminal");
+                return await CompleteSandboxLocalOnboardingAsync(
+                        scope,
+                        normalized,
+                        cancellationToken,
+                        upstreamHttpStatus: ExtractHttpStatus(ex),
+                        upstreamDiagnostic: ExtractDiagnostic(ex))
                     .ConfigureAwait(false);
             }
 
             if (!activate.Success || string.IsNullOrWhiteSpace(activate.TerminalId))
             {
+                LogActivationEndpointRejection(activate.Remark, activate.Errors);
+
                 // Invalid TAC from live MRA — do not silently unlock production.
                 if (IsLiveProductionEnvironment())
                 {
                     return MraOnboardingResult.Fail(
-                        activate.Remark ?? "MRA rejected the activation key.");
+                        activate.Remark ?? "MRA rejected the activation key.",
+                        upstreamDiagnostic: activate.Remark);
                 }
 
                 _logger.LogWarning(
                     "MRA activate-terminal returned failure ({Remark}); applying sandbox local onboarding for valid ART key.",
                     activate.Remark);
-                return await CompleteSandboxLocalOnboardingAsync(scope, normalized, cancellationToken)
+                return await CompleteSandboxLocalOnboardingAsync(
+                        scope,
+                        normalized,
+                        cancellationToken,
+                        upstreamDiagnostic: activate.Remark)
                     .ConfigureAwait(false);
             }
+
+            _logger.LogInformation(
+                "MRA activate-terminal returned terminal {TerminalId}; TerminalCredentials stored encrypted pending confirmation.",
+                activate.TerminalId);
 
             TerminalConfirmationResult confirm;
             try
@@ -268,30 +318,39 @@ public sealed class MraOnboardingService : IMraOnboardingService
                         cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (Exception ex) when (IsTransientMraFailure(ex))
+            catch (Exception ex) when (IsRecoverableMraEndpointFailure(ex))
             {
-                _logger.LogWarning(ex, "MRA confirmation unreachable after activate; completing sandbox local path.");
+                LogRecoverableEndpointFailure(ex, "terminal-activated-confirmation");
                 return await CompleteSandboxLocalOnboardingAsync(
                         scope,
                         normalized,
                         cancellationToken,
-                        preferredTerminalId: activate.TerminalId)
+                        preferredTerminalId: activate.TerminalId,
+                        upstreamHttpStatus: ExtractHttpStatus(ex),
+                        upstreamDiagnostic: ExtractDiagnostic(ex))
                     .ConfigureAwait(false);
             }
 
             if (!confirm.Success)
             {
+                _logger.LogWarning(
+                    "MRA confirmation failed after activate-terminal for {TerminalId}: {Remark}",
+                    activate.TerminalId,
+                    confirm.Remark);
+
                 if (IsLiveProductionEnvironment())
                 {
                     return MraOnboardingResult.Fail(
-                        confirm.Remark ?? "MRA confirmation failed after activate-terminal.");
+                        confirm.Remark ?? "MRA confirmation failed after activate-terminal.",
+                        upstreamDiagnostic: confirm.Remark);
                 }
 
                 return await CompleteSandboxLocalOnboardingAsync(
                         scope,
                         normalized,
                         cancellationToken,
-                        preferredTerminalId: activate.TerminalId)
+                        preferredTerminalId: activate.TerminalId,
+                        upstreamDiagnostic: confirm.Remark)
                     .ConfigureAwait(false);
             }
 
@@ -304,7 +363,10 @@ public sealed class MraOnboardingService : IMraOnboardingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "MRA ActivateAndConfirm failed.");
-            return MraOnboardingResult.Fail(ex.Message);
+            return MraOnboardingResult.Fail(
+                ex.Message,
+                ExtractHttpStatus(ex),
+                ExtractDiagnostic(ex));
         }
     }
 
@@ -371,33 +433,42 @@ public sealed class MraOnboardingService : IMraOnboardingService
         string upstreamMessage,
         bool confirm,
         CancellationToken cancellationToken,
-        string? preferredTerminalId = null)
+        string? preferredTerminalId = null,
+        int? upstreamHttpStatus = null,
+        string? upstreamDiagnostic = null)
     {
         if (IsLiveProductionEnvironment())
         {
             return MraOnboardingResult.Fail(
                 confirm
                     ? $"MRA confirmation failed: {upstreamMessage}"
-                    : $"MRA activation failed: {upstreamMessage}");
+                    : $"MRA activation failed: {upstreamMessage}",
+                upstreamHttpStatus,
+                upstreamDiagnostic ?? TruncateForLog(upstreamMessage));
         }
 
         return await CompleteSandboxLocalOnboardingAsync(
                 scope,
                 normalizedKey,
                 cancellationToken,
-                preferredTerminalId)
+                preferredTerminalId,
+                upstreamHttpStatus,
+                upstreamDiagnostic ?? TruncateForLog(upstreamMessage))
             .ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Sandbox / offline path: stages DPAPI-protected credentials and Activated flag so a valid
-    /// ART key (e.g. I4CV-M5YY-AKY6-Z9BT) can complete launch when live EIS is unreachable.
+    /// Sandbox / offline / mock path: stages DPAPI-protected <c>TerminalCredentials</c> (JWT + secret)
+    /// and Activated flag so a valid ART key (e.g. I4CV-M5YY-AKY6-Z9BT) can complete launch when live
+    /// EIS is unreachable, returns HTTP 404/5xx, or rejects with a sandbox-only status.
     /// </summary>
     private async Task<MraOnboardingResult> CompleteSandboxLocalOnboardingAsync(
         IServiceScope scope,
         string normalizedKey,
         CancellationToken cancellationToken,
-        string? preferredTerminalId = null)
+        string? preferredTerminalId = null,
+        int? upstreamHttpStatus = null,
+        string? upstreamDiagnostic = null)
     {
         var terminals = scope.ServiceProvider.GetRequiredService<ITerminalRepository>();
         var config = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
@@ -428,9 +499,11 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 cancellationToken)
             .ConfigureAwait(false);
 
+        // Persist TerminalCredentials.jwtToken (DPAPI) — mirrors live activate-terminal response.
         await config.UpsertProtectedSecretAsync(MraConfigurationKeys.JwtToken, jwt, cancellationToken)
             .ConfigureAwait(false);
 
+        // Persist TerminalCredentials.secretKey (DPAPI) and mark Activated.
         var protectedSecret = protector.Protect(secret);
         await terminals.MarkActivatedAsync(terminalId, protectedSecret, cancellationToken)
             .ConfigureAwait(false);
@@ -450,13 +523,17 @@ public sealed class MraOnboardingService : IMraOnboardingService
         await MarkOnboardingCompleteFlagAsync(scope, cancellationToken).ConfigureAwait(false);
 
         _logger.LogWarning(
-            "Sandbox local MRA onboarding completed for {TerminalId} (live EIS unavailable or rejected).",
-            terminalId);
+            "Sandbox local MRA onboarding completed for {TerminalId}. UpstreamHttp={HttpStatus}; Diagnostic={Diagnostic}",
+            terminalId,
+            upstreamHttpStatus,
+            TruncateForLog(upstreamDiagnostic));
 
         return MraOnboardingResult.Ok(
-            $"Sandbox onboarding complete for terminal {terminalId}. Encrypted credentials stored locally (live MRA EIS unavailable).",
+            $"Sandbox onboarding complete for terminal {terminalId}. Encrypted TerminalCredentials stored locally (live MRA EIS unavailable or returned a non-activation status).",
             terminalId,
-            sandboxFallback: true);
+            sandboxFallback: true,
+            upstreamHttpStatus: upstreamHttpStatus,
+            upstreamDiagnostic: TruncateForLog(upstreamDiagnostic));
     }
 
     private static async Task MarkOnboardingCompleteFlagAsync(
@@ -466,6 +543,8 @@ public sealed class MraOnboardingService : IMraOnboardingService
         var config = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
         await config.UpsertJsonAsync("Schema.Phase38Applied", "true", cancellationToken)
             .ConfigureAwait(false);
+        await config.UpsertJsonAsync("Schema.Phase40Applied", "true", cancellationToken)
+            .ConfigureAwait(false);
         await config.UpsertJsonAsync("Mra.Onboarding.Completed", "true", cancellationToken)
             .ConfigureAwait(false);
     }
@@ -473,11 +552,95 @@ public sealed class MraOnboardingService : IMraOnboardingService
     private bool IsLiveProductionEnvironment() =>
         string.Equals(_mraOptions.Environment, "Production", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsTransientMraFailure(Exception ex) =>
-        ex is HttpRequestException
+    /// <summary>
+    /// Phase 40 — treat transport failures and <see cref="MraApiException"/> (HTTP 404/5xx from
+    /// sandbox/mock gateways) as recoverable so valid ART keys can fall back securely.
+    /// </summary>
+    public static bool IsRecoverableMraEndpointFailure(Exception ex) =>
+        ex is MraApiException
+        || ex is HttpRequestException
         || ex is TaskCanceledException
         || ex is TimeoutException
+        || ex.InnerException is MraApiException
         || ex.InnerException is HttpRequestException;
+
+    private void LogRecoverableEndpointFailure(Exception ex, string operation)
+    {
+        if (ex is MraApiException mra)
+        {
+            _logger.LogWarning(
+                "MRA {Operation} endpoint returned HTTP {Status}. Body={Body}",
+                operation,
+                mra.HttpStatusCode,
+                TruncateForLog(mra.ResponseBody));
+            return;
+        }
+
+        if (ex.InnerException is MraApiException innerMra)
+        {
+            _logger.LogWarning(
+                ex,
+                "MRA {Operation} failed wrapping HTTP {Status}. Body={Body}",
+                operation,
+                innerMra.HttpStatusCode,
+                TruncateForLog(innerMra.ResponseBody));
+            return;
+        }
+
+        _logger.LogWarning(ex, "MRA {Operation} unreachable or timed out.", operation);
+    }
+
+    private void LogActivationEndpointRejection(
+        string? remark,
+        IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? errors)
+    {
+        var errorSummary = errors is { Count: > 0 }
+            ? string.Join("; ", errors.Select(e => $"{e.ErrorCode}:{e.FieldName}:{e.ErrorMessage}"))
+            : null;
+
+        _logger.LogWarning(
+            "MRA activate-terminal business rejection. Remark={Remark}; Errors={Errors}",
+            remark,
+            TruncateForLog(errorSummary));
+    }
+
+    private static string BuildUpstreamMessage(Exception ex) =>
+        ex is MraApiException mra
+            ? $"HTTP {mra.HttpStatusCode}: {mra.Message}"
+            : ex.Message;
+
+    private static int? ExtractHttpStatus(Exception ex) =>
+        ex is MraApiException mra
+            ? mra.HttpStatusCode
+            : ex.InnerException is MraApiException inner
+                ? inner.HttpStatusCode
+                : null;
+
+    private static string? ExtractDiagnostic(Exception ex)
+    {
+        if (ex is MraApiException mra)
+        {
+            return TruncateForLog(mra.ResponseBody ?? mra.Message);
+        }
+
+        if (ex.InnerException is MraApiException inner)
+        {
+            return TruncateForLog(inner.ResponseBody ?? inner.Message);
+        }
+
+        return TruncateForLog(ex.Message);
+    }
+
+    private static string? TruncateForLog(string? value, int maxChars = 1500)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxChars ? trimmed : trimmed[..maxChars] + "…";
+    }
 
     private static string BuildSandboxTerminalId(string normalizedKey)
     {
