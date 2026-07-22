@@ -45,6 +45,7 @@ public static class OperatorPermissions
     public const string ProvisionTerminal = "ProvisionTerminal";
     public const string RunIntegrationTests = "RunIntegrationTests";
     public const string ExecuteEnterpriseMaintenance = "ExecuteEnterpriseMaintenance";
+    public const string ManageDatabaseMaintenance = "ManageDatabaseMaintenance";
 
     public static readonly string[] All =
     [
@@ -74,7 +75,8 @@ public static class OperatorPermissions
         ExecuteFiscalYearRollover,
         ProvisionTerminal,
         RunIntegrationTests,
-        ExecuteEnterpriseMaintenance
+        ExecuteEnterpriseMaintenance,
+        ManageDatabaseMaintenance
     ];
 }
 

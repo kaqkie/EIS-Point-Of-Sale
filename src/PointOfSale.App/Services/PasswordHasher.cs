@@ -118,7 +118,8 @@ public static class RolePermissionCatalog
                 OperatorPermissions.ExecuteFiscalYearRollover,
                 OperatorPermissions.ProvisionTerminal,
                 OperatorPermissions.RunIntegrationTests,
-                OperatorPermissions.ExecuteEnterpriseMaintenance
+                OperatorPermissions.ExecuteEnterpriseMaintenance,
+                OperatorPermissions.ManageDatabaseMaintenance
             },
             [OperatorRoles.Administrator] = new HashSet<string>(OperatorPermissions.All, StringComparer.Ordinal)
         };

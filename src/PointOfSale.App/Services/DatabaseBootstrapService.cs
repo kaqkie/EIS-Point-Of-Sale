@@ -152,9 +152,9 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                     CONSTRAINT PK_OfflineInvoiceQueue PRIMARY KEY CLUSTERED (Id)
                 );
 
-                CREATE INDEX IX_OfflineInvoiceQueue_PendingFifo
+                CREATE INDEX IX_OfflineInvoiceQueue_MraSyncPoll
                     ON dbo.OfflineInvoiceQueue (Status, CreatedAt, Id)
-                    WHERE Status = N'PENDING';
+                    INCLUDE (RetryCount, NextRetryTime, ErrorMessage);
             END;
 
             IF OBJECT_ID(N'dbo.LocalInventory', N'U') IS NULL
@@ -775,6 +775,82 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 CREATE INDEX IX_FiscalArchivePackages_Created
                     ON dbo.FiscalArchivePackages (CreatedAtUtc DESC, PackageId DESC);
             END;
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.Configurations WHERE ConfigKey = N'Schema.Phase28Applied')
+            BEGIN
+                IF OBJECT_ID(N'dbo.SalesTransactions', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.SalesTransactions
+                    (
+                        TransactionId       BIGINT          IDENTITY(1,1) NOT NULL,
+                        QueueId             INT             NULL,
+                        BusinessDate        DATE            NOT NULL,
+                        InvoiceNumber       VARCHAR(50)     NOT NULL,
+                        PaymentMethod       VARCHAR(20)     NOT NULL,
+                        GrossAmountMwk      DECIMAL(18, 2)  NOT NULL,
+                        VatAmountMwk        DECIMAL(18, 2)  NOT NULL,
+                        ShiftId             INT             NULL,
+                        SyncStatus          VARCHAR(20)     NOT NULL
+                            CONSTRAINT CK_SalesTransactions_SyncStatus
+                            CHECK (SyncStatus IN ('PENDING', 'SYNCING', 'SYNCED', 'QUARANTINED')),
+                        CreatedAtUtc        DATETIME2(7)    NOT NULL CONSTRAINT DF_SalesTransactions_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                        CONSTRAINT PK_SalesTransactions PRIMARY KEY CLUSTERED (TransactionId)
+                    );
+
+                    CREATE UNIQUE INDEX UX_SalesTransactions_InvoiceNumber ON dbo.SalesTransactions (InvoiceNumber);
+                    CREATE INDEX IX_SalesTransactions_BusinessDate_Reporting
+                        ON dbo.SalesTransactions (BusinessDate DESC, PaymentMethod, TransactionId)
+                        INCLUDE (GrossAmountMwk, VatAmountMwk, SyncStatus, ShiftId);
+                    CREATE INDEX IX_SalesTransactions_CreatedAtUtc
+                        ON dbo.SalesTransactions (CreatedAtUtc DESC, TransactionId DESC);
+                END;
+
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_OfflineInvoiceQueue_PendingFifo' AND object_id = OBJECT_ID(N'dbo.OfflineInvoiceQueue'))
+                    DROP INDEX IX_OfflineInvoiceQueue_PendingFifo ON dbo.OfflineInvoiceQueue;
+
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_OfflineInvoiceQueue_MraSyncPoll' AND object_id = OBJECT_ID(N'dbo.OfflineInvoiceQueue'))
+                    CREATE INDEX IX_OfflineInvoiceQueue_MraSyncPoll
+                        ON dbo.OfflineInvoiceQueue (Status ASC, NextRetryTime ASC, CreatedAt ASC, Id ASC)
+                        INCLUDE (RetryCount, ErrorMessage);
+
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_OfflineInvoiceQueue_SyncedReporting' AND object_id = OBJECT_ID(N'dbo.OfflineInvoiceQueue'))
+                    CREATE INDEX IX_OfflineInvoiceQueue_SyncedReporting
+                        ON dbo.OfflineInvoiceQueue (Status ASC, CreatedAt DESC, Id DESC)
+                        INCLUDE (FiscalResponseJson);
+
+                IF OBJECT_ID(N'dbo.DatabaseMaintenanceLog', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.DatabaseMaintenanceLog
+                    (
+                        LogId           BIGINT          IDENTITY(1,1) NOT NULL,
+                        ExecutedAtUtc   DATETIME2(7)    NOT NULL CONSTRAINT DF_DatabaseMaintenanceLog_ExecutedAtUtc DEFAULT (SYSUTCDATETIME()),
+                        Operation       VARCHAR(40)     NOT NULL,
+                        Success         BIT             NOT NULL,
+                        Detail          NVARCHAR(2000)  NULL,
+                        DurationMs      INT             NOT NULL CONSTRAINT DF_DatabaseMaintenanceLog_DurationMs DEFAULT (0),
+                        FragmentedIndexesBefore INT     NULL,
+                        DatabaseSizeMbBefore    BIGINT  NULL,
+                        CONSTRAINT PK_DatabaseMaintenanceLog PRIMARY KEY CLUSTERED (LogId)
+                    );
+                    CREATE INDEX IX_DatabaseMaintenanceLog_ExecutedAtUtc
+                        ON dbo.DatabaseMaintenanceLog (ExecutedAtUtc DESC, LogId DESC);
+                END;
+
+                INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
+                VALUES (N'Schema.Phase28Applied', N'true', GETUTCDATE());
+            END;
+
+            EXEC(N'
+            CREATE OR ALTER PROCEDURE dbo.usp_PurgeExpiredDiagnosticTelemetry
+                @RetentionDays INT
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+                IF @RetentionDays < 1 SET @RetentionDays = 1;
+                DECLARE @Cutoff DATETIME2(7) = DATEADD(DAY, -@RetentionDays, SYSUTCDATETIME());
+                DELETE FROM dbo.DiagnosticTelemetryEvents WHERE CreatedAtUtc < @Cutoff;
+                SELECT @@ROWCOUNT AS DeletedRows;
+            END');
             """;
 
         await using var command = connection.CreateCommand();

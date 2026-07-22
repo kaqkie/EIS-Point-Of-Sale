@@ -91,6 +91,12 @@
     <None Include="..\..\Scripts\014_FiscalYearArchive.sql" Link="Scripts\014_FiscalYearArchive.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\015_PerformanceIndexOptimization.sql" Link="Scripts\015_PerformanceIndexOptimization.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Database\MigrationScripts\007_PerformanceIndexOptimization.sql" Link="Database\MigrationScripts\007_PerformanceIndexOptimization.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

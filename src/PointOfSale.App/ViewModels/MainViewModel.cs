@@ -149,6 +149,9 @@ public partial class MainViewModel : ObservableObject
     private bool _canEnterpriseMaintenance;
 
     [ObservableProperty]
+    private bool _canDatabaseMaintenance;
+
+    [ObservableProperty]
     private bool _hasHealthWarning;
 
     [ObservableProperty]
@@ -217,6 +220,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanEnterpriseMaintenance))]
     private void NavigateEnterpriseMaintenance() => _navigationService.NavigateTo<EnterpriseMaintenanceViewModel>();
 
+    [RelayCommand(CanExecute = nameof(CanDatabaseMaintenance))]
+    private void NavigateDatabaseMaintenance() => _navigationService.NavigateTo<DatabaseMaintenanceViewModel>();
+
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
 
@@ -284,6 +290,7 @@ public partial class MainViewModel : ObservableObject
         CanProvisionTerminal = _auth.HasPermission(OperatorPermissions.ProvisionTerminal);
         CanRunIntegrationTests = _auth.HasPermission(OperatorPermissions.RunIntegrationTests);
         CanEnterpriseMaintenance = _auth.HasPermission(OperatorPermissions.ExecuteEnterpriseMaintenance);
+        CanDatabaseMaintenance = _auth.HasPermission(OperatorPermissions.ManageDatabaseMaintenance);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -306,5 +313,6 @@ public partial class MainViewModel : ObservableObject
         NavigateTerminalProvisioningCommand.NotifyCanExecuteChanged();
         NavigateTestRunnerCommand.NotifyCanExecuteChanged();
         NavigateEnterpriseMaintenanceCommand.NotifyCanExecuteChanged();
+        NavigateDatabaseMaintenanceCommand.NotifyCanExecuteChanged();
     }
 }

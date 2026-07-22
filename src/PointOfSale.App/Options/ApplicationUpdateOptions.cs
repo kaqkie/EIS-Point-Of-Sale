@@ -29,7 +29,7 @@ public sealed class DatabaseBootstrapOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>Target schema version applied by the in-app bootstrapper.</summary>
-    public int TargetSchemaVersion { get; set; } = 22;
+    public int TargetSchemaVersion { get; set; } = 23;
 
     /// <summary>SQL Express instance host from connection string; used for reachability checks.</summary>
     public string RequiredInstanceHint { get; set; } = ".\\SQLEXPRESS";

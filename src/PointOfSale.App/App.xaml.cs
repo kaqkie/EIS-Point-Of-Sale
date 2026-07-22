@@ -73,6 +73,8 @@ public partial class App : Application
                     context.Configuration.GetSection(EnterprisePerformanceOptions.SectionName));
                 services.Configure<EnterpriseMaintenanceOptions>(
                     context.Configuration.GetSection(EnterpriseMaintenanceOptions.SectionName));
+                services.Configure<DatabaseMaintenanceOptions>(
+                    context.Configuration.GetSection(DatabaseMaintenanceOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -122,6 +124,8 @@ public partial class App : Application
                 services.AddSingleton<IPerformanceProfilingService, PerformanceProfilingService>();
                 services.AddTransient<IEnterpriseMaintenanceService, EnterpriseMaintenanceService>();
                 services.AddHostedService<PerformanceProfilingBackgroundService>();
+                services.AddSingleton<IDatabaseMaintenanceService, DatabaseMaintenanceService>();
+                services.AddHostedService<DatabaseMaintenanceBackgroundService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -151,6 +155,8 @@ public partial class App : Application
                 services.AddTransient<TestRunnerDashboardView>();
                 services.AddTransient<EnterpriseMaintenanceView>();
 
+                services.AddTransient<DatabaseMaintenanceView>();
+
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
                 services.AddTransient<CheckoutViewModel>();
@@ -174,6 +180,7 @@ public partial class App : Application
                 services.AddTransient<TerminalProvisioningViewModel>();
                 services.AddTransient<TestRunnerDashboardViewModel>();
                 services.AddTransient<EnterpriseMaintenanceViewModel>();
+                services.AddTransient<DatabaseMaintenanceViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })
