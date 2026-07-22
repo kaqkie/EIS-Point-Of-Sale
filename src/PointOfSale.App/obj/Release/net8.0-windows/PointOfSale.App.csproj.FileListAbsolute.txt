@@ -167,3 +167,5 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Rel
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\FiscalRolloverView.g.cs
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Scripts\014_FiscalYearArchive.sql
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\PointOfSale.App.sourcelink.json
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\TerminalProvisioningView.baml
+c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\TerminalProvisioningView.g.cs
