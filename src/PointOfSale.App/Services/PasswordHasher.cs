@@ -113,7 +113,8 @@ public static class RolePermissionCatalog
                 OperatorPermissions.ManagePurchaseOrders,
                 OperatorPermissions.ProcessGoodsReceipt,
                 OperatorPermissions.ReconcileSupplierInvoices,
-                OperatorPermissions.ViewSystemDiagnostics
+                OperatorPermissions.ViewSystemDiagnostics,
+                OperatorPermissions.CloseFinancialDay
             },
             [OperatorRoles.Administrator] = new HashSet<string>(OperatorPermissions.All, StringComparer.Ordinal)
         };

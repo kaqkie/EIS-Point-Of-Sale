@@ -134,6 +134,9 @@ public partial class MainViewModel : ObservableObject
     private bool _canSystemDiagnostics;
 
     [ObservableProperty]
+    private bool _canEndOfDay;
+
+    [ObservableProperty]
     private bool _hasHealthWarning;
 
     [ObservableProperty]
@@ -186,6 +189,9 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanSystemDiagnostics))]
     private void NavigateSystemDiagnostics() => _navigationService.NavigateTo<SystemDiagnosticsViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanEndOfDay))]
+    private void NavigateEndOfDay() => _navigationService.NavigateTo<EndofDaySummaryViewModel>();
 
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
@@ -249,6 +255,7 @@ public partial class MainViewModel : ObservableObject
         CanGoodsReceipt = _auth.HasPermission(OperatorPermissions.ProcessGoodsReceipt);
         CanSupplierRecon = _auth.HasPermission(OperatorPermissions.ReconcileSupplierInvoices);
         CanSystemDiagnostics = _auth.HasPermission(OperatorPermissions.ViewSystemDiagnostics);
+        CanEndOfDay = _auth.HasPermission(OperatorPermissions.CloseFinancialDay);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -266,5 +273,6 @@ public partial class MainViewModel : ObservableObject
         NavigateGoodsReceiptCommand.NotifyCanExecuteChanged();
         NavigateSupplierReconCommand.NotifyCanExecuteChanged();
         NavigateSystemDiagnosticsCommand.NotifyCanExecuteChanged();
+        NavigateEndOfDayCommand.NotifyCanExecuteChanged();
     }
 }

@@ -276,9 +276,79 @@ public sealed class HeadOfficeSyncService : IHeadOfficeSyncService
     {
         var packaged = 0;
         packaged += await PackageClosedZReportsAsync(outbox, shifts, cancellationToken).ConfigureAwait(false);
+        packaged += await PackageFinancialClosuresAsync(outbox, connections, cancellationToken).ConfigureAwait(false);
         packaged += await PackageSalesSummaryAsync(outbox, config, connections, cancellationToken).ConfigureAwait(false);
         packaged += await PackageInventorySnapshotAsync(outbox, inventory, cancellationToken).ConfigureAwait(false);
         return packaged;
+    }
+
+    private static async Task<int> PackageFinancialClosuresAsync(
+        IHeadOfficeSyncOutboxRepository outbox,
+        ISqlConnectionFactory connections,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT TOP (40)
+                ClosureId, BusinessDate, ClosedAtUtc, ClosedByUsername, ClosedByDisplayName,
+                TotalGrossSalesMwk, TotalVatCollectedMwk, CashDrawerVarianceMwk, AuditPassed, ClosureJson
+            FROM dbo.FinancialClosures
+            WHERE Status = N'Closed'
+            ORDER BY ClosureId DESC;
+            """;
+
+        await using var connection = await connections.CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var rows = (await connection.QueryAsync<FinancialClosureOutboxRow>(
+                new CommandDefinition(sql, cancellationToken: cancellationToken))
+            .ConfigureAwait(false)).AsList();
+
+        var count = 0;
+        foreach (var row in rows)
+        {
+            var correlation = $"FinancialClosure:{row.ClosureId}";
+            if (await outbox.ExistsPendingOrUploadedAsync(
+                    HeadOfficeSyncPayloadTypes.FinancialClosure, correlation, cancellationToken)
+                .ConfigureAwait(false))
+            {
+                continue;
+            }
+
+            object? closurePayload = null;
+            if (!string.IsNullOrWhiteSpace(row.ClosureJson))
+            {
+                try
+                {
+                    closurePayload = JsonSerializer.Deserialize<JsonElement>(row.ClosureJson);
+                }
+                catch (JsonException)
+                {
+                    closurePayload = row.ClosureJson;
+                }
+            }
+
+            var payload = new
+            {
+                closureId = row.ClosureId,
+                businessDate = row.BusinessDate,
+                closedAtUtc = row.ClosedAtUtc,
+                closedByUsername = row.ClosedByUsername,
+                closedByDisplayName = row.ClosedByDisplayName,
+                totalGrossSalesMwk = row.TotalGrossSalesMwk,
+                totalVatCollectedMwk = row.TotalVatCollectedMwk,
+                cashDrawerVarianceMwk = row.CashDrawerVarianceMwk,
+                auditPassed = row.AuditPassed,
+                closure = closurePayload
+            };
+
+            await outbox.EnqueueAsync(
+                    HeadOfficeSyncPayloadTypes.FinancialClosure,
+                    correlation,
+                    HeadOfficePayloadCipher.SerializePlainJson(payload),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            count++;
+        }
+
+        return count;
     }
 
     private static async Task<int> PackageClosedZReportsAsync(
@@ -647,6 +717,20 @@ public sealed class HeadOfficeSyncService : IHeadOfficeSyncService
         public int InvoiceCount { get; set; }
         public decimal GrossSales { get; set; }
         public decimal TotalVat { get; set; }
+    }
+
+    private sealed class FinancialClosureOutboxRow
+    {
+        public long ClosureId { get; set; }
+        public DateTime BusinessDate { get; set; }
+        public DateTime ClosedAtUtc { get; set; }
+        public string ClosedByUsername { get; set; } = string.Empty;
+        public string ClosedByDisplayName { get; set; } = string.Empty;
+        public decimal TotalGrossSalesMwk { get; set; }
+        public decimal TotalVatCollectedMwk { get; set; }
+        public decimal CashDrawerVarianceMwk { get; set; }
+        public bool AuditPassed { get; set; }
+        public string? ClosureJson { get; set; }
     }
 }
 

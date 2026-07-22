@@ -56,6 +56,9 @@
         <DataTemplate DataType="{x:Type vm:SystemDiagnosticsViewModel}">
             <v:SystemDiagnosticsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:EndofDaySummaryViewModel}">
+            <v:EndofDaySummaryView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

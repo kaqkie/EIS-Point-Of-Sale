@@ -40,6 +40,7 @@ public static class OperatorPermissions
     public const string ProcessGoodsReceipt = "ProcessGoodsReceipt";
     public const string ReconcileSupplierInvoices = "ReconcileSupplierInvoices";
     public const string ViewSystemDiagnostics = "ViewSystemDiagnostics";
+    public const string CloseFinancialDay = "CloseFinancialDay";
 
     public static readonly string[] All =
     [
@@ -64,7 +65,8 @@ public static class OperatorPermissions
         ManagePurchaseOrders,
         ProcessGoodsReceipt,
         ReconcileSupplierInvoices,
-        ViewSystemDiagnostics
+        ViewSystemDiagnostics,
+        CloseFinancialDay
     ];
 }
 

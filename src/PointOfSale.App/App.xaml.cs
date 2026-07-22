@@ -62,6 +62,8 @@ public partial class App : Application
                     context.Configuration.GetSection(GoodsReceiptOptions.SectionName));
                 services.Configure<SystemDiagnosticsOptions>(
                     context.Configuration.GetSection(SystemDiagnosticsOptions.SectionName));
+                services.Configure<FinancialClosureOptions>(
+                    context.Configuration.GetSection(FinancialClosureOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -83,6 +85,8 @@ public partial class App : Application
                 services.AddSingleton<IDatabaseRestorationService, DatabaseRestorationService>();
                 services.AddHostedService<DatabaseBackupBackgroundService>();
                 services.AddTransient<IShiftManagementService, ShiftManagementService>();
+                services.AddTransient<IFinancialClosureService, FinancialClosureService>();
+                services.AddTransient<IZReportPrintingService, ZReportPrintingService>();
                 services.AddTransient<IAnalyticsReportExportService, AnalyticsReportExportService>();
                 services.AddTransient<ICentralInventoryReplicationService, CentralInventoryReplicationService>();
                 services.AddSingleton<IHeadOfficeSyncService, HeadOfficeSyncService>();
@@ -123,6 +127,7 @@ public partial class App : Application
                 services.AddTransient<GoodsReceiptView>();
                 services.AddTransient<SupplierInvoiceReconciliationView>();
                 services.AddTransient<SystemDiagnosticsView>();
+                services.AddTransient<EndofDaySummaryView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -142,6 +147,7 @@ public partial class App : Application
                 services.AddTransient<GoodsReceiptViewModel>();
                 services.AddTransient<SupplierInvoiceReconciliationViewModel>();
                 services.AddTransient<SystemDiagnosticsViewModel>();
+                services.AddTransient<EndofDaySummaryViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

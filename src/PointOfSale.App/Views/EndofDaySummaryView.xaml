@@ -1,0 +1,213 @@
+<UserControl x:Class="PointOfSale.App.Views.EndofDaySummaryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8">
+            <DockPanel Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="End-of-Day / Z-Report Closure"
+                               FontSize="22"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="#4B5563"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding AuditMessage}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"
+                               FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <DatePicker SelectedDate="{Binding BusinessDate}"
+                                Width="140"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center" />
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0" />
+                    <Button Content="Close day"
+                            Command="{Binding CloseFinancialDayCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0"
+                            FontWeight="SemiBold" />
+                    <Button Content="Print Z-Report"
+                            Command="{Binding PrintZReportCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                            Padding="12,8"
+                            MinHeight="40" />
+                </StackPanel>
+            </DockPanel>
+
+            <UniformGrid Columns="4" Margin="0,0,0,12">
+                <Border Background="#ECFDF5" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Total gross sales (MWK)" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding TotalGrossSalesMwk, StringFormat=N2}" FontSize="22" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <Border Background="#EFF6FF" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Total VAT collected (MWK)" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding TotalVatCollectedMwk, StringFormat=N2}" FontSize="22" FontWeight="Bold" />
+                        <TextBlock Text="{Binding ExpectedVatMwk, StringFormat=Expected {0:N2}}" FontSize="11" />
+                    </StackPanel>
+                </Border>
+                <Border Background="#FEF3C7" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Cash drawer variance (MWK)" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding CashDrawerVarianceMwk, StringFormat=N2}" FontSize="22" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="8" Padding="12">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#ECFDF5" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDayClosed}" Value="True">
+                                    <Setter Property="Background" Value="#DBEAFE" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding AuditPassed}" Value="False">
+                                    <Setter Property="Background" Value="#FEE2E2" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <TextBlock Text="Closure status" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding IsShiftClosed, StringFormat=Shifts closed: {0}}" FontWeight="Bold" />
+                        <TextBlock Text="{Binding IsDayClosed, StringFormat=Day closed: {0}}" />
+                        <TextBlock Text="{Binding AuditPassed, StringFormat=Fiscal audit: {0}}" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <UniformGrid Columns="4" Margin="0,0,0,12">
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Cash collections" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding CashCollectionsMwk, StringFormat=N2}" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Card settlements" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding CardSettlementsMwk, StringFormat=N2}" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Mobile money" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding MobileMoneySettlementsMwk, StringFormat=N2}" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+                <Border Background="White" CornerRadius="8" Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="Voids (MWK)" Foreground="#6B7280" />
+                        <TextBlock Text="{Binding TotalVoidsMwk, StringFormat=N2}" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                        <TextBlock Text="Manager notes / override" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBox Text="{Binding ClosureNotes, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Height="72"
+                                 Padding="8" />
+                        <CheckBox Content="Manager override (queue / fiscal / VAT exceptions)"
+                                  IsChecked="{Binding ManagerOverride}"
+                                  Margin="0,8,0,0" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="#6B7280"
+                                   Text="{Binding CumulativeGrossSalesMwk, StringFormat=Cumulative gross: {0:N2} MWK}" />
+                        <TextBlock Foreground="#6B7280"
+                                   Text="{Binding CumulativeVatMwk, StringFormat=Cumulative VAT: {0:N2} MWK}" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Background="#F9FAFB" CornerRadius="6" Padding="10">
+                        <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
+                            <TextBlock Text="{Binding ZReportDetails}"
+                                       FontFamily="Consolas"
+                                       FontSize="11"
+                                       TextWrapping="Wrap" />
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Shifts for business day" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <DataGrid ItemsSource="{Binding DayShifts}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              MaxHeight="180">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Shift" Binding="{Binding ShiftId}" Width="70" />
+                            <DataGridTextColumn Header="Cashier" Binding="{Binding CashierName}" Width="140" />
+                            <DataGridTextColumn Header="Opened" Binding="{Binding OpenedAtUtc, StringFormat=g}" Width="130" />
+                            <DataGridTextColumn Header="Closed" Binding="{Binding ClosedAtUtc, StringFormat=g}" Width="130" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80" />
+                            <DataGridTextColumn Header="Variance" Binding="{Binding CashVariance, StringFormat=N2}" Width="90" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Fiscalized invoices (sample)" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <DataGrid ItemsSource="{Binding FiscalInvoices}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  MaxHeight="220">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Invoice" Binding="{Binding InvoiceNumber}" Width="110" />
+                                <DataGridTextColumn Header="Pay" Binding="{Binding PaymentMethod}" Width="80" />
+                                <DataGridTextColumn Header="Total" Binding="{Binding InvoiceTotal, StringFormat=N2}" Width="80" />
+                                <DataGridTextColumn Header="VAT" Binding="{Binding TotalVat, StringFormat=N2}" Width="70" />
+                                <DataGridTextColumn Header="Signature" Binding="{Binding FiscalSignature}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+                <Border Grid.Column="1" Background="White" CornerRadius="8" Padding="12">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Recent EOD closures" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <DataGrid ItemsSource="{Binding RecentClosures}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  MaxHeight="220">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Date" Binding="{Binding BusinessDate, StringFormat=d}" Width="90" />
+                                <DataGridTextColumn Header="Gross" Binding="{Binding TotalGrossSalesMwk, StringFormat=N2}" Width="90" />
+                                <DataGridTextColumn Header="VAT" Binding="{Binding TotalVatCollectedMwk, StringFormat=N2}" Width="80" />
+                                <DataGridTextColumn Header="By" Binding="{Binding ClosedByUsername}" Width="90" />
+                                <DataGridTextColumn Header="Audit" Binding="{Binding AuditPassed}" Width="60" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

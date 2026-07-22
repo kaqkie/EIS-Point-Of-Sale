@@ -5,6 +5,7 @@ public static class HeadOfficeSyncPayloadTypes
     public const string SalesSummary = "SalesSummary";
     public const string ZReport = "ZReport";
     public const string InventoryAdjustment = "InventoryAdjustment";
+    public const string FinancialClosure = "FinancialClosure";
 }
 
 public static class HeadOfficeSyncOutboxStatuses
