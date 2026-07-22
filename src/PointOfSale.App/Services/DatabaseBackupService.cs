@@ -23,14 +23,34 @@ public interface IDatabaseBackupService
     event EventHandler? StatusChanged;
 
     bool IsBackingUp { get; }
+    /// <summary>Phase 33 alias for <see cref="IsBackingUp"/>.</summary>
+    bool IsBackupInProgress { get; }
     DateTime? LastBackupTime { get; }
+    /// <summary>Phase 33 alias for <see cref="LastBackupTime"/>.</summary>
+    DateTime? LastBackupTimestamp { get; }
     string? BackupFilePath { get; }
+    /// <summary>Phase 33 alias for <see cref="BackupFilePath"/>.</summary>
+    string? BackupFileLocation { get; }
     string? LastError { get; }
 
     string ResolveBackupDirectory();
+    double GetBackupStorageUsageMb();
+    Task<DatabaseBackupStatusSnapshot> GetStatusSnapshotAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DatabaseBackupHistoryEntry>> GetHistoryAsync(int take = 30, CancellationToken cancellationToken = default);
     Task<DatabaseBackupResult> BackupNowAsync(string trigger = DatabaseBackupTriggers.Manual, CancellationToken cancellationToken = default);
     Task<DatabaseBackupResult> BackupOnShiftCloseAsync(CancellationToken cancellationToken = default);
+    Task<DatabaseBackupResult> BackupOnEndOfDayAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed class DatabaseBackupStatusSnapshot
+{
+    public bool IsBackupInProgress { get; init; }
+    public DateTime? LastBackupTimestamp { get; init; }
+    public string? BackupFileLocation { get; init; }
+    public string BackupDirectory { get; init; } = string.Empty;
+    public double StorageUsageMb { get; init; }
+    public string? LastError { get; init; }
+    public int HistoryCount { get; init; }
 }
 
 /// <summary>
@@ -41,6 +61,7 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
 {
     public const string LastMidnightBackupConfigKey = "Backup.LastMidnightLocalDate";
     public const string LastShiftBackupConfigKey = "Backup.LastShiftBackupUtc";
+    public const string LastEndOfDayBackupConfigKey = "Backup.LastEndOfDayLocalDate";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -78,8 +99,11 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
     public event EventHandler? StatusChanged;
 
     public bool IsBackingUp => _isBackingUp;
+    public bool IsBackupInProgress => _isBackingUp;
     public DateTime? LastBackupTime => _lastBackupTime;
+    public DateTime? LastBackupTimestamp => _lastBackupTime;
     public string? BackupFilePath => _backupFilePath;
+    public string? BackupFileLocation => _backupFilePath;
     public string? LastError => _lastError;
 
     public string ResolveBackupDirectory()
@@ -134,6 +158,63 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
         }
 
         return BackupNowAsync(DatabaseBackupTriggers.EndOfShift, cancellationToken);
+    }
+
+    public Task<DatabaseBackupResult> BackupOnEndOfDayAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled || !_options.BackupOnEndOfDay)
+        {
+            return Task.FromResult(DatabaseBackupResult.Failed("End-of-day backup is disabled."));
+        }
+
+        return BackupNowAsync(DatabaseBackupTriggers.EndOfDay, cancellationToken);
+    }
+
+    public double GetBackupStorageUsageMb()
+    {
+        var directory = ResolveBackupDirectory();
+        if (!Directory.Exists(directory))
+        {
+            return 0;
+        }
+
+        long bytes = 0;
+        foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
+        {
+            try
+            {
+                bytes += new FileInfo(file).Length;
+            }
+            catch
+            {
+                // Ignore locked/transient files.
+            }
+        }
+
+        return Math.Round(bytes / (1024d * 1024d), 2);
+    }
+
+    public async Task<DatabaseBackupStatusSnapshot> GetStatusSnapshotAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var history = await GetHistoryAsync(5, cancellationToken).ConfigureAwait(false);
+        var latest = history.FirstOrDefault(h => h.Success);
+        if (latest is not null && _lastBackupTime is null)
+        {
+            _lastBackupTime = latest.CreatedAtUtc;
+            _backupFilePath = latest.BackupFilePath;
+        }
+
+        return new DatabaseBackupStatusSnapshot
+        {
+            IsBackupInProgress = _isBackingUp,
+            LastBackupTimestamp = _lastBackupTime,
+            BackupFileLocation = _backupFilePath,
+            BackupDirectory = ResolveBackupDirectory(),
+            StorageUsageMb = GetBackupStorageUsageMb(),
+            LastError = _lastError,
+            HistoryCount = history.Count
+        };
     }
 
     public async Task<DatabaseBackupResult> BackupNowAsync(
@@ -205,6 +286,11 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
                     cancellationToken)
                 .ConfigureAwait(false);
 
+            if (_options.VerifyAfterBackup && !VerifyChecksum(bakPath, checksum))
+            {
+                throw new InvalidOperationException("Post-backup SHA-256 integrity verification failed.");
+            }
+
             await InsertHistoryAsync(manifest, success: true, error: null, cancellationToken).ConfigureAwait(false);
             await PruneOldBackupsAsync(directory, cancellationToken).ConfigureAwait(false);
 
@@ -223,12 +309,25 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
                     .ConfigureAwait(false);
             }
 
+            if (trigger == DatabaseBackupTriggers.EndOfDay)
+            {
+                await UpsertConfigAsync(
+                        LastEndOfDayBackupConfigKey,
+                        DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             _lastBackupTime = manifest.CreatedAtUtc;
             _backupFilePath = bakPath;
             _lastError = null;
             _logger.LogInformation("Database backup completed: {Path} ({Bytes} bytes).", bakPath, fileInfo.Length);
 
-            return DatabaseBackupResult.Ok(manifest, $"Backup saved to {bakPath}");
+            return DatabaseBackupResult.Ok(
+                manifest,
+                _options.VerifyAfterBackup
+                    ? $"Backup saved and integrity-verified: {bakPath}"
+                    : $"Backup saved to {bakPath}");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -444,11 +543,25 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
             .OrderByDescending(f => f.CreationTimeUtc)
             .ToList();
 
+        var ageCutoff = _options.RetentionDays > 0
+            ? DateTime.UtcNow.AddDays(-_options.RetentionDays)
+            : (DateTime?)null;
+
         foreach (var obsolete in bakFiles.Skip(retention))
         {
             TryDelete(obsolete.FullName);
             TryDelete(IOPath.ChangeExtension(obsolete.FullName, ".manifest.json"));
             TryDelete(IOPath.ChangeExtension(obsolete.FullName, ".secrets.dpapi.json"));
+        }
+
+        if (ageCutoff is not null)
+        {
+            foreach (var aged in bakFiles.Where(f => f.CreationTimeUtc < ageCutoff.Value))
+            {
+                TryDelete(aged.FullName);
+                TryDelete(IOPath.ChangeExtension(aged.FullName, ".manifest.json"));
+                TryDelete(IOPath.ChangeExtension(aged.FullName, ".secrets.dpapi.json"));
+            }
         }
 
         using var scope = _scopeFactory.CreateScope();
@@ -470,6 +583,20 @@ public sealed class DatabaseBackupService : IDatabaseBackupService
             await connection.ExecuteAsync(
                 new CommandDefinition(sql, new { Retention = retention }, cancellationToken: cancellationToken))
                 .ConfigureAwait(false);
+
+            if (_options.RetentionDays > 0)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        DELETE FROM dbo.DatabaseBackupHistory
+                        WHERE Success = 1
+                          AND CreatedAtUtc < DATEADD(DAY, -@Days, SYSUTCDATETIME());
+                        """,
+                        new { Days = _options.RetentionDays },
+                        cancellationToken: cancellationToken))
+                    .ConfigureAwait(false);
+            }
         }
         catch (SqlException)
         {
@@ -601,6 +728,11 @@ public sealed class DatabaseBackupBackgroundService : BackgroundService
                 {
                     await TryMidnightBackupAsync(stoppingToken).ConfigureAwait(false);
                 }
+
+                if (_options.Value.Enabled && _options.Value.BackupOnEndOfDay)
+                {
+                    await TryEndOfDayBackupAsync(stoppingToken).ConfigureAwait(false);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -640,5 +772,31 @@ public sealed class DatabaseBackupBackgroundService : BackgroundService
         _logger.LogInformation("Starting midnight SQL Express backup.");
         await _backupService.BackupNowAsync(DatabaseBackupTriggers.Midnight, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async Task TryEndOfDayBackupAsync(CancellationToken cancellationToken)
+    {
+        var options = _options.Value;
+        var hour = Math.Clamp(options.EndOfDayHourLocal, 0, 23);
+        var window = TimeSpan.FromMinutes(Math.Clamp(options.EndOfDayWindowMinutes, 5, 180));
+        var now = DateTime.Now;
+        var windowStart = DateTime.Today.AddHours(hour);
+        if (now < windowStart || now > windowStart.Add(window))
+        {
+            return;
+        }
+
+        using var scope = _scopeFactory.CreateScope();
+        var config = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
+        var last = await config.GetJsonAsync(DatabaseBackupService.LastEndOfDayBackupConfigKey, cancellationToken)
+            .ConfigureAwait(false);
+        var today = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        if (string.Equals(last, today, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _logger.LogInformation("Starting end-of-day SQL Express backup (scheduled window).");
+        await _backupService.BackupOnEndOfDayAsync(cancellationToken).ConfigureAwait(false);
     }
 }

@@ -1027,6 +1027,41 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
                 VALUES (N'Schema.Phase32Applied', N'true', GETUTCDATE());
             END;
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.Configurations WHERE ConfigKey = N'Schema.Phase33Applied')
+            BEGIN
+                IF COL_LENGTH(N'dbo.DatabaseBackupHistory', N'VerifiedSha256') IS NULL
+                   AND OBJECT_ID(N'dbo.DatabaseBackupHistory', N'U') IS NOT NULL
+                BEGIN
+                    ALTER TABLE dbo.DatabaseBackupHistory
+                        ADD VerifiedSha256 BIT NOT NULL
+                            CONSTRAINT DF_DatabaseBackupHistory_VerifiedSha256 DEFAULT (0);
+                END;
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Backup.EndOfDayHourLocal' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Backup.EndOfDayHourLocal', N'21', GETUTCDATE());
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Backup.RetentionDays' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Backup.RetentionDays', N'30', GETUTCDATE());
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Hardware.FaultToleranceEnabled' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Hardware.FaultToleranceEnabled', N'true', GETUTCDATE());
+
+                INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
+                VALUES (N'Schema.Phase33Applied', N'true', GETUTCDATE());
+            END;
             """;
 
         await using var command = connection.CreateCommand();

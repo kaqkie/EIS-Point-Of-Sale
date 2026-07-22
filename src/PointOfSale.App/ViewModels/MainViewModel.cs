@@ -214,7 +214,7 @@ public partial class MainViewModel : ObservableObject
     private void NavigateHeadOffice() => _navigationService.NavigateTo<HeadOfficeSyncViewModel>();
 
     [RelayCommand(CanExecute = nameof(CanBackup))]
-    private void NavigateBackup() => _navigationService.NavigateTo<BackupRecoveryViewModel>();
+    private void NavigateBackup() => _navigationService.NavigateTo<DatabaseBackupViewModel>();
 
     [RelayCommand(CanExecute = nameof(CanManageUsers))]
     private void NavigateUsers() => _navigationService.NavigateTo<UserManagementViewModel>();

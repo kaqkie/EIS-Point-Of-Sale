@@ -96,6 +96,8 @@ public partial class App : Application
                 services.AddSingleton<IProductionSecretGuard, ProductionSecretGuard>();
                 services.AddSingleton<IThermalPrinterHardwareService, ThermalPrinterHardwareService>();
                 services.AddSingleton<IHardwarePeripheralService, HardwarePeripheralService>();
+                services.AddSingleton<IHardwareIntegrationService, HardwareIntegrationService>();
+                services.AddHostedService<HardwareIntegrationWatchdogService>();
                 services.AddSingleton<IDatabaseBootstrapService, DatabaseBootstrapService>();
                 services.AddSingleton<IApplicationUpdateService, ApplicationUpdateService>();
                 services.AddHostedService<ApplicationUpdateBackgroundService>();
@@ -155,6 +157,7 @@ public partial class App : Application
                 services.AddTransient<AdminAnalyticsView>();
                 services.AddTransient<HeadOfficeSyncView>();
                 services.AddTransient<BackupRecoveryView>();
+                services.AddTransient<DatabaseBackupView>();
                 services.AddTransient<LoginView>();
                 services.AddTransient<UserManagementView>();
                 services.AddTransient<CustomerLoyaltyView>();
@@ -190,6 +193,7 @@ public partial class App : Application
                 services.AddTransient<AdminAnalyticsViewModel>();
                 services.AddTransient<HeadOfficeSyncViewModel>();
                 services.AddTransient<BackupRecoveryViewModel>();
+                services.AddTransient<DatabaseBackupViewModel>();
                 services.AddTransient<UserManagementViewModel>();
                 services.AddTransient<CustomerLoyaltyViewModel>();
                 services.AddTransient<DiscountManagementViewModel>();

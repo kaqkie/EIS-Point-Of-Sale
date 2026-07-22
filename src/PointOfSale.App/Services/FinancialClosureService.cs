@@ -47,6 +47,7 @@ public sealed class FinancialClosureService : IFinancialClosureService
     private readonly IAuthenticationAuthorizationService _auth;
     private readonly FinancialClosureOptions _options;
     private readonly ILogger<FinancialClosureService> _logger;
+    private readonly IDatabaseBackupService? _backupService;
 
     public FinancialClosureService(
         IFinancialClosureRepository closureRepository,
@@ -56,7 +57,8 @@ public sealed class FinancialClosureService : IFinancialClosureService
         IAuditSecurityLogger auditLogger,
         IAuthenticationAuthorizationService auth,
         IOptions<FinancialClosureOptions> options,
-        ILogger<FinancialClosureService> logger)
+        ILogger<FinancialClosureService> logger,
+        IDatabaseBackupService? backupService = null)
     {
         _closureRepository = closureRepository;
         _shiftManagement = shiftManagement;
@@ -66,6 +68,7 @@ public sealed class FinancialClosureService : IFinancialClosureService
         _auth = auth;
         _options = options.Value;
         _logger = logger;
+        _backupService = backupService;
     }
 
     public async Task<EndOfDaySummary> BuildPreviewAsync(
@@ -162,6 +165,30 @@ public sealed class FinancialClosureService : IFinancialClosureService
             record.TotalGrossSalesMwk,
             record.TotalVatCollectedMwk,
             record.AuditPassed);
+
+        if (_backupService is not null)
+        {
+            try
+            {
+                var backup = await _backupService.BackupOnEndOfDayAsync(cancellationToken).ConfigureAwait(false);
+                if (backup.Success)
+                {
+                    _logger.LogInformation(
+                        "End-of-day SQL Express backup completed after financial closure: {Path}",
+                        backup.Manifest?.BackupFilePath);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "End-of-day SQL Express backup skipped/failed after financial closure: {Error}",
+                        backup.Error);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "End-of-day SQL Express backup threw after financial closure.");
+            }
+        }
 
         var closedSummary = summary with
         {

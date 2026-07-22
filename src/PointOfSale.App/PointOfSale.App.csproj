@@ -118,6 +118,12 @@
     <None Include="..\..\Database\MigrationScripts\011_TerminalLicenseActivation.sql" Link="Database\MigrationScripts\011_TerminalLicenseActivation.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\020_EndOfDayBackupAndHardwareHardening.sql" Link="Scripts\020_EndOfDayBackupAndHardwareHardening.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Database\MigrationScripts\012_EndOfDayBackupAndHardwareHardening.sql" Link="Database\MigrationScripts\012_EndOfDayBackupAndHardwareHardening.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

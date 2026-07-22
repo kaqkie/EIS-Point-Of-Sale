@@ -5,6 +5,7 @@ public static class DatabaseBackupTriggers
     public const string Manual = "Manual";
     public const string Midnight = "Midnight";
     public const string EndOfShift = "EndOfShift";
+    public const string EndOfDay = "EndOfDay";
     public const string Scheduled = "Scheduled";
 }
 

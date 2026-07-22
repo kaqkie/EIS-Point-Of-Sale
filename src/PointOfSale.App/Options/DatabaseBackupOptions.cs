@@ -24,6 +24,24 @@ public sealed class DatabaseBackupOptions
     /// <summary>Run an automatic backup when a cashier shift is closed.</summary>
     public bool BackupOnShiftClose { get; set; } = true;
 
+    /// <summary>Run an automatic end-of-day backup after financial day closure and/or EOD schedule window.</summary>
+    public bool BackupOnEndOfDay { get; set; } = true;
+
+    /// <summary>
+    /// Local-time hour (0–23) for the daily EOD backup window start.
+    /// Window lasts <see cref="EndOfDayWindowMinutes"/> minutes.
+    /// </summary>
+    public int EndOfDayHourLocal { get; set; } = 21;
+
+    /// <summary>Duration of the EOD schedule window in minutes (default 30).</summary>
+    public int EndOfDayWindowMinutes { get; set; } = 30;
+
+    /// <summary>Also purge .bak files older than this many days (0 = count-only retention).</summary>
+    public int RetentionDays { get; set; } = 30;
+
+    /// <summary>After each successful backup, verify SHA-256 (+ optional RESTORE VERIFYONLY via restore service).</summary>
+    public bool VerifyAfterBackup { get; set; } = true;
+
     /// <summary>Prefer WITH COMPRESSION on BACKUP DATABASE (falls back if unsupported).</summary>
     public bool UseCompression { get; set; } = true;
 

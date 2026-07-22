@@ -31,6 +31,9 @@
             <DataTemplate DataType="{x:Type vm:BackupRecoveryViewModel}">
                 <v:BackupRecoveryView />
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:DatabaseBackupViewModel}">
+                <v:DatabaseBackupView />
+            </DataTemplate>
             <DataTemplate DataType="{x:Type vm:LoginViewModel}">
                 <v:LoginView />
             </DataTemplate>
