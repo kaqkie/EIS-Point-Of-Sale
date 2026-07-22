@@ -1,0 +1,43 @@
+using PointOfSale.App.Options;
+using PointOfSale.Core.Compliance;
+using PointOfSale.Infrastructure.Services;
+using PointOfSale.Mra.Options;
+using Xunit;
+
+namespace PointOfSale.Tests;
+
+public sealed class ComplianceAuditLoggingTests
+{
+    [Fact]
+    public void MraProductionHandshakeOptions_DefaultWarningWindow()
+    {
+        var options = new MraProductionHandshakeOptions();
+        Assert.True(options.Enabled);
+        Assert.True(options.CertificateWarningDays >= 7);
+    }
+
+    [Fact]
+    public void MraRuntimeEnvironmentState_ResolvesProductionBaseUrl()
+    {
+        var state = new MraRuntimeEnvironmentState();
+        state.ApplyHandshake("Production", DateTime.UtcNow, DateTime.UtcNow.AddDays(30));
+
+        var options = new MraApiOptions
+        {
+            Environment = "Sandbox",
+            ProductionBaseUrl = "https://apis.mra.mw/api/v1/",
+            SandboxBaseUrl = "https://dev-eis-api.mra.mw/api/v1/"
+        };
+
+        Assert.True(state.IsLiveProductionActive(options));
+        Assert.Contains("apis.mra.mw", state.GetEffectiveBaseUrl(options), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ComplianceAuditCategories_DefineRequiredEventTypes()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(ComplianceAuditCategories.TransactionSubmission));
+        Assert.False(string.IsNullOrWhiteSpace(ComplianceAuditCategories.OfflineQueue));
+        Assert.False(string.IsNullOrWhiteSpace(ComplianceAuditCategories.MraHandshake));
+    }
+}

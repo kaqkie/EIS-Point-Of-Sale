@@ -75,11 +75,14 @@ public partial class App : Application
                     context.Configuration.GetSection(EnterpriseMaintenanceOptions.SectionName));
                 services.Configure<DatabaseMaintenanceOptions>(
                     context.Configuration.GetSection(DatabaseMaintenanceOptions.SectionName));
+                services.Configure<MraProductionHandshakeOptions>(
+                    context.Configuration.GetSection(MraProductionHandshakeOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
                 services.AddHttpClient(nameof(TelemetryDiagnosticService));
                 services.AddHttpClient(nameof(PerformanceProfilingService));
+                services.AddHttpClient(nameof(MraProductionHandshakeService));
 
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
                 services.AddSingleton<ITelemetryDiagnosticService, TelemetryDiagnosticService>();
@@ -126,6 +129,8 @@ public partial class App : Application
                 services.AddHostedService<PerformanceProfilingBackgroundService>();
                 services.AddSingleton<IDatabaseMaintenanceService, DatabaseMaintenanceService>();
                 services.AddHostedService<DatabaseMaintenanceBackgroundService>();
+                services.AddSingleton<IMraProductionHandshakeService, MraProductionHandshakeService>();
+                services.AddHostedService<MraProductionHandshakeMonitor>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -156,6 +161,7 @@ public partial class App : Application
                 services.AddTransient<EnterpriseMaintenanceView>();
 
                 services.AddTransient<DatabaseMaintenanceView>();
+                services.AddTransient<ComplianceAuditView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -181,6 +187,7 @@ public partial class App : Application
                 services.AddTransient<TestRunnerDashboardViewModel>();
                 services.AddTransient<EnterpriseMaintenanceViewModel>();
                 services.AddTransient<DatabaseMaintenanceViewModel>();
+                services.AddTransient<ComplianceAuditViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

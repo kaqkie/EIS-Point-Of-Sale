@@ -51,6 +51,12 @@
                                 Margin="0,4"
                                 Padding="12,10"
                                 FontSize="16" />
+                        <Button Content="Compliance Audit"
+                                Command="{Binding NavigateComplianceAuditCommand}"
+                                Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
                         <Button Content="Analytics"
                                 Command="{Binding NavigateAnalyticsCommand}"
                                 Visibility="{Binding CanAnalytics, Converter={StaticResource BooleanToVisibilityConverter}}"

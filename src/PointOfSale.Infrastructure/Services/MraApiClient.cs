@@ -20,23 +20,22 @@ public sealed class MraApiClient
     private readonly MraApiOptions _options;
     private readonly ILogger<MraApiClient> _logger;
     private readonly IAuditLoggingService? _auditLoggingService;
+    private readonly MraRuntimeEnvironmentState? _runtimeState;
 
     public MraApiClient(
         HttpClient httpClient,
         IOptions<MraApiOptions> options,
         ILogger<MraApiClient> logger,
-        IAuditLoggingService? auditLoggingService = null)
+        IAuditLoggingService? auditLoggingService = null,
+        MraRuntimeEnvironmentState? runtimeState = null)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
         _auditLoggingService = auditLoggingService;
+        _runtimeState = runtimeState;
 
-        var baseUrl = _options.ResolveBaseUrl();
-        if (_httpClient.BaseAddress is null && Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
-        {
-            _httpClient.BaseAddress = baseUri;
-        }
+        ApplyBaseUrlOnce();
 
         _httpClient.Timeout = _options.HttpTimeout;
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -117,6 +116,7 @@ public sealed class MraApiClient
         string? auditRequestBody,
         CancellationToken cancellationToken)
     {
+        EnsureAbsoluteRequestUri(request);
         _logger.LogDebug("MRA EIS {Method} {Uri}", request.Method, request.RequestUri);
 
         var path = ResolveAuditPath(request.RequestUri);
@@ -252,6 +252,32 @@ public sealed class MraApiClient
         return relativePath.Contains('?', StringComparison.Ordinal)
             ? $"{relativePath}&{qs}"
             : $"{relativePath}?{qs}";
+    }
+
+    private void ApplyBaseUrlOnce()
+    {
+        if (_httpClient.BaseAddress is not null)
+        {
+            return;
+        }
+
+        var baseUrl = _runtimeState?.GetEffectiveBaseUrl(_options) ?? _options.ResolveBaseUrl();
+        if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
+        {
+            _httpClient.BaseAddress = baseUri;
+        }
+    }
+
+    private void EnsureAbsoluteRequestUri(HttpRequestMessage request)
+    {
+        if (request.RequestUri is { IsAbsoluteUri: true })
+        {
+            return;
+        }
+
+        var baseUrl = _runtimeState?.GetEffectiveBaseUrl(_options) ?? _options.ResolveBaseUrl();
+        var relative = request.RequestUri?.ToString() ?? string.Empty;
+        request.RequestUri = new Uri(new Uri(baseUrl), relative);
     }
 }
 

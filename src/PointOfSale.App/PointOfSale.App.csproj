@@ -94,7 +94,10 @@
     <None Include="..\..\Scripts\015_PerformanceIndexOptimization.sql" Link="Scripts\015_PerformanceIndexOptimization.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\..\Database\MigrationScripts\007_PerformanceIndexOptimization.sql" Link="Database\MigrationScripts\007_PerformanceIndexOptimization.sql">
+    <None Include="..\..\Database\MigrationScripts\008_ComplianceAuditChain.sql" Link="Database\MigrationScripts\008_ComplianceAuditChain.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Scripts\016_ComplianceAuditChain.sql" Link="Scripts\016_ComplianceAuditChain.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

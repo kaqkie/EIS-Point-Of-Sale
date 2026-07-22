@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PointOfSale.Core.Compliance;
 using PointOfSale.Core.Constants;
 using PointOfSale.Core.Entities;
 using PointOfSale.Infrastructure.Options;
@@ -16,6 +17,8 @@ public sealed class OfflineSalesQueueService
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly SalesTransactionService _salesTransactionService;
     private readonly IOfflineInvoiceSyncCompletedHandler? _syncCompletedHandler;
+    private readonly IComplianceAuditLogger? _complianceAudit;
+    private readonly MraRuntimeEnvironmentState? _runtimeState;
     private readonly OfflineSyncOptions _options;
     private readonly ILogger<OfflineSalesQueueService> _logger;
 
@@ -24,13 +27,17 @@ public sealed class OfflineSalesQueueService
         SalesTransactionService salesTransactionService,
         IOptions<OfflineSyncOptions> options,
         ILogger<OfflineSalesQueueService> logger,
-        IOfflineInvoiceSyncCompletedHandler? syncCompletedHandler = null)
+        IOfflineInvoiceSyncCompletedHandler? syncCompletedHandler = null,
+        IComplianceAuditLogger? complianceAudit = null,
+        MraRuntimeEnvironmentState? runtimeState = null)
     {
         _queueRepository = queueRepository;
         _salesTransactionService = salesTransactionService;
         _options = options.Value;
         _logger = logger;
         _syncCompletedHandler = syncCompletedHandler;
+        _complianceAudit = complianceAudit;
+        _runtimeState = runtimeState;
     }
 
     public async Task<SaleQueueResult> EnqueueAndTrySubmitAsync(
@@ -44,6 +51,14 @@ public sealed class OfflineSalesQueueService
         var payload = await PreparePayloadAsync(request, forceOffline, cancellationToken).ConfigureAwait(false);
         var payloadJson = JsonSerializer.Serialize(payload, MraJson.SerializerOptions);
         var queueId = await _queueRepository.EnqueuePendingAsync(payloadJson, cancellationToken).ConfigureAwait(false);
+        await LogComplianceAsync(
+                ComplianceAuditCategories.OfflineQueue,
+                "EnqueuePending",
+                $"Invoice {payload.InvoiceHeader.InvoiceNumber} queued (id {queueId}).",
+                success: true,
+                correlationId: queueId.ToString(),
+                cancellationToken)
+            .ConfigureAwait(false);
 
         if (forceOffline)
         {
@@ -163,6 +178,15 @@ public sealed class OfflineSalesQueueService
             {
                 var fiscalJson = JsonSerializer.Serialize(submit.Data, MraJson.SerializerOptions);
                 await _queueRepository.MarkSyncedAsync(queueId, fiscalJson, cancellationToken).ConfigureAwait(false);
+                _runtimeState?.RecordSuccessfulSync(DateTime.UtcNow);
+                await LogComplianceAsync(
+                        ComplianceAuditCategories.TransactionSubmission,
+                        "MraSubmitSuccess",
+                        $"Invoice {payload.InvoiceHeader.InvoiceNumber} synced (queue {queueId}).",
+                        success: true,
+                        correlationId: queueId.ToString(),
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 await _salesTransactionService.ApplyLocalInventoryDeductionsAsync(payload, cancellationToken)
                     .ConfigureAwait(false);
 
@@ -210,6 +234,15 @@ public sealed class OfflineSalesQueueService
                         RetryCount = currentRetryCount
                     },
                     submit.Remark ?? "MRA sale submission failed.",
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            await LogComplianceAsync(
+                    ComplianceAuditCategories.OfflineQueue,
+                    "RetryScheduled",
+                    $"Queue {queueId} retry #{currentRetryCount + 1}: {submit.Remark}",
+                    success: false,
+                    correlationId: queueId.ToString(),
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -299,6 +332,17 @@ public sealed class OfflineSalesQueueService
 
     private static string TruncateError(string message) =>
         message.Length <= 4000 ? message : message[..4000];
+
+    private Task LogComplianceAsync(
+        string category,
+        string action,
+        string detail,
+        bool success,
+        string? correlationId,
+        CancellationToken cancellationToken) =>
+        _complianceAudit is null
+            ? Task.CompletedTask
+            : _complianceAudit.LogEventAsync(category, action, detail, success, correlationId, cancellationToken: cancellationToken);
 }
 
 public sealed class SaleQueueResult

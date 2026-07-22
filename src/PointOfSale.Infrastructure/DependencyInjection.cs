@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using PointOfSale.Core.Compliance;
 using PointOfSale.Infrastructure.Data;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Security;
@@ -43,6 +44,8 @@ public static class DependencyInjection
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
 #pragma warning restore CA1416
         services.AddSingleton<IAuditLoggingService, AuditLoggingService>();
+        services.AddSingleton<MraRuntimeEnvironmentState>();
+        services.AddSingleton<IComplianceAuditLogger, ComplianceAuditLoggingService>();
 
         services.AddScoped<ITerminalRepository, TerminalRepository>();
         services.AddScoped<IConfigurationRepository, ConfigurationRepository>();

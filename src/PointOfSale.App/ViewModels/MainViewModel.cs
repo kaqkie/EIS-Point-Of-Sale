@@ -169,6 +169,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanCompliance))]
     private void NavigateCompliance() => _navigationService.NavigateTo<ComplianceExportViewModel>();
 
+    [RelayCommand(CanExecute = nameof(CanCompliance))]
+    private void NavigateComplianceAudit() => _navigationService.NavigateTo<ComplianceAuditViewModel>();
+
     [RelayCommand(CanExecute = nameof(CanAnalytics))]
     private void NavigateAnalytics() => _navigationService.NavigateTo<AdminAnalyticsViewModel>();
 
@@ -296,6 +299,7 @@ public partial class MainViewModel : ObservableObject
         NavigateInventoryCommand.NotifyCanExecuteChanged();
         NavigateQueueCommand.NotifyCanExecuteChanged();
         NavigateComplianceCommand.NotifyCanExecuteChanged();
+        NavigateComplianceAuditCommand.NotifyCanExecuteChanged();
         NavigateAnalyticsCommand.NotifyCanExecuteChanged();
         NavigateHeadOfficeCommand.NotifyCanExecuteChanged();
         NavigateBackupCommand.NotifyCanExecuteChanged();

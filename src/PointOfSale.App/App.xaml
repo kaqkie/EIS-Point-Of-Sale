@@ -74,6 +74,9 @@
         <DataTemplate DataType="{x:Type vm:DatabaseMaintenanceViewModel}">
             <v:DatabaseMaintenanceView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ComplianceAuditViewModel}">
+            <v:ComplianceAuditView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

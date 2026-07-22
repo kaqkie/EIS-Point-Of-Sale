@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using PointOfSale.App.Options;
 using PointOfSale.Core.Constants;
 using PointOfSale.Infrastructure.Repositories;
+using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Options;
 
@@ -151,13 +152,22 @@ public sealed class ProductionSecretGuard : IProductionSecretGuard
 
     public async Task EnsureReadyForLiveSalesAsync(CancellationToken cancellationToken = default)
     {
-        var isProduction = _mraOptions.Value.Environment.Equals("Production", StringComparison.OrdinalIgnoreCase);
+        using var scope = _scopeFactory.CreateScope();
+        var runtime = scope.ServiceProvider.GetService<MraRuntimeEnvironmentState>();
+        var isProduction = runtime?.IsLiveProductionActive(_mraOptions.Value)
+            ?? _mraOptions.Value.Environment.Equals("Production", StringComparison.OrdinalIgnoreCase);
+
+        if (runtime?.FiscalLockoutActive == true)
+        {
+            throw new InvalidOperationException(
+                "MRA fiscal signing certificate lockout is active. Renew credentials from Compliance Audit before live sales.");
+        }
+
         if (!isProduction || !_deployment.Value.RequireEncryptedSecrets)
         {
             return;
         }
 
-        using var scope = _scopeFactory.CreateScope();
         var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
         var terminalRepository = scope.ServiceProvider.GetRequiredService<ITerminalRepository>();
 
