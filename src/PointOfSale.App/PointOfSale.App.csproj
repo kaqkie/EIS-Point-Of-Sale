@@ -100,6 +100,12 @@
     <None Include="..\..\Scripts\016_ComplianceAuditChain.sql" Link="Scripts\016_ComplianceAuditChain.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\017_MultiTerminalSyncAndHardware.sql" Link="Scripts\017_MultiTerminalSyncAndHardware.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Database\MigrationScripts\009_MultiTerminalSyncAndHardware.sql" Link="Database\MigrationScripts\009_MultiTerminalSyncAndHardware.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

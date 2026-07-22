@@ -65,6 +65,7 @@ public static class DependencyInjection
         services.AddSingleton<IDiagnosticTelemetryRepository, DiagnosticTelemetryRepository>();
         services.AddSingleton<IFinancialClosureRepository, FinancialClosureRepository>();
         services.AddScoped<IFiscalYearArchiveRepository, FiscalYearArchiveRepository>();
+        services.AddScoped<IMultiTerminalSyncRepository, MultiTerminalSyncRepository>();
 
         services.AddHttpClient<MraApiClient>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();

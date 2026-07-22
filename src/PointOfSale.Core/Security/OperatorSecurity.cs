@@ -46,6 +46,7 @@ public static class OperatorPermissions
     public const string RunIntegrationTests = "RunIntegrationTests";
     public const string ExecuteEnterpriseMaintenance = "ExecuteEnterpriseMaintenance";
     public const string ManageDatabaseMaintenance = "ManageDatabaseMaintenance";
+    public const string ManageHardwarePeripherals = "ManageHardwarePeripherals";
 
     public static readonly string[] All =
     [
@@ -76,7 +77,8 @@ public static class OperatorPermissions
         ProvisionTerminal,
         RunIntegrationTests,
         ExecuteEnterpriseMaintenance,
-        ManageDatabaseMaintenance
+        ManageDatabaseMaintenance,
+        ManageHardwarePeripherals
     ];
 }
 

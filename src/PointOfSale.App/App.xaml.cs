@@ -49,6 +49,10 @@ public partial class App : Application
                     context.Configuration.GetSection(DatabaseBootstrapOptions.SectionName));
                 services.Configure<HeadOfficeSyncOptions>(
                     context.Configuration.GetSection(HeadOfficeSyncOptions.SectionName));
+                services.Configure<HardwarePeripheralOptions>(
+                    context.Configuration.GetSection(HardwarePeripheralOptions.SectionName));
+                services.Configure<MultiTerminalSyncOptions>(
+                    context.Configuration.GetSection(MultiTerminalSyncOptions.SectionName));
                 services.Configure<DatabaseBackupOptions>(
                     context.Configuration.GetSection(DatabaseBackupOptions.SectionName));
                 services.Configure<AuthenticationOptions>(
@@ -89,6 +93,7 @@ public partial class App : Application
                 services.AddSingleton<GlobalExceptionHandler>();
                 services.AddSingleton<IProductionSecretGuard, ProductionSecretGuard>();
                 services.AddSingleton<IThermalPrinterHardwareService, ThermalPrinterHardwareService>();
+                services.AddSingleton<IHardwarePeripheralService, HardwarePeripheralService>();
                 services.AddSingleton<IDatabaseBootstrapService, DatabaseBootstrapService>();
                 services.AddSingleton<IApplicationUpdateService, ApplicationUpdateService>();
                 services.AddHostedService<ApplicationUpdateBackgroundService>();
@@ -111,6 +116,8 @@ public partial class App : Application
                 services.AddTransient<ICentralInventoryReplicationService, CentralInventoryReplicationService>();
                 services.AddSingleton<IHeadOfficeSyncService, HeadOfficeSyncService>();
                 services.AddHostedService<HeadOfficeSyncBackgroundService>();
+                services.AddSingleton<IMultiTerminalSyncBroker, MultiTerminalSyncBroker>();
+                services.AddHostedService<MultiTerminalSyncBackgroundService>();
                 services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
                 services.AddSingleton<IAuditSecurityLogger, AuditSecurityLogger>();
                 services.AddSingleton<IAuthenticationAuthorizationService, AuthenticationAuthorizationService>();
@@ -162,6 +169,7 @@ public partial class App : Application
 
                 services.AddTransient<DatabaseMaintenanceView>();
                 services.AddTransient<ComplianceAuditView>();
+                services.AddTransient<HardwareManagementView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -188,6 +196,7 @@ public partial class App : Application
                 services.AddTransient<EnterpriseMaintenanceViewModel>();
                 services.AddTransient<DatabaseMaintenanceViewModel>();
                 services.AddTransient<ComplianceAuditViewModel>();
+                services.AddTransient<HardwareManagementViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })
