@@ -124,7 +124,7 @@ public partial class AdminDashboardViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = ex.Message;
+            StatusMessage = $"Admin overview failed: {ex.Message}";
         }
     }
 

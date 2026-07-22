@@ -10,29 +10,66 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
             <Button Content="Refresh Local"
+                    Style="{StaticResource Art.Button.Secondary}"
                     Command="{Binding RefreshCommand}"
                     Padding="12,8"
-                    Margin="0,0,8,0" />
+                    Margin="0,0,8,0"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
             <Button Content="Sync Warehouse (MRA)"
+                    Style="{StaticResource Art.Button.Primary}"
                     Command="{Binding SyncWarehouseCommand}"
                     Padding="12,8"
-                    FontWeight="SemiBold" />
+                    Margin="0,0,8,0"
+                    FontWeight="SemiBold"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+            <Button Content="Load demo catalog"
+                    Style="{StaticResource Art.Button.Ghost}"
+                    Command="{Binding LoadDemoCatalogCommand}"
+                    Padding="12,8"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
         </StackPanel>
 
-        <DataGrid Grid.Row="1"
-                  ItemsSource="{Binding Items}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Code" Binding="{Binding ProductCode}" Width="120" />
-                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
-                <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" Width="90" />
-                <DataGridTextColumn Header="Stock" Binding="{Binding StockQuantity, StringFormat=N2}" Width="90" />
-                <DataGridTextColumn Header="HS" Binding="{Binding HsCode}" Width="90" />
-                <DataGridTextColumn Header="UOM" Binding="{Binding UnitOfMeasure}" Width="80" />
-            </DataGrid.Columns>
-        </DataGrid>
+        <Grid Grid.Row="1">
+            <DataGrid ItemsSource="{Binding Items}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      IsReadOnly="True"
+                      HeadersVisibility="Column">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Code" Binding="{Binding ProductCode}" Width="140" />
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                    <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" Width="100" />
+                    <DataGridTextColumn Header="Stock" Binding="{Binding StockQuantity, StringFormat=N2}" Width="90" />
+                    <DataGridTextColumn Header="HS" Binding="{Binding HsCode}" Width="90" />
+                    <DataGridTextColumn Header="UOM" Binding="{Binding UnitOfMeasure}" Width="80" />
+                    <DataGridTextColumn Header="Tax" Binding="{Binding TaxRateId}" Width="60" />
+                </DataGrid.Columns>
+            </DataGrid>
 
-        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Margin="0,8,0,0" />
+            <Border Background="{StaticResource Art.Brush.Canvas}"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Visibility="{Binding ShowEmptyState, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel MaxWidth="420">
+                    <TextBlock Text="No inventory items"
+                               Style="{StaticResource Art.Text.Title}"
+                               FontSize="18"
+                               Margin="0,0,0,8" />
+                    <TextBlock Text="The local catalog is empty. Sync from MRA warehouse when online, or load the starter demo catalog to continue checkout testing."
+                               Style="{StaticResource Art.Text.Subtitle}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="2"
+                   Text="{Binding StatusMessage}"
+                   Style="{StaticResource Art.Text.Subtitle}"
+                   TextWrapping="Wrap"
+                   Margin="0,8,0,0" />
     </Grid>
 </UserControl>
