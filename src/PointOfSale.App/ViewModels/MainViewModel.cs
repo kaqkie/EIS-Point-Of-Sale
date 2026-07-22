@@ -19,13 +19,13 @@ public partial class MainViewModel : ObservableObject
         IConnectionStatusService connectionStatusService,
         IAuthenticationAuthorizationService auth,
         ITelemetryDiagnosticService telemetry,
-        LoginViewModel loginViewModel)
+        AuthenticationViewModel authentication)
     {
         _navigationService = navigationService;
         _connectionStatusService = connectionStatusService;
         _auth = auth;
         _telemetry = telemetry;
-        Login = loginViewModel;
+        Authentication = authentication;
 
         _navigationService.CurrentViewModelChanged += (_, _) => CurrentViewModel = _navigationService.CurrentViewModel;
         _connectionStatusService.StatusChanged += (_, _) => RefreshConnectionState();
@@ -59,7 +59,7 @@ public partial class MainViewModel : ObservableObject
         ApplyHealthSnapshot(_telemetry.LatestSnapshot);
     }
 
-    public LoginViewModel Login { get; }
+    public AuthenticationViewModel Authentication { get; }
 
     [ObservableProperty]
     private object? _currentViewModel;
@@ -155,6 +155,12 @@ public partial class MainViewModel : ObservableObject
     private bool _canHardware;
 
     [ObservableProperty]
+    private bool _isCashierShell;
+
+    [ObservableProperty]
+    private bool _isAdminShell;
+
+    [ObservableProperty]
     private bool _hasHealthWarning;
 
     [ObservableProperty]
@@ -232,6 +238,12 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanHardware))]
     private void NavigateHardware() => _navigationService.NavigateTo<HardwareManagementViewModel>();
 
+    [RelayCommand(CanExecute = nameof(IsCashierShell))]
+    private void NavigateCashierHome() => _navigationService.NavigateTo<CashierDashboardViewModel>();
+
+    [RelayCommand(CanExecute = nameof(IsAdminShell))]
+    private void NavigateAdminHome() => _navigationService.NavigateTo<AdminDashboardViewModel>();
+
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
 
@@ -302,6 +314,10 @@ public partial class MainViewModel : ObservableObject
         CanDatabaseMaintenance = _auth.HasPermission(OperatorPermissions.ManageDatabaseMaintenance);
         CanHardware = _auth.HasPermission(OperatorPermissions.ManageHardwarePeripherals);
 
+        var role = session?.Role;
+        IsCashierShell = IsAuthenticated && OperatorWorkspace.IsCashierWorkspaceRole(role);
+        IsAdminShell = IsAuthenticated && OperatorWorkspace.IsAdminConsoleRole(role);
+
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
         NavigateQueueCommand.NotifyCanExecuteChanged();
@@ -326,5 +342,7 @@ public partial class MainViewModel : ObservableObject
         NavigateEnterpriseMaintenanceCommand.NotifyCanExecuteChanged();
         NavigateDatabaseMaintenanceCommand.NotifyCanExecuteChanged();
         NavigateHardwareCommand.NotifyCanExecuteChanged();
+        NavigateCashierHomeCommand.NotifyCanExecuteChanged();
+        NavigateAdminHomeCommand.NotifyCanExecuteChanged();
     }
 }

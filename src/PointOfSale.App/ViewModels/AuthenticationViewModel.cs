@@ -5,12 +5,18 @@ using PointOfSale.Core.Security;
 
 namespace PointOfSale.App.ViewModels;
 
-public partial class LoginViewModel : ObservableObject
+/// <summary>
+/// Light-themed sign-in with role-based routing into Cashier or Admin workspaces.
+/// Credentials validate against dbo.Operators (SQL Express operator directory).
+/// </summary>
+public partial class AuthenticationViewModel : ObservableObject
 {
     private readonly IAuthenticationAuthorizationService _auth;
     private readonly INavigationService _navigation;
 
-    public LoginViewModel(IAuthenticationAuthorizationService auth, INavigationService navigation)
+    public AuthenticationViewModel(
+        IAuthenticationAuthorizationService auth,
+        INavigationService navigation)
     {
         _auth = auth;
         _navigation = navigation;
@@ -19,12 +25,11 @@ public partial class LoginViewModel : ObservableObject
     [ObservableProperty]
     private string _username = string.Empty;
 
-    /// <summary>Bound from PasswordBox code-behind (never persisted).</summary>
     [ObservableProperty]
     private string _password = string.Empty;
 
     [ObservableProperty]
-    private string _statusMessage = "Sign in to continue retail operations.";
+    private string _statusMessage = "Sign in with your Albert Retail operator credentials.";
 
     [ObservableProperty]
     private bool _isBusy;
@@ -36,7 +41,7 @@ public partial class LoginViewModel : ObservableObject
     private OperatorSession? _currentOperator;
 
     [ObservableProperty]
-    private string? _selectedRole;
+    private string? _routedWorkspace;
 
     [RelayCommand]
     private async Task SignInAsync()
@@ -56,19 +61,20 @@ public partial class LoginViewModel : ObservableObject
                 StatusMessage = result.Error ?? "Sign-in failed.";
                 IsAuthenticated = false;
                 CurrentOperator = null;
-                SelectedRole = null;
+                RoutedWorkspace = null;
                 return;
             }
 
             CurrentOperator = result.Session;
-            SelectedRole = result.Session.Role;
             IsAuthenticated = true;
-            StatusMessage = $"Welcome, {result.Session.DisplayName}.";
+            RoutedWorkspace = OperatorWorkspace.ResolveShell(result.Session.Role);
+            StatusMessage = $"Welcome, {result.Session.DisplayName} · {RoutedWorkspace} workspace";
+
             if (OperatorWorkspace.IsAdminConsoleRole(result.Session.Role))
             {
                 _navigation.NavigateTo<AdminDashboardViewModel>();
             }
-            else if (_auth.HasPermission(OperatorPermissions.ExecuteCheckout))
+            else
             {
                 _navigation.NavigateTo<CashierDashboardViewModel>();
             }

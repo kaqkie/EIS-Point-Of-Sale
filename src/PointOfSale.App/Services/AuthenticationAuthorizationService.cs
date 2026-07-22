@@ -38,6 +38,12 @@ public interface IAuthenticationAuthorizationService
         int operatorId,
         string newPassword,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Self-service password change for the signed-in operator.</summary>
+    Task<AuthResult> ChangeOwnPasswordAsync(
+        string currentPassword,
+        string newPassword,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class AuthResult
@@ -403,6 +409,55 @@ public sealed class AuthenticationAuthorizationService : IAuthenticationAuthoriz
                 success: true,
                 operatorId: _current?.OperatorId,
                 username: _current?.Username,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        return AuthResult.Ok();
+    }
+
+    public async Task<AuthResult> ChangeOwnPasswordAsync(
+        string currentPassword,
+        string newPassword,
+        CancellationToken cancellationToken = default)
+    {
+        var session = _current
+            ?? throw new UnauthorizedAccessException("Sign in before changing your password.");
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        {
+            return AuthResult.Fail("Password must be at least 8 characters.");
+        }
+
+        using var scope = _scopeFactory.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IOperatorRepository>();
+        var account = await repo.GetByIdAsync(session.OperatorId, cancellationToken).ConfigureAwait(false);
+        if (account is null)
+        {
+            return AuthResult.Fail("Operator account not found.");
+        }
+
+        if (!_passwordHasher.VerifyPassword(currentPassword, account.PasswordHash, account.PasswordSalt, account.PasswordIterations))
+        {
+            await _auditLogger.LogAsync(
+                    SecurityAuditActions.ResetPassword,
+                    detail: "self-service change rejected — current password mismatch",
+                    success: false,
+                    operatorId: session.OperatorId,
+                    username: session.Username,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return AuthResult.Fail("Current password is incorrect.");
+        }
+
+        var (hash, salt, iterations) = _passwordHasher.HashPassword(newPassword);
+        await repo.UpdatePasswordAsync(session.OperatorId, hash, salt, iterations, cancellationToken)
+            .ConfigureAwait(false);
+        await _auditLogger.LogAsync(
+                SecurityAuditActions.ResetPassword,
+                detail: "self-service password change",
+                success: true,
+                operatorId: session.OperatorId,
+                username: session.Username,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 

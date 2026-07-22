@@ -1,0 +1,159 @@
+<UserControl x:Class="PointOfSale.App.Views.AdminDashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:PointOfSale.App.Controls">
+    <Grid Background="{StaticResource Art.Brush.Surface}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource Art.Card}" Margin="0,0,0,12" Padding="18,14">
+            <DockPanel>
+                <StackPanel>
+                    <TextBlock Text="Admin management console" Style="{StaticResource Art.Text.Title}" />
+                    <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Art.Text.Subtitle}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Button Content="Refresh" Style="{StaticResource Art.Button.Secondary}" Command="{Binding RefreshOverviewCommand}" Margin="0,0,8,0" />
+                    <Button Content="Hardware" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenHardwareCommand}" Margin="0,0,8,0" />
+                    <Button Content="Compliance audit" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenComplianceAuditCommand}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedAdminTab}" Background="Transparent" BorderThickness="0">
+            <TabItem Header="Overview">
+                <ScrollViewer Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <UniformGrid Columns="4" Margin="0,0,0,12">
+                            <Border Style="{StaticResource Art.Card}" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="Products" Style="{StaticResource Art.Text.Caption}" />
+                                    <TextBlock Text="{Binding ProductCount}" Style="{StaticResource Art.Text.Metric}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Art.Card}" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="Low stock" Style="{StaticResource Art.Text.Caption}" />
+                                    <TextBlock Text="{Binding LowStockCount}" Style="{StaticResource Art.Text.Metric}" Foreground="{StaticResource Art.Brush.Danger}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Art.Card}" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="Operators" Style="{StaticResource Art.Text.Caption}" />
+                                    <TextBlock Text="{Binding OperatorCount}" Style="{StaticResource Art.Text.Metric}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Art.Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Statutory VAT" Style="{StaticResource Art.Text.Caption}" />
+                                    <TextBlock Text="{Binding StatutoryVatRatePercent, StringFormat={}{0:N1}%}" Style="{StaticResource Art.Text.Metric}" Foreground="{StaticResource Art.Brush.Success}" />
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <UniformGrid Columns="4" Margin="0,0,0,12">
+                            <Button Content="Inventory CRUD" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenInventoryCommand}" Margin="0,0,8,0" />
+                            <Button Content="Stock alerts" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenStockAlertsCommand}" Margin="0,0,8,0" />
+                            <Button Content="Pricing / discounts" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenDiscountsCommand}" Margin="0,0,8,0" />
+                            <Button Content="Users directory" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenUsersCommand}" />
+                        </UniformGrid>
+
+                        <Border Style="{StaticResource Art.Card}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="Stock threshold alerts" Style="{StaticResource Art.Text.Title}" FontSize="16" Margin="0,0,0,8" />
+                                <ListBox ItemsSource="{Binding LowStockItems}" BorderThickness="0" MinHeight="140" />
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Inventory">
+                <ContentControl Content="{Binding InventoryWorkspace}" Margin="0,12,0,0" />
+            </TabItem>
+
+            <TabItem Header="Tax &amp; MRA">
+                <ScrollViewer Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                    <UniformGrid Columns="2">
+                        <Border Style="{StaticResource Art.Card}" Margin="0,0,8,8">
+                            <StackPanel>
+                                <TextBlock Text="Fiscal VAT rule" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                                <TextBlock Text="All POS modules must use PosTaxCalculator 17.5% Malawi statutory VAT."
+                                           Style="{StaticResource Art.Text.Subtitle}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,6,0,12" />
+                                <TextBlock Text="{Binding ConfiguredVatDisplay, StringFormat='Configured: {0}'}" />
+                                <TextBlock Text="{Binding VatRuleVerified, StringFormat='Verified: {0}'}"
+                                           Foreground="{StaticResource Art.Brush.Success}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,6,0,12" />
+                                <Button Content="Enforce 17.5% VAT rule"
+                                        Style="{StaticResource Art.Button.Success}"
+                                        Command="{Binding EnforceStatutoryVatCommand}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Art.Card}" Margin="8,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="MRA EIS connection" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                                <TextBlock Text="{Binding MraEnvironment, StringFormat='Environment: {0}'}" Margin="0,10,0,4" />
+                                <TextBlock Text="{Binding MraEndpoint}" TextWrapping="Wrap" Style="{StaticResource Art.Text.Subtitle}" />
+                                <TextBlock Text="{Binding MraProductId, StringFormat='Product ID: {0}'}" Margin="0,8,0,12" TextWrapping="Wrap" />
+                                <Button Content="Snapshot endpoints for audit"
+                                        Style="{StaticResource Art.Button.Primary}"
+                                        Command="{Binding PersistMraEndpointNotesCommand}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Users &amp; credentials">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="340" />
+                    </Grid.ColumnDefinitions>
+                    <ContentControl Grid.Column="0" Content="{Binding UserManagement}" Margin="0,0,12,0" />
+                    <Border Grid.Column="1" Style="{StaticResource Art.Card}">
+                        <StackPanel>
+                            <TextBlock Text="Self-service password" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                            <TextBlock Text="Change your own operator password securely."
+                                       Style="{StaticResource Art.Text.Subtitle}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,6,0,12" />
+                            <TextBlock Text="Current password" Style="{StaticResource Art.Text.Caption}" />
+                            <controls:PasswordBoxWithEyeToggle Password="{Binding SelfCurrentPassword, Mode=TwoWay}" Margin="0,4,0,10" />
+                            <TextBlock Text="New password" Style="{StaticResource Art.Text.Caption}" />
+                            <controls:PasswordBoxWithEyeToggle Password="{Binding SelfNewPassword, Mode=TwoWay}" Margin="0,4,0,10" />
+                            <TextBlock Text="Confirm new password" Style="{StaticResource Art.Text.Caption}" />
+                            <controls:PasswordBoxWithEyeToggle Password="{Binding SelfConfirmPassword, Mode=TwoWay}" Margin="0,4,0,12" />
+                            <Button Content="Update my password"
+                                    Style="{StaticResource Art.Button.Primary}"
+                                    Command="{Binding ChangeOwnPasswordCommand}" />
+                            <Button Content="Refresh directory"
+                                    Style="{StaticResource Art.Button.Ghost}"
+                                    Command="{Binding RefreshUsersCommand}"
+                                    Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Reports">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Refresh analytics" Style="{StaticResource Art.Button.Secondary}" Command="{Binding RefreshAnalyticsCommand}" Margin="0,0,8,0" />
+                        <Button Content="Open full analytics" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenAnalyticsCommand}" />
+                    </StackPanel>
+                    <ContentControl Grid.Row="1" Content="{Binding Analytics}" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

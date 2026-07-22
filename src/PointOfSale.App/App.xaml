@@ -5,82 +5,97 @@
              xmlns:v="clr-namespace:PointOfSale.App.Views"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
-        <DataTemplate DataType="{x:Type vm:CheckoutViewModel}">
-            <v:CheckoutView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:InventoryViewModel}">
-            <v:InventoryView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:QueueSyncStatusViewModel}">
-            <v:QueueSyncStatusView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:ComplianceExportViewModel}">
-            <v:ComplianceExportView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:AdminAnalyticsViewModel}">
-            <v:AdminAnalyticsView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:HeadOfficeSyncViewModel}">
-            <v:HeadOfficeSyncView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:BackupRecoveryViewModel}">
-            <v:BackupRecoveryView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:LoginViewModel}">
-            <v:LoginView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:UserManagementViewModel}">
-            <v:UserManagementView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:CustomerLoyaltyViewModel}">
-            <v:CustomerLoyaltyView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:DiscountManagementViewModel}">
-            <v:DiscountManagementView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:BarcodePrintingViewModel}">
-            <v:BarcodePrintingView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:InventoryAlertsViewModel}">
-            <v:InventoryAlertsView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:PurchaseOrderManagementViewModel}">
-            <v:PurchaseOrderManagementView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:GoodsReceiptViewModel}">
-            <v:GoodsReceiptView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:SupplierInvoiceReconciliationViewModel}">
-            <v:SupplierInvoiceReconciliationView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:SystemDiagnosticsViewModel}">
-            <v:SystemDiagnosticsView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:EndofDaySummaryViewModel}">
-            <v:EndofDaySummaryView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:FiscalRolloverViewModel}">
-            <v:FiscalRolloverView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:TerminalProvisioningViewModel}">
-            <v:TerminalProvisioningView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:TestRunnerDashboardViewModel}">
-            <v:TestRunnerDashboardView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:EnterpriseMaintenanceViewModel}">
-            <v:EnterpriseMaintenanceView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:DatabaseMaintenanceViewModel}">
-            <v:DatabaseMaintenanceView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:ComplianceAuditViewModel}">
-            <v:ComplianceAuditView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:HardwareManagementViewModel}">
-            <v:HardwareManagementView />
-        </DataTemplate>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
-        <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/LightThemePalette.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <DataTemplate DataType="{x:Type vm:CheckoutViewModel}">
+                <v:CheckoutView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:InventoryViewModel}">
+                <v:InventoryView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:QueueSyncStatusViewModel}">
+                <v:QueueSyncStatusView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ComplianceExportViewModel}">
+                <v:ComplianceExportView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AdminAnalyticsViewModel}">
+                <v:AdminAnalyticsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:HeadOfficeSyncViewModel}">
+                <v:HeadOfficeSyncView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:BackupRecoveryViewModel}">
+                <v:BackupRecoveryView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:LoginViewModel}">
+                <v:LoginView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AuthenticationViewModel}">
+                <v:AuthenticationView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:CashierDashboardViewModel}">
+                <v:CashierDashboardView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AdminDashboardViewModel}">
+                <v:AdminDashboardView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:UserManagementViewModel}">
+                <v:UserManagementView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:CustomerLoyaltyViewModel}">
+                <v:CustomerLoyaltyView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:DiscountManagementViewModel}">
+                <v:DiscountManagementView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:BarcodePrintingViewModel}">
+                <v:BarcodePrintingView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:InventoryAlertsViewModel}">
+                <v:InventoryAlertsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:PurchaseOrderManagementViewModel}">
+                <v:PurchaseOrderManagementView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:GoodsReceiptViewModel}">
+                <v:GoodsReceiptView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SupplierInvoiceReconciliationViewModel}">
+                <v:SupplierInvoiceReconciliationView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SystemDiagnosticsViewModel}">
+                <v:SystemDiagnosticsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:EndofDaySummaryViewModel}">
+                <v:EndofDaySummaryView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:FiscalRolloverViewModel}">
+                <v:FiscalRolloverView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:TerminalProvisioningViewModel}">
+                <v:TerminalProvisioningView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:TestRunnerDashboardViewModel}">
+                <v:TestRunnerDashboardView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:EnterpriseMaintenanceViewModel}">
+                <v:EnterpriseMaintenanceView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:DatabaseMaintenanceViewModel}">
+                <v:DatabaseMaintenanceView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ComplianceAuditViewModel}">
+                <v:ComplianceAuditView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:HardwareManagementViewModel}">
+                <v:HardwareManagementView />
+            </DataTemplate>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

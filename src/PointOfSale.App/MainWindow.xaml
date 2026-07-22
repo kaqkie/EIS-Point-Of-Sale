@@ -6,177 +6,188 @@
         Width="1400"
         MinHeight="720"
         MinWidth="1100"
-        Background="#F4F6F8">
+        Background="{StaticResource Art.Brush.Surface}">
     <Grid>
         <Grid Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="252" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Background="#1F2937" Padding="16">
+            <!-- Cashier light rail -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource Art.Brush.Canvas}"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="0,0,1,0"
+                    Padding="16"
+                    Visibility="{Binding IsCashierShell, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top">
+                        <Border Background="{StaticResource Art.Brush.AccentSoft}" CornerRadius="10" Padding="10,8" Margin="0,0,0,12">
+                            <TextBlock Text="CASHIER COUNTER"
+                                       FontWeight="Bold"
+                                       FontSize="11"
+                                       Foreground="{StaticResource Art.Brush.AccentHover}" />
+                        </Border>
                         <TextBlock Text="Albert Retail Terminal"
-                                   Foreground="White"
+                                   Style="{StaticResource Art.Text.Title}"
                                    FontSize="18"
-                                   FontWeight="Bold"
                                    TextWrapping="Wrap"
-                                   Margin="0,0,0,8" />
+                                   Margin="0,0,0,4" />
                         <TextBlock Text="{Binding OperatorDisplay}"
-                                   Foreground="#D1D5DB"
+                                   Style="{StaticResource Art.Text.Subtitle}"
                                    TextWrapping="Wrap"
                                    Margin="0,0,0,16" />
+                        <Button Content="Cashier home"
+                                Style="{StaticResource Art.Nav.Cashier}"
+                                Command="{Binding NavigateCashierHomeCommand}" />
                         <Button Content="Checkout"
+                                Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateCheckoutCommand}"
-                                Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Inventory"
-                                Command="{Binding NavigateInventoryCommand}"
-                                Visibility="{Binding CanInventory, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Queue Sync"
+                                Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Button Content="Queue sync"
+                                Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateQueueCommand}"
-                                Visibility="{Binding CanQueue, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="MRA Compliance"
-                                Command="{Binding NavigateComplianceCommand}"
-                                Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Compliance Audit"
-                                Command="{Binding NavigateComplianceAuditCommand}"
-                                Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Analytics"
-                                Command="{Binding NavigateAnalyticsCommand}"
-                                Visibility="{Binding CanAnalytics, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Head Office"
-                                Command="{Binding NavigateHeadOfficeCommand}"
-                                Visibility="{Binding CanHeadOffice, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Backup / DR"
-                                Command="{Binding NavigateBackupCommand}"
-                                Visibility="{Binding CanBackup, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Users"
-                                Command="{Binding NavigateUsersCommand}"
-                                Visibility="{Binding CanManageUsers, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
+                                Visibility="{Binding CanQueue, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <Button Content="Loyalty"
+                                Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateLoyaltyCommand}"
-                                Visibility="{Binding CanLoyalty, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Discounts"
-                                Command="{Binding NavigateDiscountsCommand}"
-                                Visibility="{Binding CanDiscounts, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Labels"
-                                Command="{Binding NavigateLabelsCommand}"
-                                Visibility="{Binding CanLabels, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Stock Alerts"
-                                Command="{Binding NavigateStockAlertsCommand}"
-                                Visibility="{Binding CanStockAlerts, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Purchase Orders"
-                                Command="{Binding NavigatePurchaseOrdersCommand}"
-                                Visibility="{Binding CanPurchaseOrders, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Goods Receipt"
-                                Command="{Binding NavigateGoodsReceiptCommand}"
-                                Visibility="{Binding CanGoodsReceipt, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Supplier Recon"
-                                Command="{Binding NavigateSupplierReconCommand}"
-                                Visibility="{Binding CanSupplierRecon, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Diagnostics"
-                                Command="{Binding NavigateSystemDiagnosticsCommand}"
-                                Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="End of Day"
-                                Command="{Binding NavigateEndOfDayCommand}"
-                                Visibility="{Binding CanEndOfDay, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Fiscal Rollover"
-                                Command="{Binding NavigateFiscalRolloverCommand}"
-                                Visibility="{Binding CanFiscalRollover, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Terminal Setup"
-                                Command="{Binding NavigateTerminalProvisioningCommand}"
-                                Visibility="{Binding CanProvisionTerminal, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Test Runner"
-                                Command="{Binding NavigateTestRunnerCommand}"
-                                Visibility="{Binding CanRunIntegrationTests, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Enterprise"
-                                Command="{Binding NavigateEnterpriseMaintenanceCommand}"
-                                Visibility="{Binding CanEnterpriseMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="DB Maintenance"
-                                Command="{Binding NavigateDatabaseMaintenanceCommand}"
-                                Visibility="{Binding CanDatabaseMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Hardware"
-                                Command="{Binding NavigateHardwareCommand}"
-                                Visibility="{Binding CanHardware, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Margin="0,4"
-                                Padding="12,10"
-                                FontSize="16" />
-                        <Button Content="Toggle Drawer"
+                                Visibility="{Binding CanLoyalty, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Button Content="Toggle drawer UI"
+                                Style="{StaticResource Art.Button.Ghost}"
                                 Command="{Binding ToggleDrawerCommand}"
-                                Margin="0,16,0,0"
-                                Padding="10,8" />
+                                Margin="0,16,0,0" />
                     </StackPanel>
-                    <Button Content="Sign Out"
+                    <Button Content="Sign out"
+                            Style="{StaticResource Art.Button.Danger}"
+                            Command="{Binding SignOutCommand}"
+                            DockPanel.Dock="Bottom"
+                            VerticalAlignment="Bottom"
+                            Margin="0,16,0,0" />
+                </DockPanel>
+            </Border>
+
+            <!-- Admin light rail (deep accent header, still light mode) -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource Art.Brush.AdminRail}"
+                    Padding="16"
+                    Visibility="{Binding IsAdminShell, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <DockPanel>
+                    <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Background="#0369A1" CornerRadius="10" Padding="10,8" Margin="0,0,0,12">
+                                <TextBlock Text="ADMIN CONSOLE"
+                                           FontWeight="Bold"
+                                           FontSize="11"
+                                           Foreground="White" />
+                            </Border>
+                            <TextBlock Text="Albert Retail Terminal"
+                                       Foreground="White"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding OperatorDisplay}"
+                                       Foreground="#E0F2FE"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,16" />
+                            <Button Content="Admin home"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateAdminHomeCommand}" />
+                            <Button Content="Inventory"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateInventoryCommand}"
+                                    Visibility="{Binding CanInventory, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Analytics"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateAnalyticsCommand}"
+                                    Visibility="{Binding CanAnalytics, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Users"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateUsersCommand}"
+                                    Visibility="{Binding CanManageUsers, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="MRA Compliance"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateComplianceCommand}"
+                                    Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Compliance Audit"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateComplianceAuditCommand}"
+                                    Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Head Office"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateHeadOfficeCommand}"
+                                    Visibility="{Binding CanHeadOffice, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Backup / DR"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateBackupCommand}"
+                                    Visibility="{Binding CanBackup, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Discounts"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateDiscountsCommand}"
+                                    Visibility="{Binding CanDiscounts, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Stock Alerts"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateStockAlertsCommand}"
+                                    Visibility="{Binding CanStockAlerts, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Purchase Orders"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigatePurchaseOrdersCommand}"
+                                    Visibility="{Binding CanPurchaseOrders, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Goods Receipt"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateGoodsReceiptCommand}"
+                                    Visibility="{Binding CanGoodsReceipt, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Supplier Recon"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateSupplierReconCommand}"
+                                    Visibility="{Binding CanSupplierRecon, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Diagnostics"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateSystemDiagnosticsCommand}"
+                                    Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="End of Day"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateEndOfDayCommand}"
+                                    Visibility="{Binding CanEndOfDay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Fiscal Rollover"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateFiscalRolloverCommand}"
+                                    Visibility="{Binding CanFiscalRollover, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Terminal Setup"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateTerminalProvisioningCommand}"
+                                    Visibility="{Binding CanProvisionTerminal, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Test Runner"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateTestRunnerCommand}"
+                                    Visibility="{Binding CanRunIntegrationTests, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Enterprise"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateEnterpriseMaintenanceCommand}"
+                                    Visibility="{Binding CanEnterpriseMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="DB Maintenance"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateDatabaseMaintenanceCommand}"
+                                    Visibility="{Binding CanDatabaseMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Hardware"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateHardwareCommand}"
+                                    Visibility="{Binding CanHardware, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Checkout (POS)"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateCheckoutCommand}"
+                                    Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="Queue Sync"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateQueueCommand}"
+                                    Visibility="{Binding CanQueue, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Button Content="Sign out"
+                            Background="#0C4A6E"
+                            Foreground="White"
+                            BorderThickness="0"
                             Command="{Binding SignOutCommand}"
                             DockPanel.Dock="Bottom"
                             VerticalAlignment="Bottom"
@@ -191,11 +202,15 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Background="White" Padding="16" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                <Border Grid.Row="0"
+                        Background="{StaticResource Art.Brush.Canvas}"
+                        Padding="16"
+                        BorderBrush="{StaticResource Art.Brush.Border}"
+                        BorderThickness="0,0,0,1">
                     <DockPanel LastChildFill="True">
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
                             <Border Padding="10,6" CornerRadius="8" Margin="0,0,8,0"
-                                    Background="#B45309"
+                                    Background="{StaticResource Art.Brush.Warning}"
                                     Visibility="{Binding HasHealthWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock Text="{Binding HealthWarningText}"
                                            Foreground="White"
@@ -203,17 +218,14 @@
                                            MaxWidth="420"
                                            TextWrapping="Wrap" />
                             </Border>
-                            <Border Padding="10,6" CornerRadius="8" Margin="0,0,8,0" Background="#2563EB">
+                            <Border Padding="10,6" CornerRadius="8" Margin="0,0,8,0"
+                                    Background="{StaticResource Art.Brush.Accent}">
                                 <TextBlock Text="{Binding ConnectionStatusText}" Foreground="White" FontWeight="SemiBold" />
                             </Border>
-                            <Border Padding="10,6" CornerRadius="8" Background="#4B5563">
-                                <TextBlock Text="{Binding IsDrawerOpen, StringFormat='Drawer: {0}'}"
-                                           Foreground="White" />
-                            </Border>
                             <Button Content="Refresh"
+                                    Style="{StaticResource Art.Button.Secondary}"
                                     Command="{Binding RefreshConnectionCommand}"
-                                    Margin="8,0,0,0"
-                                    Padding="10,6" />
+                                    Margin="8,0,0,0" />
                         </StackPanel>
                     </DockPanel>
                 </Border>
@@ -224,7 +236,7 @@
             </Grid>
         </Grid>
 
-        <ContentControl Content="{Binding Login}"
+        <ContentControl Content="{Binding Authentication}"
                         Visibility="{Binding ShowLoginOverlay, Converter={StaticResource BooleanToVisibilityConverter}}" />
     </Grid>
 </Window>

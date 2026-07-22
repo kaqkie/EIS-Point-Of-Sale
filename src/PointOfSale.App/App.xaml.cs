@@ -170,9 +170,13 @@ public partial class App : Application
                 services.AddTransient<DatabaseMaintenanceView>();
                 services.AddTransient<ComplianceAuditView>();
                 services.AddTransient<HardwareManagementView>();
+                services.AddTransient<AuthenticationView>();
+                services.AddTransient<CashierDashboardView>();
+                services.AddTransient<AdminDashboardView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
+                services.AddSingleton<AuthenticationViewModel>();
                 services.AddTransient<CheckoutViewModel>();
                 services.AddTransient<InventoryViewModel>();
                 services.AddTransient<QueueSyncStatusViewModel>();
@@ -197,6 +201,8 @@ public partial class App : Application
                 services.AddTransient<DatabaseMaintenanceViewModel>();
                 services.AddTransient<ComplianceAuditViewModel>();
                 services.AddTransient<HardwareManagementViewModel>();
+                services.AddTransient<CashierDashboardViewModel>();
+                services.AddTransient<AdminDashboardViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

@@ -961,6 +961,42 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
                 VALUES (N'Schema.Phase30Applied', N'true', GETUTCDATE());
             END;
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.Configurations WHERE ConfigKey = N'Schema.Phase31Applied')
+            BEGIN
+                IF OBJECT_ID(N'dbo.UiWorkspacePreferences', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.UiWorkspacePreferences
+                    (
+                        PreferenceId        INT             IDENTITY(1,1) NOT NULL,
+                        OperatorId          INT             NOT NULL,
+                        PreferredShell      VARCHAR(20)     NOT NULL CONSTRAINT DF_UiWorkspacePreferences_Shell DEFAULT (N'Cashier'),
+                        ThemeMode           VARCHAR(20)     NOT NULL CONSTRAINT DF_UiWorkspacePreferences_Theme DEFAULT (N'Light'),
+                        UpdatedAtUtc        DATETIME2(7)    NOT NULL CONSTRAINT DF_UiWorkspacePreferences_UpdatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                        CONSTRAINT PK_UiWorkspacePreferences PRIMARY KEY CLUSTERED (PreferenceId),
+                        CONSTRAINT UQ_UiWorkspacePreferences_Operator UNIQUE (OperatorId)
+                    );
+                END;
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Fiscal.StandardVatRatePercent' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Fiscal.StandardVatRatePercent', N'17.5', GETUTCDATE())
+                WHEN MATCHED THEN
+                    UPDATE SET ConfigJson = N'17.5', UpdatedAt = GETUTCDATE();
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Ui.ThemeMode' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Ui.ThemeMode', N'Light', GETUTCDATE());
+
+                INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
+                VALUES (N'Schema.Phase31Applied', N'true', GETUTCDATE());
+            END;
             """;
 
         await using var command = connection.CreateCommand();

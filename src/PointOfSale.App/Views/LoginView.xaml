@@ -1,44 +1,38 @@
 <UserControl x:Class="PointOfSale.App.Views.LoginView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Background="#111827">
-        <Border Width="420"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:PointOfSale.App.Controls">
+    <Grid Background="{StaticResource Art.Brush.Surface}">
+        <Border Style="{StaticResource Art.Card}"
+                Width="420"
                 Padding="28"
-                Background="White"
-                CornerRadius="12"
                 VerticalAlignment="Center"
                 HorizontalAlignment="Center">
             <StackPanel>
                 <TextBlock Text="Albert Retail Terminal"
-                           FontSize="22"
-                           FontWeight="Bold"
+                           Style="{StaticResource Art.Text.Title}"
                            Margin="0,0,0,4" />
-                <TextBlock Text="Operator sign-in"
-                           Foreground="#6B7280"
+                <TextBlock Text="Legacy operator sign-in"
+                           Style="{StaticResource Art.Text.Subtitle}"
                            Margin="0,0,0,16" />
 
-                <TextBlock Text="Username" />
+                <TextBlock Text="Username" Style="{StaticResource Art.Text.Caption}" />
                 <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                         MinHeight="36"
-                         Margin="0,4,0,12"
-                         Padding="8,6" />
+                         Style="{StaticResource Art.TextBox}"
+                         Margin="0,4,0,12" />
 
-                <TextBlock Text="Password" />
-                <PasswordBox x:Name="PasswordBox"
-                             MinHeight="36"
-                             Margin="0,4,0,12"
-                             Padding="8,6"
-                             PasswordChanged="PasswordBox_OnPasswordChanged" />
+                <TextBlock Text="Password" Style="{StaticResource Art.Text.Caption}" />
+                <controls:PasswordBoxWithEyeToggle Password="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                   Margin="0,4,0,12" />
 
                 <Button Content="Sign In"
+                        Style="{StaticResource Art.Button.Primary}"
                         Command="{Binding SignInCommand}"
-                        MinHeight="44"
-                        FontWeight="Bold"
                         Margin="0,8,0,12" />
 
                 <TextBlock Text="{Binding StatusMessage}"
-                           TextWrapping="Wrap"
-                           Foreground="#4B5563" />
+                           Style="{StaticResource Art.Text.Subtitle}"
+                           TextWrapping="Wrap" />
             </StackPanel>
         </Border>
     </Grid>

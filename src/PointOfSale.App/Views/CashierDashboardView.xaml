@@ -1,0 +1,123 @@
+<UserControl x:Class="PointOfSale.App.Views.CashierDashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="{StaticResource Art.Brush.Surface}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource Art.Card}" Margin="0,0,0,12" Padding="18,14">
+            <DockPanel>
+                <StackPanel>
+                    <TextBlock Text="Cashier workspace" Style="{StaticResource Art.Text.Title}" />
+                    <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Art.Text.Subtitle}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Border Style="{StaticResource Art.Badge.Success}" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding StatutoryVatRatePercent, StringFormat='VAT {0:N1}%'}"
+                                   Foreground="{StaticResource Art.Brush.Success}"
+                                   FontWeight="SemiBold" />
+                    </Border>
+                    <Border Background="{StaticResource Art.Brush.AccentSoft}" CornerRadius="8" Padding="10,6" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding IsCashDrawerReady, StringFormat='Drawer ready: {0}'}"
+                                   Foreground="{StaticResource Art.Brush.AccentHover}"
+                                   FontWeight="SemiBold" />
+                    </Border>
+                    <Button Content="Queue" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenQueueCommand}" Margin="0,0,8,0" />
+                    <Button Content="Kick drawer" Style="{StaticResource Art.Button.Success}" Command="{Binding KickDrawerCommand}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <TabControl Grid.Row="1"
+                    SelectedIndex="{Binding SelectedWorkspaceTab}"
+                    Background="Transparent"
+                    BorderThickness="0">
+            <TabItem Header="Sales processing">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="320" />
+                    </Grid.ColumnDefinitions>
+
+                    <ContentControl Grid.Column="0" Content="{Binding Checkout}" Margin="0,0,12,0" />
+
+                    <StackPanel Grid.Column="1">
+                        <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Tender &amp; split pay" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                                <TextBlock Text="Cash / card / mobile / split" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,10" />
+                                <TextBlock Text="Split cash" Style="{StaticResource Art.Text.Caption}" />
+                                <TextBox Text="{Binding SplitCashAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                <TextBlock Text="Split card / digital" Style="{StaticResource Art.Text.Caption}" />
+                                <TextBox Text="{Binding SplitCardAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                <Button Content="Apply split tender" Style="{StaticResource Art.Button.Primary}" Command="{Binding ApplySplitTenderCommand}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Art.Card}">
+                            <StackPanel>
+                                <TextBlock Text="Refund / exchange" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                                <TextBlock Text="Requires supervisor PIN override" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,10" />
+                                <TextBlock Text="Amount (MWK)" Style="{StaticResource Art.Text.Caption}" />
+                                <TextBox Text="{Binding RefundAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                <TextBlock Text="Reason" Style="{StaticResource Art.Text.Caption}" />
+                                <TextBox Text="{Binding RefundReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                <TextBlock Text="Supervisor PIN" Style="{StaticResource Art.Text.Caption}" />
+                                <TextBox Text="{Binding SupervisorPin, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                <Button Content="Request override" Style="{StaticResource Art.Button.Danger}" Command="{Binding RequestRefundOverrideCommand}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Shift &amp; drawer">
+                <ScrollViewer Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                    <UniformGrid Columns="2">
+                        <Border Style="{StaticResource Art.Card}" Margin="0,0,8,8">
+                            <StackPanel>
+                                <TextBlock Text="Open / close shift" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                                <TextBlock Text="{Binding OpenShift.CashierName, StringFormat='Open cashier: {0}', TargetNullValue='No open shift'}"
+                                           Style="{StaticResource Art.Text.Subtitle}"
+                                           Margin="0,6,0,12" />
+                                <TextBlock Text="Opening float (MWK)" Style="{StaticResource Art.Text.Caption}" />
+                                <TextBox Text="{Binding OpeningFloat}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                <Button Content="Open shift" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenShiftCommand}" Margin="0,0,0,10" />
+                                <TextBlock Text="Closing cash counted" Style="{StaticResource Art.Text.Caption}" />
+                                <TextBox Text="{Binding ClosingCashCounted}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                <TextBlock Text="Notes" Style="{StaticResource Art.Text.Caption}" />
+                                <TextBox Text="{Binding ShiftNotes}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" AcceptsReturn="True" Height="64" TextWrapping="Wrap" />
+                                <Button Content="Close shift + Z-report" Style="{StaticResource Art.Button.Success}" Command="{Binding CloseShiftCommand}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Art.Card}" Margin="8,0,0,8">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Z-report" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                                    <Button DockPanel.Dock="Right"
+                                            Content="Preview"
+                                            Style="{StaticResource Art.Button.Secondary}"
+                                            Command="{Binding PreviewZReportCommand}"
+                                            HorizontalAlignment="Right" />
+                                </DockPanel>
+                                <TextBox Text="{Binding ZReportPreview}"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         MinHeight="220"
+                                         FontFamily="{StaticResource Art.Font.Mono}"
+                                         Style="{StaticResource Art.TextBox}" />
+                                <Button Content="Refresh shift status"
+                                        Style="{StaticResource Art.Button.Ghost}"
+                                        Command="{Binding RefreshShiftCommand}"
+                                        Margin="0,12,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

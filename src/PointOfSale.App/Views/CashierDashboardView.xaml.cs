@@ -1,8 +1,8 @@
 namespace PointOfSale.App.Views;
 
-public partial class LoginView
+public partial class CashierDashboardView
 {
-    public LoginView()
+    public CashierDashboardView()
     {
         InitializeComponent();
     }

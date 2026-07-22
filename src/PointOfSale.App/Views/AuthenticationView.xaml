@@ -1,0 +1,71 @@
+<UserControl x:Class="PointOfSale.App.Views.AuthenticationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:PointOfSale.App.Controls">
+    <Grid>
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#F0F9FF" Offset="0" />
+                <GradientStop Color="#FFFFFF" Offset="0.45" />
+                <GradientStop Color="#ECFDF5" Offset="1" />
+            </LinearGradientBrush>
+        </Grid.Background>
+
+        <!-- Soft decorative blobs (light only) -->
+        <Ellipse Width="420" Height="420" HorizontalAlignment="Left" VerticalAlignment="Top"
+                 Margin="-120,-80,0,0" Fill="#BAE6FD" Opacity="0.55" />
+        <Ellipse Width="360" Height="360" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                 Margin="0,0,-100,-100" Fill="#A7F3D0" Opacity="0.45" />
+
+        <Border Style="{StaticResource Art.Card}"
+                Width="460"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Padding="32">
+            <StackPanel>
+                <Border Background="{StaticResource Art.Brush.AccentSoft}"
+                        CornerRadius="12"
+                        Padding="12,8"
+                        HorizontalAlignment="Left"
+                        Margin="0,0,0,16">
+                    <TextBlock Text="ALBERT RETAIL TERMINAL"
+                               FontWeight="Bold"
+                               FontSize="12"
+                               Foreground="{StaticResource Art.Brush.AccentHover}" />
+                </Border>
+
+                <TextBlock Text="Operator sign-in"
+                           Style="{StaticResource Art.Text.Hero}"
+                           Margin="0,0,0,6" />
+                <TextBlock Text="Cashiers open the POS counter · Managers open the Admin console"
+                           Style="{StaticResource Art.Text.Subtitle}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,22" />
+
+                <TextBlock Text="Username" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource Art.TextBox}"
+                         Margin="0,0,0,14" />
+
+                <TextBlock Text="Password" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                <controls:PasswordBoxWithEyeToggle x:Name="PasswordField"
+                                                   Password="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                   Margin="0,0,0,18" />
+
+                <Button Content="Sign in"
+                        Style="{StaticResource Art.Button.Primary}"
+                        Command="{Binding SignInCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                        Margin="0,0,0,14" />
+
+                <TextBlock Text="{Binding StatusMessage}"
+                           Style="{StaticResource Art.Text.Subtitle}"
+                           TextWrapping="Wrap" />
+
+                <TextBlock Text="{Binding RoutedWorkspace, StringFormat='Workspace: {0}', TargetNullValue=''}"
+                           Style="{StaticResource Art.Text.Caption}"
+                           Margin="0,10,0,0" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
