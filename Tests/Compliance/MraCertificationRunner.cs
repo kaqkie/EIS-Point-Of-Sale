@@ -319,6 +319,8 @@ public sealed class MraCertificationRunnerTests
         var document = await runner.RunAllAsync();
 
         Assert.Equal("Passed", document.OverallResult);
+        var failedSteps = document.Steps.Where(s => !s.Passed).ToList();
+        Assert.True(failedSteps.Count == 0, string.Join(Environment.NewLine, failedSteps.Select(s => $"{s.Scenario}: {s.Error}")));
         Assert.Equal(7, document.Steps.Count);
         Assert.All(document.Steps, s => Assert.True(s.Passed, s.Error));
 

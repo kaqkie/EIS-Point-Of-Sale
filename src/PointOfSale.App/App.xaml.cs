@@ -96,6 +96,7 @@ public partial class App : Application
                 services.AddTransient<IArchivalCompressionService, ArchivalCompressionService>();
                 services.AddHostedService<ArchivalCompressionBackgroundService>();
                 services.AddTransient<ITerminalProvisioningService, TerminalProvisioningService>();
+                services.AddSingleton<IIntegrationTestDashboardService, IntegrationTestDashboardService>();
                 services.AddTransient<IAnalyticsReportExportService, AnalyticsReportExportService>();
                 services.AddTransient<ICentralInventoryReplicationService, CentralInventoryReplicationService>();
                 services.AddSingleton<IHeadOfficeSyncService, HeadOfficeSyncService>();
@@ -139,6 +140,7 @@ public partial class App : Application
                 services.AddTransient<EndofDaySummaryView>();
                 services.AddTransient<FiscalRolloverView>();
                 services.AddTransient<TerminalProvisioningView>();
+                services.AddTransient<TestRunnerDashboardView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -161,6 +163,7 @@ public partial class App : Application
                 services.AddTransient<EndofDaySummaryViewModel>();
                 services.AddTransient<FiscalRolloverViewModel>();
                 services.AddTransient<TerminalProvisioningViewModel>();
+                services.AddTransient<TestRunnerDashboardViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

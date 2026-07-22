@@ -143,6 +143,9 @@ public partial class MainViewModel : ObservableObject
     private bool _canProvisionTerminal;
 
     [ObservableProperty]
+    private bool _canRunIntegrationTests;
+
+    [ObservableProperty]
     private bool _hasHealthWarning;
 
     [ObservableProperty]
@@ -204,6 +207,9 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanProvisionTerminal))]
     private void NavigateTerminalProvisioning() => _navigationService.NavigateTo<TerminalProvisioningViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanRunIntegrationTests))]
+    private void NavigateTestRunner() => _navigationService.NavigateTo<TestRunnerDashboardViewModel>();
 
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
@@ -270,6 +276,7 @@ public partial class MainViewModel : ObservableObject
         CanEndOfDay = _auth.HasPermission(OperatorPermissions.CloseFinancialDay);
         CanFiscalRollover = _auth.HasPermission(OperatorPermissions.ExecuteFiscalYearRollover);
         CanProvisionTerminal = _auth.HasPermission(OperatorPermissions.ProvisionTerminal);
+        CanRunIntegrationTests = _auth.HasPermission(OperatorPermissions.RunIntegrationTests);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -290,5 +297,6 @@ public partial class MainViewModel : ObservableObject
         NavigateEndOfDayCommand.NotifyCanExecuteChanged();
         NavigateFiscalRolloverCommand.NotifyCanExecuteChanged();
         NavigateTerminalProvisioningCommand.NotifyCanExecuteChanged();
+        NavigateTestRunnerCommand.NotifyCanExecuteChanged();
     }
 }

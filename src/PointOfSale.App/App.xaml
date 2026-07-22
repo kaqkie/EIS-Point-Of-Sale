@@ -65,6 +65,9 @@
         <DataTemplate DataType="{x:Type vm:TerminalProvisioningViewModel}">
             <v:TerminalProvisioningView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TestRunnerDashboardViewModel}">
+            <v:TestRunnerDashboardView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>
