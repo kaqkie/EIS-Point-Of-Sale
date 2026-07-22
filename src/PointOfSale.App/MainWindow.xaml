@@ -105,6 +105,18 @@
                                 Margin="0,4"
                                 Padding="12,10"
                                 FontSize="16" />
+                        <Button Content="Goods Receipt"
+                                Command="{Binding NavigateGoodsReceiptCommand}"
+                                Visibility="{Binding CanGoodsReceipt, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Supplier Recon"
+                                Command="{Binding NavigateSupplierReconCommand}"
+                                Visibility="{Binding CanSupplierRecon, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
                         <Button Content="Toggle Drawer"
                                 Command="{Binding ToggleDrawerCommand}"
                                 Margin="0,16,0,0"

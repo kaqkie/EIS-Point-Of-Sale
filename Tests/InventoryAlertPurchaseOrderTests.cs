@@ -104,6 +104,14 @@ public sealed class InventoryAlertPurchaseOrderTests
             string? supplierName,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task ApplyGoodsReceiptAsync(
+            string productCode,
+            decimal goodQtyReceived,
+            decimal unitCost,
+            decimal newAverageUnitCost,
+            decimal? newRetailPrice,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task ApplyHeadOfficeCatalogAsync(
             LocalInventoryItem catalogItem,
             bool preserveLocalStock,
@@ -252,6 +260,9 @@ public sealed class InventoryAlertPurchaseOrderTests
         public Task<IReadOnlyList<PurchaseOrder>> GetRecentAsync(
             int take = 50,
             CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<PurchaseOrder>>(Array.Empty<PurchaseOrder>());
+
+        public Task<IReadOnlyList<PurchaseOrder>> GetReceivableAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<PurchaseOrder>>(Array.Empty<PurchaseOrder>());
 
         public Task<PurchaseOrder?> GetByIdAsync(long poId, CancellationToken cancellationToken = default) =>

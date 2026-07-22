@@ -37,6 +37,8 @@ public static class OperatorPermissions
     public const string ManageLabelBatches = "ManageLabelBatches";
     public const string ViewInventoryAlerts = "ViewInventoryAlerts";
     public const string ManagePurchaseOrders = "ManagePurchaseOrders";
+    public const string ProcessGoodsReceipt = "ProcessGoodsReceipt";
+    public const string ReconcileSupplierInvoices = "ReconcileSupplierInvoices";
 
     public static readonly string[] All =
     [
@@ -58,7 +60,9 @@ public static class OperatorPermissions
         PrintProductLabels,
         ManageLabelBatches,
         ViewInventoryAlerts,
-        ManagePurchaseOrders
+        ManagePurchaseOrders,
+        ProcessGoodsReceipt,
+        ReconcileSupplierInvoices
     ];
 }
 

@@ -53,6 +53,29 @@ public sealed class FakeLocalInventoryRepository : ILocalInventoryRepository
         return Task.CompletedTask;
     }
 
+    public Task ApplyGoodsReceiptAsync(
+        string productCode,
+        decimal goodQtyReceived,
+        decimal unitCost,
+        decimal newAverageUnitCost,
+        decimal? newRetailPrice,
+        CancellationToken cancellationToken = default)
+    {
+        if (_byCode.TryGetValue(productCode, out var item))
+        {
+            item.StockQuantity += goodQtyReceived;
+            item.AverageUnitCost = newAverageUnitCost;
+            if (newRetailPrice is decimal retail)
+            {
+                item.UnitPrice = retail;
+            }
+
+            _byCode[productCode] = item;
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task ApplyHeadOfficeCatalogAsync(
         LocalInventoryItem catalogItem,
         bool preserveLocalStock,

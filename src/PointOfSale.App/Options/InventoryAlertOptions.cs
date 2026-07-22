@@ -55,5 +55,7 @@ public static class PurchaseOrderStatuses
     public const string Draft = "Draft";
     public const string ReadyForSignOff = "ReadyForSignOff";
     public const string Exported = "Exported";
+    public const string PartiallyReceived = "PartiallyReceived";
+    public const string Received = "Received";
     public const string Cancelled = "Cancelled";
 }

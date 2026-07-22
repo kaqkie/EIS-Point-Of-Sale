@@ -77,6 +77,9 @@
     <None Include="..\..\Scripts\010_InventoryAlertsAndPurchaseOrders.sql" Link="Scripts\010_InventoryAlertsAndPurchaseOrders.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\011_GoodsReceiptAndReconciliation.sql" Link="Scripts\011_GoodsReceiptAndReconciliation.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

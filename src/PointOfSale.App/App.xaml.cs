@@ -58,6 +58,8 @@ public partial class App : Application
                     context.Configuration.GetSection(LabelPrintingOptions.SectionName));
                 services.Configure<InventoryAlertOptions>(
                     context.Configuration.GetSection(InventoryAlertOptions.SectionName));
+                services.Configure<GoodsReceiptOptions>(
+                    context.Configuration.GetSection(GoodsReceiptOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -90,6 +92,8 @@ public partial class App : Application
                 services.AddTransient<ILabelTemplateService, LabelTemplateService>();
                 services.AddTransient<IInventoryAlertService, InventoryAlertService>();
                 services.AddTransient<IPurchaseOrderGenerationService, PurchaseOrderGenerationService>();
+                services.AddTransient<IGoodsReceiptService, GoodsReceiptService>();
+                services.AddTransient<ISupplierInvoiceReconciliationService, SupplierInvoiceReconciliationService>();
                 services.AddHostedService<InventoryAlertBackgroundService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
@@ -111,6 +115,8 @@ public partial class App : Application
                 services.AddTransient<BarcodePrintingView>();
                 services.AddTransient<InventoryAlertsView>();
                 services.AddTransient<PurchaseOrderManagementView>();
+                services.AddTransient<GoodsReceiptView>();
+                services.AddTransient<SupplierInvoiceReconciliationView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -127,6 +133,8 @@ public partial class App : Application
                 services.AddTransient<BarcodePrintingViewModel>();
                 services.AddTransient<InventoryAlertsViewModel>();
                 services.AddTransient<PurchaseOrderManagementViewModel>();
+                services.AddTransient<GoodsReceiptViewModel>();
+                services.AddTransient<SupplierInvoiceReconciliationViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

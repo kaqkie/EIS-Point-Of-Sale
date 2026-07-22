@@ -57,6 +57,8 @@ public static class DependencyInjection
         services.AddScoped<IInventorySupplierRepository, InventorySupplierRepository>();
         services.AddScoped<IInventoryStockAlertRepository, InventoryStockAlertRepository>();
         services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
+        services.AddScoped<IGoodsReceiptRepository, GoodsReceiptRepository>();
+        services.AddScoped<ISupplierInvoiceReconciliationRepository, SupplierInvoiceReconciliationRepository>();
 
         services.AddHttpClient<MraApiClient>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();

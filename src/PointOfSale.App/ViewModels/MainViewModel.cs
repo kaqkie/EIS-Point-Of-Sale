@@ -107,6 +107,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _canPurchaseOrders;
 
+    [ObservableProperty]
+    private bool _canGoodsReceipt;
+
+    [ObservableProperty]
+    private bool _canSupplierRecon;
+
     [RelayCommand(CanExecute = nameof(CanCheckout))]
     private void NavigateCheckout() => _navigationService.NavigateTo<CheckoutViewModel>();
 
@@ -145,6 +151,12 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanPurchaseOrders))]
     private void NavigatePurchaseOrders() => _navigationService.NavigateTo<PurchaseOrderManagementViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanGoodsReceipt))]
+    private void NavigateGoodsReceipt() => _navigationService.NavigateTo<GoodsReceiptViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanSupplierRecon))]
+    private void NavigateSupplierRecon() => _navigationService.NavigateTo<SupplierInvoiceReconciliationViewModel>();
 
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
@@ -190,6 +202,8 @@ public partial class MainViewModel : ObservableObject
         CanLabels = _auth.HasPermission(OperatorPermissions.PrintProductLabels);
         CanStockAlerts = _auth.HasPermission(OperatorPermissions.ViewInventoryAlerts);
         CanPurchaseOrders = _auth.HasPermission(OperatorPermissions.ManagePurchaseOrders);
+        CanGoodsReceipt = _auth.HasPermission(OperatorPermissions.ProcessGoodsReceipt);
+        CanSupplierRecon = _auth.HasPermission(OperatorPermissions.ReconcileSupplierInvoices);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -204,5 +218,7 @@ public partial class MainViewModel : ObservableObject
         NavigateLabelsCommand.NotifyCanExecuteChanged();
         NavigateStockAlertsCommand.NotifyCanExecuteChanged();
         NavigatePurchaseOrdersCommand.NotifyCanExecuteChanged();
+        NavigateGoodsReceiptCommand.NotifyCanExecuteChanged();
+        NavigateSupplierReconCommand.NotifyCanExecuteChanged();
     }
 }

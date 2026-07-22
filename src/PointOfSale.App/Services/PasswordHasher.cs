@@ -88,7 +88,8 @@ public static class RolePermissionCatalog
                 OperatorPermissions.RedeemLoyaltyPoints,
                 OperatorPermissions.ApplyCartDiscount,
                 OperatorPermissions.PrintProductLabels,
-                OperatorPermissions.ViewInventoryAlerts
+                OperatorPermissions.ViewInventoryAlerts,
+                OperatorPermissions.ProcessGoodsReceipt
             },
             [OperatorRoles.StoreManager] = new HashSet<string>(StringComparer.Ordinal)
             {
@@ -109,7 +110,9 @@ public static class RolePermissionCatalog
                 OperatorPermissions.PrintProductLabels,
                 OperatorPermissions.ManageLabelBatches,
                 OperatorPermissions.ViewInventoryAlerts,
-                OperatorPermissions.ManagePurchaseOrders
+                OperatorPermissions.ManagePurchaseOrders,
+                OperatorPermissions.ProcessGoodsReceipt,
+                OperatorPermissions.ReconcileSupplierInvoices
             },
             [OperatorRoles.Administrator] = new HashSet<string>(OperatorPermissions.All, StringComparer.Ordinal)
         };

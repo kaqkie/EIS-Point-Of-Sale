@@ -1,0 +1,128 @@
+<UserControl x:Class="PointOfSale.App.Views.GoodsReceiptView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8">
+            <DockPanel Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Goods Receipt (GRN)"
+                               FontSize="22"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="#4B5563"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding ActiveGrnNumber, StringFormat=Active: {0}}"
+                               Foreground="#6B7280"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Button Content="Invoice recon"
+                            Command="{Binding OpenReconciliationCommand}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0" />
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            IsEnabled="{Binding IsProcessingGrn, Converter={StaticResource InverseBooleanConverter}}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0" />
+                    <Button Content="Save draft"
+                            Command="{Binding SaveDraftCommand}"
+                            IsEnabled="{Binding IsProcessingGrn, Converter={StaticResource InverseBooleanConverter}}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0" />
+                    <Button Content="Post stock"
+                            Command="{Binding PostGrnCommand}"
+                            IsEnabled="{Binding IsProcessingGrn, Converter={StaticResource InverseBooleanConverter}}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            FontWeight="SemiBold" />
+                </StackPanel>
+            </DockPanel>
+
+            <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <WrapPanel>
+                    <StackPanel Width="280" Margin="0,0,12,8">
+                        <TextBlock Text="Purchase order" />
+                        <ComboBox ItemsSource="{Binding PurchaseOrders}"
+                                  SelectedItem="{Binding SelectedPurchaseOrder}"
+                                  DisplayMemberPath="PoNumber"
+                                  MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Width="160" Margin="0,0,12,8">
+                        <TextBlock Text="Delivery note #" />
+                        <TextBox Text="{Binding DeliveryNoteNumber, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Width="160" Margin="0,0,12,8">
+                        <TextBlock Text="Supplier invoice #" />
+                        <TextBox Text="{Binding SupplierInvoiceNumber, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Width="200" Margin="0,0,12,8">
+                        <TextBlock Text="Barcode scan" />
+                        <DockPanel>
+                            <Button Content="Add"
+                                    Command="{Binding ScanBarcodeCommand}"
+                                    DockPanel.Dock="Right"
+                                    Padding="10,6"
+                                    Margin="8,0,0,0" />
+                            <TextBox Text="{Binding BarcodeScanInput, UpdateSourceTrigger=PropertyChanged}"
+                                     MinHeight="36"
+                                     Padding="8,6" />
+                        </DockPanel>
+                    </StackPanel>
+                    <StackPanel Width="240" Margin="0,0,12,8">
+                        <TextBlock Text="Notes" />
+                        <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                    </StackPanel>
+                </WrapPanel>
+            </Border>
+
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Received items" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <DataGrid ItemsSource="{Binding ReceivedItemsList}"
+                                  SelectedItem="{Binding SelectedReceivedItem}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  MaxHeight="420">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Code" Binding="{Binding ProductCode}" Width="100" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Name" Binding="{Binding ProductName}" Width="*" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Ordered" Binding="{Binding OrderedQty, StringFormat=N2}" Width="70" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Received" Binding="{Binding ReceivedQty, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="80" />
+                                <DataGridTextColumn Header="Damaged" Binding="{Binding DamagedQty, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="80" />
+                                <DataGridTextColumn Header="Unit cost" Binding="{Binding UnitCost, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="90" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="1" Background="White" CornerRadius="8" Padding="12">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Recent GRNs" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <DataGrid ItemsSource="{Binding RecentGrns}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  MaxHeight="420">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="GRN" Binding="{Binding GrnNumber}" Width="*" />
+                                <DataGridTextColumn Header="PO" Binding="{Binding PoNumber}" Width="100" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

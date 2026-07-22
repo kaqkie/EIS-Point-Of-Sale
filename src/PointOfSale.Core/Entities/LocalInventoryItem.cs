@@ -25,4 +25,10 @@ public sealed class LocalInventoryItem
 
     public string? SupplierCode { get; set; }
     public string? SupplierName { get; set; }
+
+    /// <summary>Weighted-average unit cost in MWK (net of VAT where stored as net cost).</summary>
+    public decimal AverageUnitCost { get; set; }
+
+    /// <summary>Retail markup % applied over average unit cost when replenishing stock.</summary>
+    public decimal MarkupPercent { get; set; }
 }

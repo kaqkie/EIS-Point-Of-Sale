@@ -47,6 +47,12 @@
         <DataTemplate DataType="{x:Type vm:PurchaseOrderManagementViewModel}">
             <v:PurchaseOrderManagementView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GoodsReceiptViewModel}">
+            <v:GoodsReceiptView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SupplierInvoiceReconciliationViewModel}">
+            <v:SupplierInvoiceReconciliationView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>
