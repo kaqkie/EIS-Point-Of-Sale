@@ -1696,4 +1696,325 @@ Error Number:10611,State:1,Class:16
 2026-07-22 16:29:37.675 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 51.57 GB free).
 2026-07-22 16:29:37.831 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
 2026-07-22 16:29:42.760 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             2026-07-22 19:34:56.057 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-22 19:34:56.373 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 376
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 376
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 379
+ClientConnectionId:9a9e10fe-22e1-40ad-87d7-d394ede3f3af
+Error Number:10611,State:1,Class:16
+2026-07-22 19:34:57.590 +02:00 [INF] Offline invoice FIFO sync worker started (interval 15s). Auto-print is handled after successful MRA sync.
+2026-07-22 19:34:57.648 +02:00 [INF] Hardware fault-tolerance loop started (probe every 20s).
+2026-07-22 19:34:57.650 +02:00 [INF] ArchivalCompressionBackgroundService is disabled.
+2026-07-22 19:34:57.663 +02:00 [INF] Inventory alert scanner started (interval 60s).
+2026-07-22 19:34:57.771 +02:00 [INF] HealthCheckWorker started (interval 45s).
+2026-07-22 19:34:57.786 +02:00 [INF] System health monitor started (interval 45s).
+2026-07-22 19:34:57.789 +02:00 [INF] PerformanceProfilingBackgroundService started (sample 30s, flush 300s).
+2026-07-22 19:34:57.793 +02:00 [INF] DatabaseMaintenanceBackgroundService started (interval 24h).
+2026-07-22 19:34:58.206 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-22 19:34:58.212 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 376
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 376
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 379
+ClientConnectionId:19abb8e8-7c72-4b97-b937-4751d5aaded2
+Error Number:10611,State:1,Class:16
+2026-07-22 19:34:58.269 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:35:06.243 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:35:06.902 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 53 null: SQL round-trip 53 ms
+2026-07-22 19:35:09.798 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:35:10.963 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 26 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:35:15.293 +02:00 [WRN] ART Diagnostic MraConnectivity MraEis 8227 Timeout: MRA timeout after 8227 ms.
+2026-07-22 19:35:17.890 +02:00 [WRN] ART Diagnostic MraConnectivity MraEis 8076 Timeout: MRA timeout after 8076 ms.
+2026-07-22 19:35:18.273 +02:00 [WRN] ART Diagnostic HealthCheck HealthCheckWorker 53 null: Degraded: MRA.
+2026-07-22 19:35:18.479 +02:00 [WRN] Health check degraded: Degraded: MRA.
+2026-07-22 19:35:18.659 +02:00 [WRN] ART Diagnostic HealthCheck HealthCheckWorker 1 null: Degraded: MRA.
+2026-07-22 19:35:19.744 +02:00 [WRN] System health alert [MRA_UNREACHABLE] MRA EIS API gateway unreachable while internet is online.
+2026-07-22 19:35:19.748 +02:00 [ERR] ART Diagnostic Exception HealthAlert:MRA_UNREACHABLE null null: MRA EIS API gateway unreachable while internet is online.
+2026-07-22 19:35:19.779 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: MRA EIS API gateway is unreachable.
+2026-07-22 19:35:19.781 +02:00 [WRN] System health degraded: MRA EIS API gateway is unreachable.
+2026-07-22 19:35:41.044 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:35:58.301 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:36:03.489 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:36:03.556 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:36:04.786 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: SQL round-trip 2 ms
+2026-07-22 19:36:06.505 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 2944 404: MRA reachable (404) in 2944 ms.
+2026-07-22 19:36:06.524 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1687 404: MRA reachable (404) in 1687 ms.
+2026-07-22 19:36:08.102 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.85 GB free).
+2026-07-22 19:36:10.006 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 2 null: All subsystems healthy (SQL 2 ms, disk 54.85 GB free).
+2026-07-22 19:36:10.706 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:36:11.343 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:36:41.381 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:36:53.121 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:36:53.144 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:36:53.566 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 323 404: MRA reachable (404) in 323 ms.
+2026-07-22 19:36:53.970 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.85 GB free).
+2026-07-22 19:36:55.726 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:36:56.050 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 299 404: MRA reachable (404) in 299 ms.
+2026-07-22 19:36:57.190 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.85 GB free).
+2026-07-22 19:36:57.683 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:36:58.340 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:37:36.742 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:37:39.207 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:37:39.227 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 6 null: SQL round-trip 6 ms
+2026-07-22 19:37:40.339 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1108 404: MRA reachable (404) in 1108 ms.
+2026-07-22 19:37:40.688 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 6 null: All subsystems healthy (SQL 6 ms, disk 54.74 GB free).
+2026-07-22 19:37:42.707 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:37:43.191 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 414 404: MRA reachable (404) in 414 ms.
+2026-07-22 19:37:43.852 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.73 GB free).
+2026-07-22 19:37:44.431 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:37:58.365 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:38:16.716 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:38:26.149 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:38:26.158 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:38:28.498 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 2327 404: MRA reachable (404) in 2327 ms.
+2026-07-22 19:38:28.864 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.76 GB free).
+2026-07-22 19:38:29.445 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: SQL round-trip 2 ms
+2026-07-22 19:38:29.811 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 357 404: MRA reachable (404) in 357 ms.
+2026-07-22 19:38:30.211 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 2 null: All subsystems healthy (SQL 2 ms, disk 54.76 GB free).
+2026-07-22 19:38:30.998 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:38:56.784 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:38:58.385 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:39:13.888 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:39:14.177 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:39:14.491 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 310 404: MRA reachable (404) in 310 ms.
+2026-07-22 19:39:16.022 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: SQL round-trip 2 ms
+2026-07-22 19:39:16.172 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.87 GB free).
+2026-07-22 19:39:16.457 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 340 404: MRA reachable (404) in 340 ms.
+2026-07-22 19:39:16.871 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 2 null: All subsystems healthy (SQL 2 ms, disk 54.87 GB free).
+2026-07-22 19:39:17.328 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:39:26.824 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:40:01.207 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:40:01.262 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:40:02.520 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1251 404: MRA reachable (404) in 1251 ms.
+2026-07-22 19:40:02.717 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:40:03.139 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.87 GB free).
+2026-07-22 19:40:03.169 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 444 404: MRA reachable (404) in 444 ms.
+2026-07-22 19:40:03.580 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.87 GB free).
+2026-07-22 19:40:04.037 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:40:16.974 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:40:16.990 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:40:47.091 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:40:48.153 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:40:48.157 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:40:49.042 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:40:50.391 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 2230 404: MRA reachable (404) in 2230 ms.
+2026-07-22 19:40:51.233 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 2186 404: MRA reachable (404) in 2186 ms.
+2026-07-22 19:40:51.233 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.87 GB free).
+2026-07-22 19:40:53.186 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.87 GB free).
+2026-07-22 19:40:53.606 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:41:17.014 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:41:17.196 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:41:36.315 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:41:36.320 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:41:37.742 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1316 404: MRA reachable (404) in 1316 ms.
+2026-07-22 19:41:38.090 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.87 GB free).
+2026-07-22 19:41:38.610 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:41:38.959 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 346 404: MRA reachable (404) in 346 ms.
+2026-07-22 19:41:39.417 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.87 GB free).
+2026-07-22 19:41:39.853 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:41:57.129 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:42:17.057 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:42:23.097 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:42:23.103 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:42:24.212 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1106 404: MRA reachable (404) in 1106 ms.
+2026-07-22 19:42:24.567 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:42:24.864 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:42:25.169 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 300 404: MRA reachable (404) in 300 ms.
+2026-07-22 19:42:26.224 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:42:26.601 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:42:27.308 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:42:57.340 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:43:09.599 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:43:10.029 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:43:11.323 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1201 404: MRA reachable (404) in 1201 ms.
+2026-07-22 19:43:11.599 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:43:11.613 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:43:11.911 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 287 404: MRA reachable (404) in 287 ms.
+2026-07-22 19:43:12.220 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:43:12.715 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:43:17.109 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:43:37.331 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:43:56.640 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:43:56.647 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:43:57.852 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:43:57.988 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1332 404: MRA reachable (404) in 1332 ms.
+2026-07-22 19:43:58.406 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 552 404: MRA reachable (404) in 552 ms.
+2026-07-22 19:43:59.213 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:43:59.489 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:43:59.894 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:44:07.381 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:44:17.132 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:44:37.430 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:44:44.284 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:44:44.293 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:44:44.907 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:44:45.525 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1225 404: MRA reachable (404) in 1225 ms.
+2026-07-22 19:44:45.952 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1038 404: MRA reachable (404) in 1038 ms.
+2026-07-22 19:44:46.018 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:44:46.337 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:44:46.761 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:45:07.459 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:45:17.171 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:45:31.028 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:45:31.067 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:45:31.781 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 5 null: SQL round-trip 5 ms
+2026-07-22 19:45:32.579 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1449 404: MRA reachable (404) in 1449 ms.
+2026-07-22 19:45:33.022 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1122 404: MRA reachable (404) in 1122 ms.
+2026-07-22 19:45:33.057 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:45:34.469 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 5 null: All subsystems healthy (SQL 5 ms, disk 54.88 GB free).
+2026-07-22 19:45:37.586 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:45:47.631 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:46:17.279 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:46:17.653 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:46:18.077 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:46:18.080 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:46:22.753 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:46:23.560 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 5340 404: MRA reachable (404) in 5340 ms.
+2026-07-22 19:46:23.899 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1141 404: MRA reachable (404) in 1141 ms.
+2026-07-22 19:46:24.643 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.89 GB free).
+2026-07-22 19:46:24.836 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.89 GB free).
+2026-07-22 19:46:25.222 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:46:47.678 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:47:09.654 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:47:09.663 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:47:10.231 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:47:14.195 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 4524 404: MRA reachable (404) in 4524 ms.
+2026-07-22 19:47:14.551 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 4316 404: MRA reachable (404) in 4316 ms.
+2026-07-22 19:47:14.557 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.89 GB free).
+2026-07-22 19:47:14.913 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.89 GB free).
+2026-07-22 19:47:15.301 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:47:17.294 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:47:17.722 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:47:47.795 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:47:59.582 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:47:59.722 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:48:00.341 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 4 null: SQL round-trip 4 ms
+2026-07-22 19:48:00.939 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1213 404: MRA reachable (404) in 1213 ms.
+2026-07-22 19:48:01.303 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 867 404: MRA reachable (404) in 867 ms.
+2026-07-22 19:48:02.199 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.89 GB free).
+2026-07-22 19:48:03.107 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 4 null: All subsystems healthy (SQL 4 ms, disk 54.89 GB free).
+2026-07-22 19:48:03.678 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:48:17.352 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:48:17.879 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:48:47.270 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:48:47.280 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:48:48.366 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1072 404: MRA reachable (404) in 1072 ms.
+2026-07-22 19:48:48.666 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:48:49.112 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:48:49.531 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 293 404: MRA reachable (404) in 293 ms.
+2026-07-22 19:48:49.806 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:48:50.119 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:49:07.943 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:49:17.383 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:49:33.694 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:49:33.697 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:49:34.769 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1069 404: MRA reachable (404) in 1069 ms.
+2026-07-22 19:49:35.057 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:49:35.131 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:49:35.425 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 291 404: MRA reachable (404) in 291 ms.
+2026-07-22 19:49:36.493 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:49:37.072 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:49:37.979 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:50:08.257 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 26 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:50:17.434 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:50:20.076 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:50:20.159 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:50:21.260 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1055 404: MRA reachable (404) in 1055 ms.
+2026-07-22 19:50:22.149 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:50:22.546 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 283 404: MRA reachable (404) in 283 ms.
+2026-07-22 19:50:23.632 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:50:24.071 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:50:25.483 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:50:38.386 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:51:09.141 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 21 null: SQL round-trip 21 ms
+2026-07-22 19:51:10.378 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1166 404: MRA reachable (404) in 1166 ms.
+2026-07-22 19:51:11.058 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 21 null: All subsystems healthy (SQL 21 ms, disk 54.88 GB free).
+2026-07-22 19:51:11.176 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:51:11.559 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 51 null: SQL round-trip 51 ms
+2026-07-22 19:51:12.439 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 463 404: MRA reachable (404) in 463 ms.
+2026-07-22 19:51:13.272 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:51:14.305 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 51 null: All subsystems healthy (SQL 51 ms, disk 54.88 GB free).
+2026-07-22 19:51:33.592 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 13 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:51:33.651 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:51:59.185 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 24 null: SQL round-trip 24 ms
+2026-07-22 19:52:00.286 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:52:00.485 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 49 null: SQL round-trip 49 ms
+2026-07-22 19:52:00.540 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1238 404: MRA reachable (404) in 1238 ms.
+2026-07-22 19:52:00.984 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 332 404: MRA reachable (404) in 332 ms.
+2026-07-22 19:52:01.926 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 24 null: All subsystems healthy (SQL 24 ms, disk 54.88 GB free).
+2026-07-22 19:52:02.211 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 49 null: All subsystems healthy (SQL 49 ms, disk 54.88 GB free).
+2026-07-22 19:52:02.707 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:52:28.904 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 17 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:52:33.728 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:52:47.357 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:52:47.366 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:52:47.815 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:52:48.552 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1182 404: MRA reachable (404) in 1182 ms.
+2026-07-22 19:52:48.601 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 782 404: MRA reachable (404) in 782 ms.
+2026-07-22 19:52:49.246 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:52:49.555 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:52:49.883 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:52:59.025 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:53:29.058 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:53:33.761 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:53:34.617 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:53:34.625 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:53:34.930 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:53:34.971 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 341 404: MRA reachable (404) in 341 ms.
+2026-07-22 19:53:36.024 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1089 404: MRA reachable (404) in 1089 ms.
+2026-07-22 19:53:36.024 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:53:36.429 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:53:36.931 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:53:59.094 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:54:21.044 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:54:21.942 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:54:22.097 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-22 19:54:23.329 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1232 404: MRA reachable (404) in 1232 ms.
+2026-07-22 19:54:24.643 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:54:25.342 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:54:26.464 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 4211 404: MRA reachable (404) in 4211 ms.
+2026-07-22 19:54:26.900 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 54.88 GB free).
+2026-07-22 19:54:29.124 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:54:33.806 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:54:59.269 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:55:10.353 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:55:11.461 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1104 404: MRA reachable (404) in 1104 ms.
+2026-07-22 19:55:11.889 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:55:11.904 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:55:11.911 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-22 19:55:12.281 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 364 404: MRA reachable (404) in 364 ms.
+2026-07-22 19:55:12.385 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-22 19:55:12.729 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 54.88 GB free).
+2026-07-22 19:55:29.302 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:55:33.843 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-22 19:55:57.616 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 177 null: SQL round-trip 177 ms
+2026-07-22 19:55:57.778 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-22 19:55:58.149 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 193 null: SQL round-trip 193 ms
+2026-07-22 19:55:59.149 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1220 404: MRA reachable (404) in 1220 ms.
+2026-07-22 19:55:59.579 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1194 404: MRA reachable (404) in 1194 ms.
+2026-07-22 19:56:00.180 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 172 null: Performance profile sample (FPS 0.0)
+2026-07-22 19:56:01.060 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 177 null: All subsystems healthy (SQL 177 ms, disk 54.88 GB free).
+2026-07-22 19:56:01.438 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 193 null: All subsystems healthy (SQL 193 ms, disk 54.88 GB free).
+2026-07-22 19:56:02.435 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
