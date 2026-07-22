@@ -5,19 +5,23 @@ using PointOfSale.App.Services;
 namespace PointOfSale.App.ViewModels;
 
 /// <summary>
-/// Phase 35 light-themed first-run onboarding wizard for store managers.
+/// Phase 35/39 light-themed first-run onboarding wizard for store managers.
+/// Final step hides Next and promotes Finish setup as the primary CTA.
 /// </summary>
 public partial class FirstRunSetupViewModel : ObservableObject
 {
     private readonly IFirstRunBootstrapService _bootstrap;
     private readonly ITerminalActivationService _activation;
+    private readonly IMraOnboardingService _mraOnboarding;
 
     public FirstRunSetupViewModel(
         IFirstRunBootstrapService bootstrap,
-        ITerminalActivationService activation)
+        ITerminalActivationService activation,
+        IMraOnboardingService mraOnboarding)
     {
         _bootstrap = bootstrap;
         _activation = activation;
+        _mraOnboarding = mraOnboarding;
         _ = InitializeAsync();
     }
 
@@ -25,7 +29,16 @@ public partial class FirstRunSetupViewModel : ObservableObject
 
     public string SampleLicenseHint => TerminalActivationService.SampleLicenseKey;
 
+    /// <summary>True on Step 3 (License Activation &amp; Finalization) — Next is hidden.</summary>
+    public bool IsFinalStep => WizardStep >= 3;
+
+    /// <summary>True while intermediate wizard steps allow forward navigation.</summary>
+    public bool CanGoNext => WizardStep < 3 && !IsBusy;
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFinalStep))]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    [NotifyPropertyChangedFor(nameof(StepCaption))]
     private int _wizardStep;
 
     [ObservableProperty]
@@ -50,10 +63,15 @@ public partial class FirstRunSetupViewModel : ObservableObject
     private string _infrastructureSummary = "Checking SQL Express / LocalDB…";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
     private bool _isBusy;
 
     [ObservableProperty]
     private bool _infrastructureReady;
+
+    public string StepCaption => IsFinalStep
+        ? "Step 3 of 3 — License activation & finalization"
+        : $"Step {WizardStep} of 3";
 
     [RelayCommand]
     private async Task InitializeAsync()
@@ -85,6 +103,12 @@ public partial class FirstRunSetupViewModel : ObservableObject
     [RelayCommand]
     private void NextStep()
     {
+        if (IsFinalStep)
+        {
+            StatusMessage = "This is the final step — use Finish setup to complete onboarding.";
+            return;
+        }
+
         if (WizardStep == 0 && !InfrastructureReady)
         {
             StatusMessage = "Resolve SQL Express / LocalDB before continuing.";
@@ -100,17 +124,14 @@ public partial class FirstRunSetupViewModel : ObservableObject
             }
         }
 
-        if (WizardStep < 3)
+        WizardStep++;
+        StatusMessage = WizardStep switch
         {
-            WizardStep++;
-            StatusMessage = WizardStep switch
-            {
-                1 => "Name this counter and assign the branch / outlet code.",
-                2 => "Select the MRA EIS endpoint environment for this store.",
-                3 => "Enter the Albert Retail Terminal license key to unlock the register.",
-                _ => StatusMessage
-            };
-        }
+            1 => "Name this counter and assign the branch / outlet code.",
+            2 => "Select the MRA EIS endpoint environment for this store.",
+            3 => "Enter the activation key, then choose Finish setup.",
+            _ => StatusMessage
+        };
     }
 
     [RelayCommand]
@@ -149,14 +170,24 @@ public partial class FirstRunSetupViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(LicenseKey))
         {
             WizardStep = 3;
-            StatusMessage = "A license key is required to complete first-run setup.";
+            StatusMessage = "An activation key is required to complete first-run setup.";
             return;
         }
 
         IsBusy = true;
-        StatusMessage = "Saving first-run configuration…";
+        StatusMessage = "Contacting MRA EIS onboarding, then saving first-run configuration…";
         try
         {
+            var mra = await _mraOnboarding
+                .ActivateAndConfirmAsync(LicenseKey.Trim(), BranchId.Trim())
+                .ConfigureAwait(true);
+            if (!mra.Success)
+            {
+                WizardStep = 3;
+                StatusMessage = mra.Message;
+                return;
+            }
+
             var result = await _bootstrap.CompleteSetupAsync(
                     new FirstRunSetupRequest
                     {
@@ -168,12 +199,17 @@ public partial class FirstRunSetupViewModel : ObservableObject
                     })
                 .ConfigureAwait(true);
 
-            StatusMessage = result.Message;
-            if (result.Success)
+            if (!result.Success)
             {
-                LicenseKey = string.Empty;
-                await _activation.GetStatusAsync().ConfigureAwait(true);
+                StatusMessage = result.Message;
+                return;
             }
+
+            LicenseKey = string.Empty;
+            await _activation.GetStatusAsync().ConfigureAwait(true);
+            StatusMessage = mra.UsedSandboxLocalFallback
+                ? $"{result.Message} Sandbox MRA terminal {mra.TerminalId} staged."
+                : $"{result.Message} MRA terminal {mra.TerminalId} confirmed.";
         }
         catch (Exception ex)
         {

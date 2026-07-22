@@ -42,7 +42,7 @@
                                TextWrapping="Wrap"
                                Margin="0,0,0,16" />
 
-                    <TextBlock Text="{Binding WizardStep, StringFormat='Step {0} of 3'}"
+                    <TextBlock Text="{Binding StepCaption}"
                                Style="{StaticResource Art.Text.Caption}"
                                Margin="0,0,0,14" />
 
@@ -144,11 +144,15 @@
                                 </Style.Triggers>
                             </Style>
                         </StackPanel.Style>
-                        <TextBlock Text="License activation"
+                        <TextBlock Text="License activation &amp; finalization"
                                    Style="{StaticResource Art.Text.Title}"
                                    FontSize="18"
                                    Margin="0,0,0,10" />
-                        <TextBlock Text="License key" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                        <TextBlock Text="Enter the activation key, then choose Finish setup. Next is unavailable on this final step."
+                                   Style="{StaticResource Art.Text.Subtitle}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,10" />
+                        <TextBlock Text="Activation key" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
                         <TextBox Text="{Binding LicenseKey, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource Art.TextBox}"
                                  FontFamily="{StaticResource Art.Font.Mono}"
@@ -182,17 +186,41 @@
                                 MinWidth="100"
                                 IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                            <!-- Phase 39: hide Next on final license step -->
                             <Button Content="Next"
-                                    Style="{StaticResource Art.Button.Secondary}"
                                     Command="{Binding NextStepCommand}"
                                     MinWidth="100"
                                     Margin="0,0,8,0"
-                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+                                    IsEnabled="{Binding CanGoNext}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Art.Button.Secondary}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFinalStep}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <!-- Phase 39: Finish is the primary CTA on the final step -->
                             <Button Content="Finish setup"
-                                    Style="{StaticResource Art.Button.Success}"
                                     Command="{Binding FinishCommand}"
-                                    MinWidth="140"
-                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+                                    MinWidth="160"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Art.Button.Success}">
+                                        <Setter Property="FontSize" Value="14" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFinalStep}" Value="True">
+                                                <Setter Property="MinWidth" Value="180" />
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                                <Setter Property="Padding" Value="20,12" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </StackPanel>
                     </DockPanel>
                 </StackPanel>

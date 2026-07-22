@@ -22,6 +22,7 @@ public interface ITerminalActivationService
     Task<TerminalLicenseStatus> GetStatusAsync(CancellationToken cancellationToken = default);
     Task<TerminalActivationResult> ActivateAsync(string licenseKey, CancellationToken cancellationToken = default);
     bool ValidateLicenseKeyFormat(string licenseKey, out string normalized, out string? error);
+    bool AcceptsLicenseKey(string licenseKey);
 }
 
 public sealed class TerminalLicenseOptions

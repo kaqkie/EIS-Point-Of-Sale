@@ -26,7 +26,7 @@
                         Padding="12,8"
                         HorizontalAlignment="Left"
                         Margin="0,0,0,16">
-                    <TextBlock Text="TERMINAL LICENSE"
+                    <TextBlock Text="MRA TERMINAL ACTIVATION"
                                FontWeight="Bold"
                                FontSize="12"
                                Foreground="{StaticResource Art.Brush.Success}" />
@@ -35,12 +35,12 @@
                 <TextBlock Text="Activate this register"
                            Style="{StaticResource Art.Text.Hero}"
                            Margin="0,0,0,6" />
-                <TextBlock Text="Enter the store license key before operator sign-in. Retail functions stay locked until activation succeeds."
+                <TextBlock Text="Enter the store activation key to call MRA EIS onboarding (activate-terminal + confirmation), store encrypted credentials, and unlock operator sign-in."
                            Style="{StaticResource Art.Text.Subtitle}"
                            TextWrapping="Wrap"
                            Margin="0,0,0,20" />
 
-                <TextBlock Text="License key" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                <TextBlock Text="Activation key" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
                 <TextBox Text="{Binding LicenseKey, UpdateSourceTrigger=PropertyChanged}"
                          Style="{StaticResource Art.TextBox}"
                          FontFamily="{StaticResource Art.Font.Mono}"
@@ -61,7 +61,7 @@
                             MinHeight="34" />
                 </DockPanel>
 
-                <Button Content="Activate terminal"
+                <Button Content="Activate with MRA"
                         Style="{StaticResource Art.Button.Success}"
                         Command="{Binding ActivateCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
@@ -74,6 +74,9 @@
                 <TextBlock Text="{Binding MaskedLicenseKey, StringFormat='Active key: {0}', TargetNullValue=''}"
                            Style="{StaticResource Art.Text.Caption}"
                            Margin="0,10,0,0" />
+                <TextBlock Text="{Binding MraTerminalId, StringFormat='MRA terminal: {0}', TargetNullValue=''}"
+                           Style="{StaticResource Art.Text.Caption}"
+                           Margin="0,4,0,0" />
             </StackPanel>
         </Border>
     </Grid>

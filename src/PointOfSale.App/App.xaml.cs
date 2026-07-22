@@ -152,6 +152,7 @@ public partial class App : Application
                 services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
                 services.AddTransient<PointOfSale.App.Database.Seeders.IInitialDataSeeder, PointOfSale.App.Database.Seeders.InitialDataSeeder>();
                 services.AddSingleton<ITerminalActivationService, TerminalActivationService>();
+                services.AddSingleton<IMraOnboardingService, MraOnboardingService>();
                 services.AddSingleton<IAuditSecurityLogger, AuditSecurityLogger>();
                 services.AddSingleton<IAuthenticationAuthorizationService, AuthenticationAuthorizationService>();
                 services.AddSingleton<ISupervisorAuthorizationService, SupervisorAuthorizationService>();

@@ -5,15 +5,19 @@ using PointOfSale.App.Services;
 namespace PointOfSale.App.ViewModels;
 
 /// <summary>
-/// Light-themed terminal license activation prior to operator sign-in.
+/// Phase 38 light-themed terminal activation — ART license + MRA EIS onboarding.
 /// </summary>
 public partial class ActivationViewModel : ObservableObject
 {
     private readonly ITerminalActivationService _activation;
+    private readonly IMraOnboardingService _mraOnboarding;
 
-    public ActivationViewModel(ITerminalActivationService activation)
+    public ActivationViewModel(
+        ITerminalActivationService activation,
+        IMraOnboardingService mraOnboarding)
     {
         _activation = activation;
+        _mraOnboarding = mraOnboarding;
         _ = RefreshAsync();
     }
 
@@ -21,7 +25,8 @@ public partial class ActivationViewModel : ObservableObject
     private string _licenseKey = string.Empty;
 
     [ObservableProperty]
-    private string _statusMessage = "Enter your Albert Retail Terminal license key to unlock this register.";
+    private string _statusMessage =
+        "Enter your Albert Retail Terminal activation key to bind this register to MRA EIS and unlock sign-in.";
 
     [ObservableProperty]
     private bool _isBusy;
@@ -31,6 +36,9 @@ public partial class ActivationViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _maskedLicenseKey;
+
+    [ObservableProperty]
+    private string? _mraTerminalId;
 
     [ObservableProperty]
     private string _sampleHint = TerminalActivationService.SampleLicenseKey;
@@ -60,15 +68,44 @@ public partial class ActivationViewModel : ObservableObject
         }
 
         IsBusy = true;
+        StatusMessage = "Validating activation key and contacting MRA EIS onboarding…";
         try
         {
-            var result = await _activation.ActivateAsync(LicenseKey).ConfigureAwait(true);
-            StatusMessage = result.Message;
-            if (result.Success)
+            if (!_activation.ValidateLicenseKeyFormat(LicenseKey, out var normalized, out var formatError))
             {
-                LicenseKey = string.Empty;
-                await RefreshAsync().ConfigureAwait(true);
+                StatusMessage = formatError ?? "Invalid activation key format.";
+                return;
             }
+
+            if (!_activation.AcceptsLicenseKey(normalized))
+            {
+                StatusMessage =
+                    "Activation key is not valid. Check the key and try again (format I4CV-M5YY-AKY6-Z9BT).";
+                return;
+            }
+
+            var mra = await _mraOnboarding.ActivateAndConfirmAsync(normalized).ConfigureAwait(true);
+            if (!mra.Success)
+            {
+                StatusMessage = mra.Message;
+                return;
+            }
+
+            MraTerminalId = mra.TerminalId;
+
+            var license = await _activation.ActivateAsync(normalized).ConfigureAwait(true);
+            if (!license.Success)
+            {
+                StatusMessage = license.Message;
+                return;
+            }
+
+            LicenseKey = string.Empty;
+            await RefreshAsync().ConfigureAwait(true);
+
+            StatusMessage = mra.UsedSandboxLocalFallback
+                ? $"{license.Message} MRA sandbox credentials stored for terminal {mra.TerminalId}."
+                : $"{license.Message} MRA terminal {mra.TerminalId} confirmed — you can sign in.";
         }
         catch (Exception ex)
         {
