@@ -56,12 +56,26 @@ Flow: background download → SHA-256 verify → stage under `%LocalAppData%\Alb
 Optional web/ClickOnce-style publish:
 
 ```powershell
-dotnet publish "src\PointOfSale.App\PointOfSale.App.csproj" `
-  -c Release `
-  /p:PublishProfile=ClickOnceProfile
+.\Deployment\Package-ClickOnce.ps1 -ProductVersion 1.0.0
 ```
 
-## Administrative analytics (Phase 12)
+MSIX sideload package (requires Windows SDK `MakeAppx.exe`):
+
+```powershell
+.\Deployment\Package-Msix.ps1 -ProductVersion 1.0.0.0
+```
+
+Host `Deployment\Msix\AlbertRetailTerminal.appinstaller` on HTTPS for in-store updates.
+
+## Terminal provisioning wizard (Phase 25)
+
+Nav: **Terminal Setup** (Store Manager / Administrator).
+
+1. **Prepare deployment** — creates `Logs/`, `Backups/`, fiscal archive folders, binds hardware fingerprint, verifies SQL Express via bootstrap.
+2. **Activate with MRA** — enter TAC, branch/site, taxpayer TIN; calls MRA `onboarding/activate-terminal` + confirmation; JWT and secret key stored with DPAPI in `dbo.Configurations`.
+
+Packaging metadata: `src/PointOfSale.App/Deployment/InstallerConfiguration.cs` and `Deployment/InstallerConfiguration.targets`.
+
 
 Nav: **Analytics**
 

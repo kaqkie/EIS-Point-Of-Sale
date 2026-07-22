@@ -2,6 +2,7 @@ using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using PointOfSale.App.Deployment;
 using PointOfSale.App.Options;
 using PointOfSale.App.Services;
 using PointOfSale.App.Services.Compliance;
@@ -66,6 +67,8 @@ public partial class App : Application
                     context.Configuration.GetSection(FinancialClosureOptions.SectionName));
                 services.Configure<FiscalArchivalOptions>(
                     context.Configuration.GetSection(FiscalArchivalOptions.SectionName));
+                services.Configure<InstallerPackagingOptions>(
+                    context.Configuration.GetSection(InstallerPackagingOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -92,6 +95,7 @@ public partial class App : Application
                 services.AddTransient<IFiscalYearRolloverService, FiscalYearRolloverService>();
                 services.AddTransient<IArchivalCompressionService, ArchivalCompressionService>();
                 services.AddHostedService<ArchivalCompressionBackgroundService>();
+                services.AddTransient<ITerminalProvisioningService, TerminalProvisioningService>();
                 services.AddTransient<IAnalyticsReportExportService, AnalyticsReportExportService>();
                 services.AddTransient<ICentralInventoryReplicationService, CentralInventoryReplicationService>();
                 services.AddSingleton<IHeadOfficeSyncService, HeadOfficeSyncService>();
@@ -134,6 +138,7 @@ public partial class App : Application
                 services.AddTransient<SystemDiagnosticsView>();
                 services.AddTransient<EndofDaySummaryView>();
                 services.AddTransient<FiscalRolloverView>();
+                services.AddTransient<TerminalProvisioningView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -155,6 +160,7 @@ public partial class App : Application
                 services.AddTransient<SystemDiagnosticsViewModel>();
                 services.AddTransient<EndofDaySummaryViewModel>();
                 services.AddTransient<FiscalRolloverViewModel>();
+                services.AddTransient<TerminalProvisioningViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })
@@ -173,6 +179,8 @@ public partial class App : Application
             await _host.Services.GetRequiredService<IDatabaseBootstrapService>()
                 .EnsureDatabaseReadyAsync()
                 .ConfigureAwait(true);
+
+            InstallerConfiguration.EnsureStandardDirectories();
 
             await _host.Services.GetRequiredService<IAuthenticationAuthorizationService>()
                 .EnsureSeededAsync()

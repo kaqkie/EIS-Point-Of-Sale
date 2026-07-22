@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppInstaller
+  Uri="https://updates.albertretail.local/art/msix/AlbertRetailTerminal.appinstaller"
+  Version="1.0.0.0"
+  xmlns="http://schemas.microsoft.com/appx/appinstaller/2018">
+  <MainPackage
+    Name="AlbertRetail.AlbertRetailTerminal"
+    Publisher="CN=Albert Retail"
+    Version="1.0.0.0"
+    Uri="https://updates.albertretail.local/art/msix/AlbertRetailTerminal_1.0.0.0_x64.msix"
+    ProcessorArchitecture="x64" />
+  <UpdateSettings>
+    <OnLaunch HoursBetweenUpdateChecks="24" ShowPrompt="true" />
+  </UpdateSettings>
+</AppInstaller>

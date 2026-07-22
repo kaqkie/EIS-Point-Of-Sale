@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSBuild packaging metadata for Albert Retail Terminal (Phase 25).
+  Import from PointOfSale.App.csproj for consistent version strings across ClickOnce / MSIX.
+-->
+<Project>
+  <PropertyGroup>
+    <ArtProductName>Albert Retail Terminal</ArtProductName>
+    <ArtPublisher>Albert Retail</ArtPublisher>
+    <ArtMsixPackageName>AlbertRetail.AlbertRetailTerminal</ArtMsixPackageName>
+    <ApplicationTitle>$(ArtProductName)</ApplicationTitle>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">$(Version)</ApplicationDisplayVersion>
+  </PropertyGroup>
+</Project>

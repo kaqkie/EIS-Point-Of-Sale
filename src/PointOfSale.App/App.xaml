@@ -62,6 +62,9 @@
         <DataTemplate DataType="{x:Type vm:FiscalRolloverViewModel}">
             <v:FiscalRolloverView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TerminalProvisioningViewModel}">
+            <v:TerminalProvisioningView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

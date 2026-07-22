@@ -140,6 +140,9 @@ public partial class MainViewModel : ObservableObject
     private bool _canFiscalRollover;
 
     [ObservableProperty]
+    private bool _canProvisionTerminal;
+
+    [ObservableProperty]
     private bool _hasHealthWarning;
 
     [ObservableProperty]
@@ -198,6 +201,9 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanFiscalRollover))]
     private void NavigateFiscalRollover() => _navigationService.NavigateTo<FiscalRolloverViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanProvisionTerminal))]
+    private void NavigateTerminalProvisioning() => _navigationService.NavigateTo<TerminalProvisioningViewModel>();
 
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
@@ -263,6 +269,7 @@ public partial class MainViewModel : ObservableObject
         CanSystemDiagnostics = _auth.HasPermission(OperatorPermissions.ViewSystemDiagnostics);
         CanEndOfDay = _auth.HasPermission(OperatorPermissions.CloseFinancialDay);
         CanFiscalRollover = _auth.HasPermission(OperatorPermissions.ExecuteFiscalYearRollover);
+        CanProvisionTerminal = _auth.HasPermission(OperatorPermissions.ProvisionTerminal);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -282,5 +289,6 @@ public partial class MainViewModel : ObservableObject
         NavigateSystemDiagnosticsCommand.NotifyCanExecuteChanged();
         NavigateEndOfDayCommand.NotifyCanExecuteChanged();
         NavigateFiscalRolloverCommand.NotifyCanExecuteChanged();
+        NavigateTerminalProvisioningCommand.NotifyCanExecuteChanged();
     }
 }

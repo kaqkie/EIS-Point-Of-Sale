@@ -115,7 +115,8 @@ public static class RolePermissionCatalog
                 OperatorPermissions.ReconcileSupplierInvoices,
                 OperatorPermissions.ViewSystemDiagnostics,
                 OperatorPermissions.CloseFinancialDay,
-                OperatorPermissions.ExecuteFiscalYearRollover
+                OperatorPermissions.ExecuteFiscalYearRollover,
+                OperatorPermissions.ProvisionTerminal
             },
             [OperatorRoles.Administrator] = new HashSet<string>(OperatorPermissions.All, StringComparer.Ordinal)
         };
