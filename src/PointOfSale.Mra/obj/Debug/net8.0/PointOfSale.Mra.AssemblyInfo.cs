@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyDescriptionAttribute(("MRA EIS API integration — onboarding, configuration, and shared HTTP/HMAC infrast" +
     "ructure."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bd335182e03450d14e5756e50994e533a71bce8a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5d1c75994ed6f0331c9830476045fb99ff911b0b")]
 [assembly: System.Reflection.AssemblyProductAttribute("Albert Retail Terminal")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PointOfSale.Mra")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

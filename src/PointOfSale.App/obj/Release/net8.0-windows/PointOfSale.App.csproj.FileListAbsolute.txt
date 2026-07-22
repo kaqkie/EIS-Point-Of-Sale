@@ -173,3 +173,7 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Rel
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\TestRunnerDashboardView.g.cs
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\EnterpriseMaintenanceView.baml
 C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\EnterpriseMaintenanceView.g.cs
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Scripts\015_PerformanceIndexOptimization.sql
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\bin\Release\net8.0-windows\Database\MigrationScripts\007_PerformanceIndexOptimization.sql
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\DatabaseMaintenanceView.baml
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\obj\Release\net8.0-windows\Views\DatabaseMaintenanceView.g.cs
