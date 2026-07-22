@@ -44,6 +44,7 @@ public static class OperatorPermissions
     public const string ExecuteFiscalYearRollover = "ExecuteFiscalYearRollover";
     public const string ProvisionTerminal = "ProvisionTerminal";
     public const string RunIntegrationTests = "RunIntegrationTests";
+    public const string ExecuteEnterpriseMaintenance = "ExecuteEnterpriseMaintenance";
 
     public static readonly string[] All =
     [
@@ -72,7 +73,8 @@ public static class OperatorPermissions
         CloseFinancialDay,
         ExecuteFiscalYearRollover,
         ProvisionTerminal,
-        RunIntegrationTests
+        RunIntegrationTests,
+        ExecuteEnterpriseMaintenance
     ];
 }
 

@@ -68,6 +68,9 @@
         <DataTemplate DataType="{x:Type vm:TestRunnerDashboardViewModel}">
             <v:TestRunnerDashboardView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:EnterpriseMaintenanceViewModel}">
+            <v:EnterpriseMaintenanceView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

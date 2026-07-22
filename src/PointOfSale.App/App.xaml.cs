@@ -69,10 +69,15 @@ public partial class App : Application
                     context.Configuration.GetSection(FiscalArchivalOptions.SectionName));
                 services.Configure<InstallerPackagingOptions>(
                     context.Configuration.GetSection(InstallerPackagingOptions.SectionName));
+                services.Configure<EnterprisePerformanceOptions>(
+                    context.Configuration.GetSection(EnterprisePerformanceOptions.SectionName));
+                services.Configure<EnterpriseMaintenanceOptions>(
+                    context.Configuration.GetSection(EnterpriseMaintenanceOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
                 services.AddHttpClient(nameof(TelemetryDiagnosticService));
+                services.AddHttpClient(nameof(PerformanceProfilingService));
 
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
                 services.AddSingleton<ITelemetryDiagnosticService, TelemetryDiagnosticService>();
@@ -114,6 +119,9 @@ public partial class App : Application
                 services.AddTransient<ISupplierInvoiceReconciliationService, SupplierInvoiceReconciliationService>();
                 services.AddHostedService<InventoryAlertBackgroundService>();
                 services.AddHostedService<HealthCheckWorker>();
+                services.AddSingleton<IPerformanceProfilingService, PerformanceProfilingService>();
+                services.AddTransient<IEnterpriseMaintenanceService, EnterpriseMaintenanceService>();
+                services.AddHostedService<PerformanceProfilingBackgroundService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -141,6 +149,7 @@ public partial class App : Application
                 services.AddTransient<FiscalRolloverView>();
                 services.AddTransient<TerminalProvisioningView>();
                 services.AddTransient<TestRunnerDashboardView>();
+                services.AddTransient<EnterpriseMaintenanceView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -164,6 +173,7 @@ public partial class App : Application
                 services.AddTransient<FiscalRolloverViewModel>();
                 services.AddTransient<TerminalProvisioningViewModel>();
                 services.AddTransient<TestRunnerDashboardViewModel>();
+                services.AddTransient<EnterpriseMaintenanceViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

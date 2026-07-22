@@ -37,6 +37,8 @@ public static class DiagnosticEventCategories
     public const string HealthCheck = "HealthCheck";
     public const string Disk = "Disk";
     public const string Printer = "Printer";
+    public const string Performance = "Performance";
+    public const string Maintenance = "Maintenance";
 }
 
 public static class DiagnosticSeverities
