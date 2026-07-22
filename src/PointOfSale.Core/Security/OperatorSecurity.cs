@@ -35,6 +35,8 @@ public static class OperatorPermissions
     public const string ApplyCartDiscount = "ApplyCartDiscount";
     public const string PrintProductLabels = "PrintProductLabels";
     public const string ManageLabelBatches = "ManageLabelBatches";
+    public const string ViewInventoryAlerts = "ViewInventoryAlerts";
+    public const string ManagePurchaseOrders = "ManagePurchaseOrders";
 
     public static readonly string[] All =
     [
@@ -54,7 +56,9 @@ public static class OperatorPermissions
         ManageLoyaltyPrograms,
         ApplyCartDiscount,
         PrintProductLabels,
-        ManageLabelBatches
+        ManageLabelBatches,
+        ViewInventoryAlerts,
+        ManagePurchaseOrders
     ];
 }
 

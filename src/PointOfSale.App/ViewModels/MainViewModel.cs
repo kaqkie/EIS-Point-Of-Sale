@@ -101,6 +101,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _canLabels;
 
+    [ObservableProperty]
+    private bool _canStockAlerts;
+
+    [ObservableProperty]
+    private bool _canPurchaseOrders;
+
     [RelayCommand(CanExecute = nameof(CanCheckout))]
     private void NavigateCheckout() => _navigationService.NavigateTo<CheckoutViewModel>();
 
@@ -133,6 +139,12 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanLabels))]
     private void NavigateLabels() => _navigationService.NavigateTo<BarcodePrintingViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanStockAlerts))]
+    private void NavigateStockAlerts() => _navigationService.NavigateTo<InventoryAlertsViewModel>();
+
+    [RelayCommand(CanExecute = nameof(CanPurchaseOrders))]
+    private void NavigatePurchaseOrders() => _navigationService.NavigateTo<PurchaseOrderManagementViewModel>();
 
     [RelayCommand]
     private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
@@ -176,6 +188,8 @@ public partial class MainViewModel : ObservableObject
         CanLoyalty = _auth.HasPermission(OperatorPermissions.LookupLoyaltyCustomer);
         CanDiscounts = _auth.HasPermission(OperatorPermissions.ManageLoyaltyPrograms);
         CanLabels = _auth.HasPermission(OperatorPermissions.PrintProductLabels);
+        CanStockAlerts = _auth.HasPermission(OperatorPermissions.ViewInventoryAlerts);
+        CanPurchaseOrders = _auth.HasPermission(OperatorPermissions.ManagePurchaseOrders);
 
         NavigateCheckoutCommand.NotifyCanExecuteChanged();
         NavigateInventoryCommand.NotifyCanExecuteChanged();
@@ -188,5 +202,7 @@ public partial class MainViewModel : ObservableObject
         NavigateLoyaltyCommand.NotifyCanExecuteChanged();
         NavigateDiscountsCommand.NotifyCanExecuteChanged();
         NavigateLabelsCommand.NotifyCanExecuteChanged();
+        NavigateStockAlertsCommand.NotifyCanExecuteChanged();
+        NavigatePurchaseOrdersCommand.NotifyCanExecuteChanged();
     }
 }

@@ -33,6 +33,26 @@ public sealed class FakeLocalInventoryRepository : ILocalInventoryRepository
         return Task.CompletedTask;
     }
 
+    public Task UpdateReorderSettingsAsync(
+        string productCode,
+        decimal minReorderQty,
+        decimal maxStockCapacity,
+        string? supplierCode,
+        string? supplierName,
+        CancellationToken cancellationToken = default)
+    {
+        if (_byCode.TryGetValue(productCode, out var item))
+        {
+            item.MinReorderQty = minReorderQty;
+            item.MaxStockCapacity = maxStockCapacity;
+            item.SupplierCode = supplierCode;
+            item.SupplierName = supplierName;
+            _byCode[productCode] = item;
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task ApplyHeadOfficeCatalogAsync(
         LocalInventoryItem catalogItem,
         bool preserveLocalStock,

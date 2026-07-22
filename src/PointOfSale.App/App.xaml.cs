@@ -56,6 +56,8 @@ public partial class App : Application
                     context.Configuration.GetSection(LoyaltyProgramOptions.SectionName));
                 services.Configure<LabelPrintingOptions>(
                     context.Configuration.GetSection(LabelPrintingOptions.SectionName));
+                services.Configure<InventoryAlertOptions>(
+                    context.Configuration.GetSection(InventoryAlertOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -86,6 +88,9 @@ public partial class App : Application
                 services.AddTransient<IPricingRulesEngine, PricingRulesEngine>();
                 services.AddSingleton<IBarcodeGenerationService, BarcodeGenerationService>();
                 services.AddTransient<ILabelTemplateService, LabelTemplateService>();
+                services.AddTransient<IInventoryAlertService, InventoryAlertService>();
+                services.AddTransient<IPurchaseOrderGenerationService, PurchaseOrderGenerationService>();
+                services.AddHostedService<InventoryAlertBackgroundService>();
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
@@ -104,6 +109,8 @@ public partial class App : Application
                 services.AddTransient<CustomerLoyaltyView>();
                 services.AddTransient<DiscountManagementView>();
                 services.AddTransient<BarcodePrintingView>();
+                services.AddTransient<InventoryAlertsView>();
+                services.AddTransient<PurchaseOrderManagementView>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<LoginViewModel>();
@@ -118,6 +125,8 @@ public partial class App : Application
                 services.AddTransient<CustomerLoyaltyViewModel>();
                 services.AddTransient<DiscountManagementViewModel>();
                 services.AddTransient<BarcodePrintingViewModel>();
+                services.AddTransient<InventoryAlertsViewModel>();
+                services.AddTransient<PurchaseOrderManagementViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

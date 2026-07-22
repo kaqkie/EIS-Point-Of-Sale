@@ -41,6 +41,12 @@
         <DataTemplate DataType="{x:Type vm:BarcodePrintingViewModel}">
             <v:BarcodePrintingView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:InventoryAlertsViewModel}">
+            <v:InventoryAlertsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PurchaseOrderManagementViewModel}">
+            <v:PurchaseOrderManagementView />
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <v:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Application.Resources>

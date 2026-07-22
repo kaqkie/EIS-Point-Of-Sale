@@ -1,0 +1,125 @@
+<UserControl x:Class="PointOfSale.App.Views.PurchaseOrderManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8">
+            <DockPanel Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Purchase Order Management"
+                               FontSize="22"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="#4B5563"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            IsEnabled="{Binding IsGeneratingPo, Converter={StaticResource InverseBooleanConverter}}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            Margin="0,0,8,0" />
+                    <Button Content="Generate POs"
+                            Command="{Binding GeneratePoCommand}"
+                            IsEnabled="{Binding IsGeneratingPo, Converter={StaticResource InverseBooleanConverter}}"
+                            Padding="12,8"
+                            MinHeight="40"
+                            FontWeight="SemiBold" />
+                </StackPanel>
+            </DockPanel>
+
+            <Border Background="#EFF6FF" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Generated PO summary" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBlock Text="{Binding GeneratedPoSummary}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <WrapPanel>
+                    <StackPanel Width="180" Margin="0,0,12,8">
+                        <TextBlock Text="Supplier filter" />
+                        <ComboBox ItemsSource="{Binding SupplierFilters}"
+                                  SelectedItem="{Binding SelectedSupplierFilter}"
+                                  MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Width="140" Margin="0,0,12,8">
+                        <TextBlock Text="New supplier code" />
+                        <TextBox Text="{Binding NewSupplierCode, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Width="180" Margin="0,0,12,8">
+                        <TextBlock Text="New supplier name" />
+                        <TextBox Text="{Binding NewSupplierName, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" />
+                    </StackPanel>
+                    <Button Content="Save supplier"
+                            Command="{Binding SaveSupplierCommand}"
+                            MinHeight="40"
+                            Padding="12,8"
+                            Margin="0,16,8,8"
+                            VerticalAlignment="Bottom" />
+                    <Button Content="Export CSV"
+                            Command="{Binding ExportCsvCommand}"
+                            MinHeight="40"
+                            Padding="12,8"
+                            Margin="0,16,8,8"
+                            VerticalAlignment="Bottom" />
+                    <Button Content="Export PDF"
+                            Command="{Binding ExportPdfCommand}"
+                            MinHeight="40"
+                            Padding="12,8"
+                            Margin="0,16,0,8"
+                            VerticalAlignment="Bottom" />
+                </WrapPanel>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Purchase orders" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <DataGrid ItemsSource="{Binding Orders}"
+                                  SelectedItem="{Binding SelectedOrder}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  MaxHeight="420">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="PO #" Binding="{Binding PoNumber}" Width="160" />
+                                <DataGridTextColumn Header="Supplier" Binding="{Binding SupplierName}" Width="*" />
+                                <DataGridTextColumn Header="Lines" Binding="{Binding LineCount}" Width="60" />
+                                <DataGridTextColumn Header="Qty" Binding="{Binding TotalQuantity, StringFormat=N2}" Width="70" />
+                                <DataGridTextColumn Header="Est. MWK" Binding="{Binding TotalEstimatedCost, StringFormat=N2}" Width="90" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="1" Background="White" CornerRadius="8" Padding="12">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Selected PO lines" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <DataGrid ItemsSource="{Binding OrderLines}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  MaxHeight="420">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Code" Binding="{Binding ProductCode}" Width="90" />
+                                <DataGridTextColumn Header="Name" Binding="{Binding ProductName}" Width="*" />
+                                <DataGridTextColumn Header="On hand" Binding="{Binding CurrentStock, StringFormat=N2}" Width="70" />
+                                <DataGridTextColumn Header="Order" Binding="{Binding SuggestedQty, StringFormat=N2}" Width="70" />
+                                <DataGridTextColumn Header="Avg/day" Binding="{Binding AverageDailySales, StringFormat=N2}" Width="70" />
+                                <DataGridTextColumn Header="Line MWK" Binding="{Binding LineTotal, StringFormat=N2}" Width="80" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

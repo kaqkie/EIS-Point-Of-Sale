@@ -16,4 +16,13 @@ public sealed class LocalInventoryItem
 
     public DateTime? HeadOfficeRevisionUtc { get; set; }
     public DateTime? LastReplicatedAtUtc { get; set; }
+
+    /// <summary>Minimum on-hand quantity before a low-stock alert is raised.</summary>
+    public decimal MinReorderQty { get; set; }
+
+    /// <summary>Maximum stock capacity (0 = uncapped).</summary>
+    public decimal MaxStockCapacity { get; set; }
+
+    public string? SupplierCode { get; set; }
+    public string? SupplierName { get; set; }
 }

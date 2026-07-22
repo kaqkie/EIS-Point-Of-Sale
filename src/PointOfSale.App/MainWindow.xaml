@@ -93,6 +93,18 @@
                                 Margin="0,4"
                                 Padding="12,10"
                                 FontSize="16" />
+                        <Button Content="Stock Alerts"
+                                Command="{Binding NavigateStockAlertsCommand}"
+                                Visibility="{Binding CanStockAlerts, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
+                        <Button Content="Purchase Orders"
+                                Command="{Binding NavigatePurchaseOrdersCommand}"
+                                Visibility="{Binding CanPurchaseOrders, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,4"
+                                Padding="12,10"
+                                FontSize="16" />
                         <Button Content="Toggle Drawer"
                                 Command="{Binding ToggleDrawerCommand}"
                                 Margin="0,16,0,0"

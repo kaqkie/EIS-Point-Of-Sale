@@ -54,6 +54,9 @@ public static class DependencyInjection
         services.AddScoped<ILoyaltyMemberRepository, LoyaltyMemberRepository>();
         services.AddScoped<IPricingRuleRepository, PricingRuleRepository>();
         services.AddScoped<ILabelPrintBatchRepository, LabelPrintBatchRepository>();
+        services.AddScoped<IInventorySupplierRepository, InventorySupplierRepository>();
+        services.AddScoped<IInventoryStockAlertRepository, InventoryStockAlertRepository>();
+        services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
 
         services.AddHttpClient<MraApiClient>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();

@@ -10,10 +10,18 @@ public interface ILocalInventoryRepository
     Task<LocalInventoryItem?> GetByProductCodeAsync(string productCode, CancellationToken cancellationToken = default);
     Task<LocalInventoryItem?> GetByProductIdAsync(string productId, CancellationToken cancellationToken = default);
     Task UpsertAsync(LocalInventoryItem item, CancellationToken cancellationToken = default);
+    Task UpdateReorderSettingsAsync(
+        string productCode,
+        decimal minReorderQty,
+        decimal maxStockCapacity,
+        string? supplierCode,
+        string? supplierName,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Applies a head-office catalog row. Master fields always win; stock is preserved when
     /// <paramref name="preserveLocalStock"/> is true (active sales shift / transaction integrity).
+    /// Local reorder thresholds and supplier assignment are preserved on match.
     /// </summary>
     Task ApplyHeadOfficeCatalogAsync(
         LocalInventoryItem catalogItem,
@@ -23,6 +31,12 @@ public interface ILocalInventoryRepository
 
 public sealed class LocalInventoryRepository : ILocalInventoryRepository
 {
+    private const string SelectColumns = """
+        ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId,
+        CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc,
+        MinReorderQty, MaxStockCapacity, SupplierCode, SupplierName
+        """;
+
     private readonly ISqlConnectionFactory _connectionFactory;
 
     public LocalInventoryRepository(ISqlConnectionFactory connectionFactory)
@@ -32,9 +46,8 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
 
     public async Task<IReadOnlyList<LocalInventoryItem>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId,
-                   CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc
+        var sql = $"""
+            SELECT {SelectColumns}
             FROM dbo.LocalInventory
             ORDER BY Name;
             """;
@@ -51,9 +64,8 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
         string productCode,
         CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId,
-                   CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc
+        var sql = $"""
+            SELECT {SelectColumns}
             FROM dbo.LocalInventory
             WHERE ProductCode = @ProductCode;
             """;
@@ -69,9 +81,8 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
         string productId,
         CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId,
-                   CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc
+        var sql = $"""
+            SELECT {SelectColumns}
             FROM dbo.LocalInventory
             WHERE ProductId = @ProductId;
             """;
@@ -100,17 +111,57 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
                     TaxRateId = @TaxRateId,
                     CatalogSource = ISNULL(@CatalogSource, target.CatalogSource),
                     HeadOfficeRevisionUtc = @HeadOfficeRevisionUtc,
-                    LastReplicatedAtUtc = @LastReplicatedAtUtc
+                    LastReplicatedAtUtc = @LastReplicatedAtUtc,
+                    MinReorderQty = @MinReorderQty,
+                    MaxStockCapacity = @MaxStockCapacity,
+                    SupplierCode = @SupplierCode,
+                    SupplierName = @SupplierName
             WHEN NOT MATCHED THEN
                 INSERT (ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId,
-                        CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc)
+                        CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc,
+                        MinReorderQty, MaxStockCapacity, SupplierCode, SupplierName)
                 VALUES (@ProductId, @ProductCode, @Name, @UnitPrice, @StockQuantity, @HsCode, @UnitOfMeasure, @TaxRateId,
-                        ISNULL(@CatalogSource, N'Local'), @HeadOfficeRevisionUtc, @LastReplicatedAtUtc);
+                        ISNULL(@CatalogSource, N'Local'), @HeadOfficeRevisionUtc, @LastReplicatedAtUtc,
+                        @MinReorderQty, @MaxStockCapacity, @SupplierCode, @SupplierName);
             """;
 
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(sql, item, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    public async Task UpdateReorderSettingsAsync(
+        string productCode,
+        decimal minReorderQty,
+        decimal maxStockCapacity,
+        string? supplierCode,
+        string? supplierName,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE dbo.LocalInventory
+            SET MinReorderQty = @MinReorderQty,
+                MaxStockCapacity = @MaxStockCapacity,
+                SupplierCode = @SupplierCode,
+                SupplierName = @SupplierName
+            WHERE ProductCode = @ProductCode;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+                new CommandDefinition(
+                    sql,
+                    new
+                    {
+                        ProductCode = productCode,
+                        MinReorderQty = minReorderQty,
+                        MaxStockCapacity = maxStockCapacity,
+                        SupplierCode = supplierCode,
+                        SupplierName = supplierName
+                    },
+                    cancellationToken: cancellationToken))
             .ConfigureAwait(false);
     }
 
@@ -137,9 +188,11 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
                     LastReplicatedAtUtc = SYSUTCDATETIME()
             WHEN NOT MATCHED THEN
                 INSERT (ProductId, ProductCode, Name, UnitPrice, StockQuantity, HsCode, UnitOfMeasure, TaxRateId,
-                        CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc)
+                        CatalogSource, HeadOfficeRevisionUtc, LastReplicatedAtUtc,
+                        MinReorderQty, MaxStockCapacity, SupplierCode, SupplierName)
                 VALUES (@ProductId, @ProductCode, @Name, @UnitPrice, @StockQuantity, @HsCode, @UnitOfMeasure, @TaxRateId,
-                        N'HeadOffice', @HeadOfficeRevisionUtc, SYSUTCDATETIME());
+                        N'HeadOffice', @HeadOfficeRevisionUtc, SYSUTCDATETIME(),
+                        @MinReorderQty, @MaxStockCapacity, @SupplierCode, @SupplierName);
             """;
 
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
@@ -158,6 +211,10 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
                     catalogItem.UnitOfMeasure,
                     catalogItem.TaxRateId,
                     catalogItem.HeadOfficeRevisionUtc,
+                    catalogItem.MinReorderQty,
+                    catalogItem.MaxStockCapacity,
+                    catalogItem.SupplierCode,
+                    catalogItem.SupplierName,
                     PreserveLocalStock = preserveLocalStock ? 1 : 0
                 },
                 cancellationToken: cancellationToken))
