@@ -124,6 +124,12 @@
     <None Include="..\..\Database\MigrationScripts\012_EndOfDayBackupAndHardwareHardening.sql" Link="Database\MigrationScripts\012_EndOfDayBackupAndHardwareHardening.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Scripts\021_SupervisorAuthorization.sql" Link="Scripts\021_SupervisorAuthorization.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Database\MigrationScripts\013_SupervisorAuthorization.sql" Link="Database\MigrationScripts\013_SupervisorAuthorization.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

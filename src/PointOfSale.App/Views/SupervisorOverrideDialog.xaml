@@ -1,0 +1,74 @@
+<Window x:Class="PointOfSale.App.Views.SupervisorOverrideDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PointOfSale.App.Controls"
+        Title="Supervisor override"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Width="460"
+        SizeToContent="Height"
+        Background="{StaticResource Art.Brush.Canvas}">
+    <Border Padding="24">
+        <StackPanel>
+            <Border Background="{StaticResource Art.Brush.AccentSoft}"
+                    CornerRadius="10"
+                    Padding="10,6"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,0,14">
+                <TextBlock Text="SUPERVISOR AUTHORIZATION"
+                           FontWeight="Bold"
+                           FontSize="11"
+                           Foreground="{StaticResource Art.Brush.AccentHover}" />
+            </Border>
+
+            <TextBlock Text="{Binding Title}"
+                       Style="{StaticResource Art.Text.Title}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,8" />
+            <TextBlock Text="{Binding Message}"
+                       Style="{StaticResource Art.Text.Subtitle}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,18" />
+
+            <TextBlock Text="Supervisor username (optional for PIN-only)"
+                       Style="{StaticResource Art.Text.Caption}"
+                       Margin="0,0,0,4" />
+            <TextBox Text="{Binding SupervisorUsername, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource Art.TextBox}"
+                     Margin="0,0,0,12" />
+
+            <TextBlock Text="Password or override PIN"
+                       Style="{StaticResource Art.Text.Caption}"
+                       Margin="0,0,0,4" />
+            <controls:PasswordBoxWithEyeToggle Password="{Binding Credential, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                               Watermark="PIN or password"
+                                               Margin="0,0,0,10" />
+
+            <TextBlock Text="{Binding StatusMessage}"
+                       TextWrapping="Wrap"
+                       Foreground="{StaticResource Art.Brush.Danger}"
+                       MinHeight="20"
+                       Margin="0,0,0,14" />
+
+            <DockPanel LastChildFill="False">
+                <Button Content="Cancel"
+                        Command="{Binding CancelCommand}"
+                        Padding="16,8"
+                        MinHeight="40"
+                        MinWidth="100"
+                        DockPanel.Dock="Left"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+                <Button Content="Authorize"
+                        Command="{Binding AuthorizeCommand}"
+                        Padding="16,8"
+                        MinHeight="40"
+                        MinWidth="120"
+                        FontWeight="Bold"
+                        DockPanel.Dock="Right"
+                        IsDefault="True"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+            </DockPanel>
+        </StackPanel>
+    </Border>
+</Window>

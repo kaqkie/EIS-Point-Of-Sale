@@ -68,6 +68,9 @@ public sealed class AuthenticationOptions
     public string DefaultCashierUsername { get; set; } = "cashier";
     public string DefaultCashierPassword { get; set; } = "cashier123";
     public string DefaultCashierDisplayName { get; set; } = "Front Counter Cashier";
+
+    /// <summary>Default 4-digit supervisor override PIN seeded for the admin account.</summary>
+    public string DefaultSupervisorPin { get; set; } = "2468";
 }
 
 /// <summary>

@@ -59,14 +59,16 @@
                         <Border Style="{StaticResource Art.Card}">
                             <StackPanel>
                                 <TextBlock Text="Refund / exchange" Style="{StaticResource Art.Text.Title}" FontSize="16" />
-                                <TextBlock Text="Requires supervisor PIN override" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,10" />
+                                <TextBlock Text="Requires supervisor PIN or password authorization"
+                                           Style="{StaticResource Art.Text.Caption}"
+                                           Margin="0,0,0,10" />
                                 <TextBlock Text="Amount (MWK)" Style="{StaticResource Art.Text.Caption}" />
                                 <TextBox Text="{Binding RefundAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
                                 <TextBlock Text="Reason" Style="{StaticResource Art.Text.Caption}" />
                                 <TextBox Text="{Binding RefundReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
-                                <TextBlock Text="Supervisor PIN" Style="{StaticResource Art.Text.Caption}" />
-                                <TextBox Text="{Binding SupervisorPin, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
-                                <Button Content="Request override" Style="{StaticResource Art.Button.Danger}" Command="{Binding RequestRefundOverrideCommand}" />
+                                <Button Content="Request supervisor override"
+                                        Style="{StaticResource Art.Button.Danger}"
+                                        Command="{Binding RequestRefundOverrideCommand}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

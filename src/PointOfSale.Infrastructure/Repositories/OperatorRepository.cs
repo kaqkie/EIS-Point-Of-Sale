@@ -15,6 +15,12 @@ public interface IOperatorRepository
     Task UpdatePasswordAsync(int operatorId, string hash, string salt, int iterations, CancellationToken cancellationToken = default);
     Task RecordLoginFailureAsync(int operatorId, int failedCount, DateTime? lockoutUntilUtc, CancellationToken cancellationToken = default);
     Task RecordLoginSuccessAsync(int operatorId, CancellationToken cancellationToken = default);
+    Task UpdateSupervisorPinAsync(
+        int operatorId,
+        string pinHash,
+        string pinSalt,
+        int iterations,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class OperatorRepository : IOperatorRepository
@@ -30,7 +36,8 @@ public sealed class OperatorRepository : IOperatorRepository
     {
         const string sql = """
             SELECT OperatorId, Username, DisplayName, Role, PasswordHash, PasswordSalt, PasswordIterations,
-                   IsActive, FailedLoginCount, LockoutUntilUtc, CreatedAtUtc, LastLoginAtUtc
+                   IsActive, FailedLoginCount, LockoutUntilUtc, CreatedAtUtc, LastLoginAtUtc,
+                   SupervisorPinHash, SupervisorPinSalt, SupervisorPinIterations
             FROM dbo.Operators
             WHERE Username = @Username;
             """;
@@ -46,7 +53,8 @@ public sealed class OperatorRepository : IOperatorRepository
     {
         const string sql = """
             SELECT OperatorId, Username, DisplayName, Role, PasswordHash, PasswordSalt, PasswordIterations,
-                   IsActive, FailedLoginCount, LockoutUntilUtc, CreatedAtUtc, LastLoginAtUtc
+                   IsActive, FailedLoginCount, LockoutUntilUtc, CreatedAtUtc, LastLoginAtUtc,
+                   SupervisorPinHash, SupervisorPinSalt, SupervisorPinIterations
             FROM dbo.Operators
             WHERE OperatorId = @OperatorId;
             """;
@@ -62,7 +70,8 @@ public sealed class OperatorRepository : IOperatorRepository
     {
         const string sql = """
             SELECT OperatorId, Username, DisplayName, Role, PasswordHash, PasswordSalt, PasswordIterations,
-                   IsActive, FailedLoginCount, LockoutUntilUtc, CreatedAtUtc, LastLoginAtUtc
+                   IsActive, FailedLoginCount, LockoutUntilUtc, CreatedAtUtc, LastLoginAtUtc,
+                   SupervisorPinHash, SupervisorPinSalt, SupervisorPinIterations
             FROM dbo.Operators
             ORDER BY Username;
             """;
@@ -190,6 +199,31 @@ public sealed class OperatorRepository : IOperatorRepository
             .ConfigureAwait(false);
         await connection.ExecuteAsync(
             new CommandDefinition(sql, new { OperatorId = operatorId }, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    public async Task UpdateSupervisorPinAsync(
+        int operatorId,
+        string pinHash,
+        string pinSalt,
+        int iterations,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE dbo.Operators
+            SET SupervisorPinHash = @PinHash,
+                SupervisorPinSalt = @PinSalt,
+                SupervisorPinIterations = @Iterations
+            WHERE OperatorId = @OperatorId;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                sql,
+                new { OperatorId = operatorId, PinHash = pinHash, PinSalt = pinSalt, Iterations = iterations },
+                cancellationToken: cancellationToken))
             .ConfigureAwait(false);
     }
 }

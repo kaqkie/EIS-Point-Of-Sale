@@ -55,6 +55,8 @@ public partial class App : Application
                     context.Configuration.GetSection(MultiTerminalSyncOptions.SectionName));
                 services.Configure<DatabaseBackupOptions>(
                     context.Configuration.GetSection(DatabaseBackupOptions.SectionName));
+                services.Configure<SupervisorAuthorizationOptions>(
+                    context.Configuration.GetSection(SupervisorAuthorizationOptions.SectionName));
                 services.Configure<AuthenticationOptions>(
                     context.Configuration.GetSection(AuthenticationOptions.SectionName));
                 services.Configure<TerminalLicenseOptions>(
@@ -127,6 +129,8 @@ public partial class App : Application
                 services.AddSingleton<ITerminalActivationService, TerminalActivationService>();
                 services.AddSingleton<IAuditSecurityLogger, AuditSecurityLogger>();
                 services.AddSingleton<IAuthenticationAuthorizationService, AuthenticationAuthorizationService>();
+                services.AddSingleton<ISupervisorAuthorizationService, SupervisorAuthorizationService>();
+                services.AddSingleton<ISupervisorOverrideDialogService, SupervisorOverrideDialogService>();
                 services.AddTransient<ILoyaltyProgramService, LoyaltyProgramService>();
                 services.AddTransient<IPricingRulesEngine, PricingRulesEngine>();
                 services.AddSingleton<IBarcodeGenerationService, BarcodeGenerationService>();
@@ -213,6 +217,7 @@ public partial class App : Application
                 services.AddTransient<HardwareManagementViewModel>();
                 services.AddTransient<CashierDashboardViewModel>();
                 services.AddTransient<AdminDashboardViewModel>();
+                services.AddTransient<SupervisorOverrideViewModel>();
 
                 services.AddSingleton<MainWindow>();
             })

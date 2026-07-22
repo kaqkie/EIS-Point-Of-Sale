@@ -25,6 +25,8 @@ public partial class CheckoutViewModel : ObservableObject
     private readonly IPricingRulesEngine _pricingRulesEngine;
     private readonly ILoyaltyProgramService _loyaltyProgramService;
     private readonly IAuthenticationAuthorizationService _auth;
+    private readonly ISupervisorAuthorizationService _supervisorAuthorization;
+    private readonly ISupervisorOverrideDialogService _supervisorDialog;
 
     private ReceiptPrintRequest? _lastPrintableReceipt;
 
@@ -39,7 +41,9 @@ public partial class CheckoutViewModel : ObservableObject
         IProductionSecretGuard productionSecretGuard,
         IPricingRulesEngine pricingRulesEngine,
         ILoyaltyProgramService loyaltyProgramService,
-        IAuthenticationAuthorizationService auth)
+        IAuthenticationAuthorizationService auth,
+        ISupervisorAuthorizationService supervisorAuthorization,
+        ISupervisorOverrideDialogService supervisorDialog)
     {
         _inventoryRepository = inventoryRepository;
         _offlineSalesQueueService = offlineSalesQueueService;
@@ -52,6 +56,8 @@ public partial class CheckoutViewModel : ObservableObject
         _pricingRulesEngine = pricingRulesEngine;
         _loyaltyProgramService = loyaltyProgramService;
         _auth = auth;
+        _supervisorAuthorization = supervisorAuthorization;
+        _supervisorDialog = supervisorDialog;
         CartItems = new ObservableCollection<CartLineViewModel>();
         TaxLines = new ObservableCollection<TaxLineViewModel>();
         ActivePromotions = new ObservableCollection<string>();
@@ -157,11 +163,44 @@ public partial class CheckoutViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RemoveCartLine(CartLineViewModel? line)
+    private async Task RemoveCartLineAsync(CartLineViewModel? line)
     {
         if (line is null)
         {
             return;
+        }
+
+        if (!_auth.HasPermission(OperatorPermissions.PerformVoid))
+        {
+            var overrideResult = await _supervisorDialog.PromptAsync(
+                    new SupervisorOverrideRequest
+                    {
+                        ActionType = SupervisorOverrideActions.ItemVoid,
+                        RequiredPermission = OperatorPermissions.PerformVoid,
+                        Reason = $"Authorize void of '{line.Description}' ({line.ProductCode}).",
+                        Detail = $"qty={line.Quantity}; lineTotal={line.LineTotal:N2}"
+                    })
+                .ConfigureAwait(true);
+
+            if (!overrideResult.Authorized)
+            {
+                StatusMessage = overrideResult.Error ?? "Item void denied — supervisor authorization required.";
+                return;
+            }
+
+            StatusMessage = $"Void authorized by {overrideResult.AuthorizingUsername}.";
+        }
+        else
+        {
+            await _supervisorAuthorization.AuthorizeAsync(
+                    new SupervisorOverrideRequest
+                    {
+                        ActionType = SupervisorOverrideActions.ItemVoid,
+                        RequiredPermission = OperatorPermissions.PerformVoid,
+                        Reason = $"Session void of '{line.Description}'.",
+                        AllowCurrentSession = true
+                    })
+                .ConfigureAwait(true);
         }
 
         CartItems.Remove(line);

@@ -1062,6 +1062,29 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
                 VALUES (N'Schema.Phase33Applied', N'true', GETUTCDATE());
             END;
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.Configurations WHERE ConfigKey = N'Schema.Phase34Applied')
+            BEGIN
+                IF OBJECT_ID(N'dbo.Operators', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.Operators', N'SupervisorPinHash') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.Operators ADD
+                        SupervisorPinHash       NVARCHAR(200)   NULL,
+                        SupervisorPinSalt       NVARCHAR(200)   NULL,
+                        SupervisorPinIterations INT             NOT NULL
+                            CONSTRAINT DF_Operators_SupervisorPinIterations DEFAULT (0);
+                END;
+
+                MERGE dbo.Configurations AS target
+                USING (SELECT N'Supervisor.DefaultPinSeeded' AS ConfigKey) AS source
+                ON target.ConfigKey = source.ConfigKey
+                WHEN NOT MATCHED THEN
+                    INSERT (ConfigKey, ConfigJson, UpdatedAt)
+                    VALUES (N'Supervisor.DefaultPinSeeded', N'true', GETUTCDATE());
+
+                INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
+                VALUES (N'Schema.Phase34Applied', N'true', GETUTCDATE());
+            END;
             """;
 
         await using var command = connection.CreateCommand();

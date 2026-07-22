@@ -19,6 +19,7 @@ public static class SecurityAuditActions
     public const string QueueIntervention = "QueueIntervention";
     public const string BackupTriggered = "BackupTriggered";
     public const string PermissionDenied = "PermissionDenied";
+    public const string SupervisorOverride = "SupervisorOverride";
 }
 
 public interface IAuditSecurityLogger

@@ -16,19 +16,25 @@ public partial class CashierDashboardViewModel : ObservableObject
     private readonly IAuthenticationAuthorizationService _auth;
     private readonly IHardwarePeripheralService _hardware;
     private readonly INavigationService _navigation;
+    private readonly ISupervisorAuthorizationService _supervisorAuthorization;
+    private readonly ISupervisorOverrideDialogService _supervisorDialog;
 
     public CashierDashboardViewModel(
         CheckoutViewModel checkout,
         IShiftManagementService shifts,
         IAuthenticationAuthorizationService auth,
         IHardwarePeripheralService hardware,
-        INavigationService navigation)
+        INavigationService navigation,
+        ISupervisorAuthorizationService supervisorAuthorization,
+        ISupervisorOverrideDialogService supervisorDialog)
     {
         Checkout = checkout;
         _shifts = shifts;
         _auth = auth;
         _hardware = hardware;
         _navigation = navigation;
+        _supervisorAuthorization = supervisorAuthorization;
+        _supervisorDialog = supervisorDialog;
         SelectedWorkspaceTab = 0;
         PaymentMethodOptions = new[] { "Cash", "Card", "MobileMoney", "Split" };
         _ = RefreshShiftAsync();
@@ -66,9 +72,6 @@ public partial class CashierDashboardViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isCashDrawerReady;
-
-    [ObservableProperty]
-    private string _supervisorPin = string.Empty;
 
     [ObservableProperty]
     private decimal _refundAmount;
@@ -188,7 +191,37 @@ public partial class CashierDashboardViewModel : ObservableObject
     {
         try
         {
-            _auth.EnsurePermission(OperatorPermissions.OpenCashDrawer);
+            if (!_auth.HasPermission(OperatorPermissions.OpenCashDrawer))
+            {
+                var overrideResult = await _supervisorDialog.PromptAsync(
+                        new SupervisorOverrideRequest
+                        {
+                            ActionType = SupervisorOverrideActions.CashDrawerOverride,
+                            RequiredPermission = OperatorPermissions.OpenCashDrawer,
+                            Reason = "Authorize cash drawer kick (ESC p) override."
+                        })
+                    .ConfigureAwait(true);
+
+                if (!overrideResult.Authorized)
+                {
+                    StatusMessage = overrideResult.Error ?? "Cash drawer override denied.";
+                    return;
+                }
+            }
+            else
+            {
+                _auth.EnsurePermission(OperatorPermissions.OpenCashDrawer);
+                await _supervisorAuthorization.AuthorizeAsync(
+                        new SupervisorOverrideRequest
+                        {
+                            ActionType = SupervisorOverrideActions.CashDrawerOverride,
+                            RequiredPermission = OperatorPermissions.OpenCashDrawer,
+                            Reason = "Session cash drawer kick.",
+                            AllowCurrentSession = true
+                        })
+                    .ConfigureAwait(true);
+            }
+
             await _hardware.KickCashDrawerAsync().ConfigureAwait(true);
             IsCashDrawerReady = true;
             StatusMessage = "Cash drawer kick sent.";
@@ -209,26 +242,56 @@ public partial class CashierDashboardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RequestRefundOverride()
+    private async Task RequestRefundOverrideAsync()
     {
-        if (string.IsNullOrWhiteSpace(SupervisorPin) || SupervisorPin.Length < 4)
+        if (RefundAmount <= 0)
         {
-            StatusMessage = "Supervisor PIN required for refunds / exchanges.";
+            StatusMessage = "Enter a refund amount greater than zero.";
             return;
         }
 
-        if (!_auth.HasPermission(OperatorPermissions.PerformVoid)
-            && !string.Equals(SupervisorPin, "OVERRIDE", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(RefundReason))
         {
-            // Cashier path: require explicit override token or supervisor session.
-            StatusMessage = "Refund blocked — supervisor override PIN rejected.";
+            StatusMessage = "Enter a refund / exchange reason.";
+            return;
+        }
+
+        SupervisorAuthorizationResult result;
+        if (_auth.HasPermission(OperatorPermissions.PerformVoid))
+        {
+            result = await _supervisorAuthorization.AuthorizeAsync(
+                    new SupervisorOverrideRequest
+                    {
+                        ActionType = SupervisorOverrideActions.PostShiftReturn,
+                        RequiredPermission = OperatorPermissions.PerformVoid,
+                        Reason = RefundReason,
+                        Detail = $"amount={RefundAmount:N2}",
+                        AllowCurrentSession = true
+                    })
+                .ConfigureAwait(true);
+        }
+        else
+        {
+            result = await _supervisorDialog.PromptAsync(
+                    new SupervisorOverrideRequest
+                    {
+                        ActionType = SupervisorOverrideActions.PostShiftReturn,
+                        RequiredPermission = OperatorPermissions.PerformVoid,
+                        Reason = $"Authorize post-shift return / exchange of {RefundAmount:N2} MWK — {RefundReason}.",
+                        Detail = $"amount={RefundAmount:N2}; reason={RefundReason}"
+                    })
+                .ConfigureAwait(true);
+        }
+
+        if (!result.Authorized)
+        {
+            StatusMessage = result.Error ?? "Refund blocked — supervisor authorization rejected.";
             return;
         }
 
         StatusMessage =
-            $"Refund/exchange authorized for {RefundAmount:N2} MWK ({RefundReason}). " +
+            $"Refund/exchange authorized by {result.AuthorizingUsername} for {RefundAmount:N2} MWK ({RefundReason}). " +
             "Complete via void/reprint on the sales cart with fiscal credit note if required.";
-        SupervisorPin = string.Empty;
     }
 
     [RelayCommand]

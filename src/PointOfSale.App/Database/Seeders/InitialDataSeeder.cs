@@ -82,6 +82,27 @@ public sealed class InitialDataSeeder : IInitialDataSeeder
                 cashierPassword,
                 cancellationToken)
             .ConfigureAwait(false);
+
+        await EnsureAdminSupervisorPinAsync(adminUser, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task EnsureAdminSupervisorPinAsync(string adminUsername, CancellationToken cancellationToken)
+    {
+        var admin = await _operators.GetByUsernameAsync(adminUsername, cancellationToken).ConfigureAwait(false);
+        if (admin is null || !string.IsNullOrWhiteSpace(admin.SupervisorPinHash))
+        {
+            return;
+        }
+
+        var pin = string.IsNullOrWhiteSpace(_options.DefaultSupervisorPin)
+            ? "2468"
+            : _options.DefaultSupervisorPin.Trim();
+        var (hash, salt, iterations) = _passwordHasher.HashPassword(pin);
+        await _operators.UpdateSupervisorPinAsync(admin.OperatorId, hash, salt, iterations, cancellationToken)
+            .ConfigureAwait(false);
+        _logger.LogWarning(
+            "Seeded default supervisor PIN for '{Username}'. Change it after first login.",
+            adminUsername);
     }
 
     private async Task EnsureOperatorAsync(

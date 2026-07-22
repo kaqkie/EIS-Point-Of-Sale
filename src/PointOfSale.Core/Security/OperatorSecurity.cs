@@ -96,6 +96,11 @@ public sealed class OperatorAccount
     public DateTime? LockoutUntilUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? LastLoginAtUtc { get; set; }
+
+    /// <summary>Optional dedicated supervisor override PIN (PBKDF2), distinct from login password.</summary>
+    public string? SupervisorPinHash { get; set; }
+    public string? SupervisorPinSalt { get; set; }
+    public int SupervisorPinIterations { get; set; }
 }
 
 public sealed class OperatorSession
