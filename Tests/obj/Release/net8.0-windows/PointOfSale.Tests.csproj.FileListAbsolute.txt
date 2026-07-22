@@ -205,3 +205,4 @@ c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-wi
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\zxing.dll
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\010_InventoryAlertsAndPurchaseOrders.sql
 c:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\011_GoodsReceiptAndReconciliation.sql
+C:\Users\Albert Zee\Documents\Projects\Point Of Sale\Tests\bin\Release\net8.0-windows\Scripts\012_SystemDiagnostics.sql

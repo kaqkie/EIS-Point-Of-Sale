@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj": {}
+    "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj": {}
   },
   "projects": {
-    "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj": {
+    "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj",
+        "projectUniqueName": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj",
         "projectName": "PointOfSale.Core",
-        "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj",
+        "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj",
         "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
-        "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\obj\\",
+        "outputPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -72,14 +72,14 @@
         }
       }
     },
-    "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj": {
+    "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj",
+        "projectUniqueName": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj",
         "projectName": "PointOfSale.Infrastructure",
-        "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj",
+        "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\PointOfSale.Infrastructure.csproj",
         "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
-        "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\obj\\",
+        "outputPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Infrastructure\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -102,11 +102,11 @@
             "framework": "net8.0",
             "targetAlias": "net8.0",
             "projectReferences": {
-              "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj": {
-                "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj"
+              "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj": {
+                "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Core\\PointOfSale.Core.csproj"
               },
-              "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj": {
-                "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj"
+              "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj": {
+                "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj"
               }
             }
           }
@@ -193,14 +193,14 @@
         }
       }
     },
-    "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj": {
+    "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj",
+        "projectUniqueName": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj",
         "projectName": "PointOfSale.Mra",
-        "projectPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj",
+        "projectPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\PointOfSale.Mra.csproj",
         "packagesPath": "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget",
-        "outputPath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\obj\\",
+        "outputPath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\src\\PointOfSale.Mra\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

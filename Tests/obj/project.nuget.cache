@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "ISB/OfM0UkQ=",
+  "dgSpecHash": "QUg0ZndF5Jw=",
   "success": true,
-  "projectFilePath": "c:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\PointOfSale.Tests.csproj",
+  "projectFilePath": "C:\\Users\\Albert Zee\\Documents\\Projects\\Point Of Sale\\Tests\\PointOfSale.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget\\azure.core\\1.38.0\\azure.core.1.38.0.nupkg.sha512",
     "C:\\Users\\Albert Zee\\AppData\\Local\\Temp\\cursor-sandbox-cache\\540c496c615687c7fee0415a69cca570\\nuget\\azure.identity\\1.11.4\\azure.identity.1.11.4.nupkg.sha512",
