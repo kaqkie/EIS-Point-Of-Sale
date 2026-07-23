@@ -34,18 +34,18 @@ dotnet build PointOfSale.sln -c Release
 dotnet clean PointOfSale.sln
 ```
 
-> Tip: From the repo root, bare `dotnet clean` / `dotnet build` now resolve to `PointOfSale.sln` only (the host project lives under `Host/`).
+> Tip: The repo root has both `PointOfSale.sln` and `AlbertRetailTerminal.Host.csproj`, so bare `dotnet clean` / `dotnet build` need the `.sln` argument (MSB1011). Bare `dotnet run` works and launches the terminal via the host project.
 
 ### Local run (solution root)
 
+From the repository root, launch the WPF terminal without `-p` flags:
+
 ```powershell
 cd "C:\Users\Albert Zee\Documents\Projects\Point Of Sale"
-.\run.cmd
-# or:
-dotnet run --project Host/AlbertRetailTerminal.Host.csproj
+dotnet run
 ```
 
-This uses `Host/AlbertRetailTerminal.Host.csproj`: it builds the app, sets the working directory to `src/PointOfSale.App` (for `appsettings.json`, SQL scripts, and logs), then starts `AlbertRetailTerminal`. Build outputs and NuGet packages for library projects are centralized under `artifacts/` (see `Directory.Build.props` and `nuget.config`).
+This uses `AlbertRetailTerminal.Host.csproj`: it builds `PointOfSale.App`, sets the working directory to `src/PointOfSale.App` (for `appsettings.json`, SQL scripts, and logs), then starts `AlbertRetailTerminal`. In Cursor/VS Code, **F5** uses `.vscode/launch.json` to debug `PointOfSale.App` directly (default build task: `.vscode/tasks.json`).
 
 Equivalent explicit command:
 

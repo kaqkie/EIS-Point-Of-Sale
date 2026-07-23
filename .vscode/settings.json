@@ -1,0 +1,6 @@
+{
+  "dotnet.defaultSolution": "PointOfSale.sln",
+  "dotnet.preferCSharpExtension": true,
+  "debug.openDebug": "openOnDebugBreak",
+  "debug.internalConsoleOptions": "neverOpen"
+}

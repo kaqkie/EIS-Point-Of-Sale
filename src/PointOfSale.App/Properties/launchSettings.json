@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "AlbertRetailTerminal": {
+      "commandName": "Project",
+      "workingDirectory": ".",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "ART_ENV": "Sandbox"
+      }
+    },
+    "AlbertRetailTerminal (Production)": {
+      "commandName": "Project",
+      "workingDirectory": ".",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Production",
+        "ART_ENV": "Production"
+      }
+    }
+  }
+}

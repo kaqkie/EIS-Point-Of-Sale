@@ -1,0 +1,31 @@
+<!--
+  Development host at solution root so bare "dotnet run" launches the terminal.
+  Builds PointOfSale.App first, then starts AlbertRetailTerminal with the correct cwd.
+  Prefer: dotnet clean PointOfSale.sln / dotnet build PointOfSale.sln
+  (bare clean/build hit MSB1011 because this .csproj sits beside the .sln).
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>AlbertRetailTerminal.DevHost</RootNamespace>
+    <AssemblyName>AlbertRetailTerminal.DevHost</AssemblyName>
+    <Description>Solution-root launcher for Albert Retail Terminal (dotnet run).</Description>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultItems>false</EnableDefaultItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Host\Program.cs" />
+  </ItemGroup>
+
+  <Target Name="BuildApp" BeforeTargets="PrepareForRun">
+    <MSBuild
+      Projects="$(AppProject)"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);Platform=$(Platform)" />
+  </Target>
+</Project>

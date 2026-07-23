@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PointOfSale.App", "src\Poin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PointOfSale.Tests", "Tests\PointOfSale.Tests.csproj", "{E5F6A7B8-C9D0-1234-EF01-345678901234}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlbertRetailTerminal.Host", "Host\AlbertRetailTerminal.Host.csproj", "{BD112535-AACF-4871-A007-4EF3774C8CDA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlbertRetailTerminal.Host", "AlbertRetailTerminal.Host.csproj", "{BD112535-AACF-4871-A007-4EF3774C8CDA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

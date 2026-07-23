@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Albert Retail Terminal (PointOfSale.App)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-PointOfSale.App",
+      "program": "${workspaceFolder}/artifacts/bin/PointOfSale.App/Debug/net8.0-windows/AlbertRetailTerminal.dll",
+      "cwd": "${workspaceFolder}/src/PointOfSale.App",
+      "args": [],
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "ART_ENV": "Sandbox"
+      }
+    },
+    {
+      "name": "Albert Retail Terminal (Release)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-PointOfSale.App-Release",
+      "program": "${workspaceFolder}/artifacts/bin/PointOfSale.App/Release/net8.0-windows/AlbertRetailTerminal.dll",
+      "cwd": "${workspaceFolder}/src/PointOfSale.App",
+      "args": [],
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_ENVIRONMENT": "Production",
+        "ART_ENV": "Production"
+      }
+    }
+  ]
+}
