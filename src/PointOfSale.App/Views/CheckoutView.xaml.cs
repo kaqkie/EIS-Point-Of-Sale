@@ -59,11 +59,36 @@ public partial class CheckoutView
                 e.Handled = true;
                 break;
             case Key.Enter when ReferenceEquals(Keyboard.FocusedElement, SearchBox)
-                               || ReferenceEquals(Keyboard.FocusedElement, ProductList):
+                               || IsFocusWithinProductList():
                 ViewModel.AddSelectedToCartCommand.Execute(null);
                 e.Handled = true;
                 break;
         }
+    }
+
+    private bool IsFocusWithinProductList()
+    {
+        if (Keyboard.FocusedElement is DependencyObject focused)
+        {
+            return ReferenceEquals(focused, ProductList) || IsDescendantOf(focused, ProductList);
+        }
+
+        return false;
+    }
+
+    private static bool IsDescendantOf(DependencyObject? node, DependencyObject ancestor)
+    {
+        while (node is not null)
+        {
+            if (ReferenceEquals(node, ancestor))
+            {
+                return true;
+            }
+
+            node = System.Windows.Media.VisualTreeHelper.GetParent(node);
+        }
+
+        return false;
     }
 
     private void ProductList_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)

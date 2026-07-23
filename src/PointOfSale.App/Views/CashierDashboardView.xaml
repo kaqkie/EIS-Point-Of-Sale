@@ -28,13 +28,23 @@
                                    Foreground="{StaticResource Art.Brush.AccentHover}"
                                    FontWeight="SemiBold" />
                     </Border>
-                    <Button Content="{Binding WorkspaceModeToggleLabel}"
+                    <!-- Cash Register: prominent return to full workspace -->
+                    <Button Content="Back to Full Workspace"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding ReturnToFullWorkspaceCommand}"
+                            Margin="0,0,8,0"
+                            MinWidth="190"
+                            FontWeight="SemiBold"
+                            Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <!-- Full workspace: enter cash register -->
+                    <Button Content="Switch to Cash Register"
                             Style="{StaticResource Art.Button.Primary}"
                             Command="{Binding ToggleCashRegisterModeCommand}"
                             Margin="0,0,8,0"
-                            MinWidth="170" />
+                            MinWidth="170"
+                            Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <Button Content="Queue"
-                            Style="{StaticResource Art.Button.Secondary}"
+                            Style="{StaticResource Art.Button.Ghost}"
                             Command="{Binding OpenQueueCommand}"
                             Margin="0,0,8,0"
                             Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />

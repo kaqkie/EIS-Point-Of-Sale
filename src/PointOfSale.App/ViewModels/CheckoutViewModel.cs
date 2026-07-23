@@ -151,9 +151,22 @@ public partial class CheckoutViewModel : ObservableObject
             ? Products
             : Products.Where(p =>
                 p.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                p.ProductCode.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+                p.ProductCode.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                (p.HsCode?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false));
 
-    partial void OnSearchTextChanged(string value) => OnPropertyChanged(nameof(FilteredProducts));
+    public int FilteredProductCount => FilteredProducts.Count();
+
+    public string InventorySearchHint =>
+        string.IsNullOrWhiteSpace(SearchText)
+            ? $"Showing all {Products.Count} products — type to filter by name or code"
+            : $"{FilteredProductCount} match(es) for \"{SearchText}\"";
+
+    partial void OnSearchTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(FilteredProducts));
+        OnPropertyChanged(nameof(FilteredProductCount));
+        OnPropertyChanged(nameof(InventorySearchHint));
+    }
 
     partial void OnAmountTenderedChanged(decimal value)
     {
@@ -213,6 +226,10 @@ public partial class CheckoutViewModel : ObservableObject
         {
             Products.Add(item);
         }
+
+        OnPropertyChanged(nameof(FilteredProducts));
+        OnPropertyChanged(nameof(FilteredProductCount));
+        OnPropertyChanged(nameof(InventorySearchHint));
     }
 
     [RelayCommand]

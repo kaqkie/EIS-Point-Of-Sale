@@ -276,7 +276,7 @@ public partial class MainViewModel : ObservableObject
         if (CurrentViewModel is CashierDashboardViewModel cashier)
         {
             cashier.ShowCashRegisterMode(enabled: true);
-            CashRegisterToggleLabel = "Full Workspace";
+            CashRegisterToggleLabel = cashier.WorkspaceModeToggleLabel;
         }
     }
 
