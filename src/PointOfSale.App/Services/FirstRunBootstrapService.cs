@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -34,6 +35,7 @@ public sealed class FirstRunSetupRequest
     public required string TerminalDisplayName { get; init; }
     public required string BranchId { get; init; }
     public string? SiteId { get; init; }
+    public string? TaxpayerTin { get; init; }
     public string MraEnvironment { get; init; } = "Sandbox";
     public string? LicenseKey { get; init; }
 }
@@ -244,6 +246,15 @@ public sealed class FirstRunBootstrapService : IFirstRunBootstrapService
                     .ConfigureAwait(false);
             }
 
+            if (!string.IsNullOrWhiteSpace(request.TaxpayerTin))
+            {
+                await config.UpsertJsonAsync(
+                        DeploymentConfigurationKeys.TaxpayerTin,
+                        JsonSerializer.Serialize(new { tin = request.TaxpayerTin.Trim() }),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             await config.UpsertJsonAsync(
                     DeploymentConfigurationKeys.MraEnvironmentPreference,
                     environment,
@@ -262,6 +273,21 @@ public sealed class FirstRunBootstrapService : IFirstRunBootstrapService
                     return FirstRunBootstrapResult.Fail(activation.Message);
                 }
             }
+
+            var terminalIdJson = await config.GetJsonAsync(MraConfigurationKeys.ActiveTerminalId, cancellationToken)
+                .ConfigureAwait(false);
+            var terminalId = PosConfigurationService.ExtractConfiguredString(terminalIdJson)
+                ?? InstallerConfiguration.ComputeHardwareFingerprintSha256()[..8];
+
+            await LocalFiscalIdentitySeeder.SeedAsync(
+                    config,
+                    terminalId,
+                    request.BranchId.Trim(),
+                    request.SiteId,
+                    request.TaxpayerTin,
+                    request.TerminalDisplayName.Trim(),
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             await EnsureStatutoryVatAsync(cancellationToken).ConfigureAwait(false);
 

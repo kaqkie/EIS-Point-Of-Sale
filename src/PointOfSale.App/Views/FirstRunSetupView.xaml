@@ -103,6 +103,12 @@
                                  Margin="0,0,0,12" />
                         <TextBlock Text="Site ID (optional)" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
                         <TextBox Text="{Binding SiteId, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource Art.TextBox}"
+                                 Margin="0,0,0,12" />
+                        <TextBlock Text="Taxpayer TIN (optional — required before live sales)"
+                                   Style="{StaticResource Art.Text.Caption}"
+                                   Margin="0,0,0,4" />
+                        <TextBox Text="{Binding TaxpayerTin, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource Art.TextBox}" />
                     </StackPanel>
 

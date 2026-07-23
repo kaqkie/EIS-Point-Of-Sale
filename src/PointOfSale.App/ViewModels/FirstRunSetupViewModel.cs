@@ -80,6 +80,9 @@ public partial class FirstRunSetupViewModel : ObservableObject
     private string _siteId = string.Empty;
 
     [ObservableProperty]
+    private string _taxpayerTin = string.Empty;
+
+    [ObservableProperty]
     private string _mraEnvironment = "Sandbox";
 
     [ObservableProperty]
@@ -281,6 +284,7 @@ public partial class FirstRunSetupViewModel : ObservableObject
                         TerminalDisplayName = TerminalDisplayName.Trim(),
                         BranchId = BranchId.Trim(),
                         SiteId = string.IsNullOrWhiteSpace(SiteId) ? null : SiteId.Trim(),
+                        TaxpayerTin = string.IsNullOrWhiteSpace(TaxpayerTin) ? null : TaxpayerTin.Trim(),
                         MraEnvironment = MraEnvironment,
                         LicenseKey = LicenseKey
                     })

@@ -29,9 +29,9 @@ public sealed class PosConfigurationService : IPosConfigurationService
     }
 
     public string? GetConfiguredActivationCode() =>
-        string.IsNullOrWhiteSpace(_deployment.TerminalActivationCode)
-            ? null
-            : _deployment.TerminalActivationCode.Trim();
+        IsConfiguredValue(_deployment.TerminalActivationCode)
+            ? _deployment.TerminalActivationCode.Trim()
+            : null;
 
     public async Task<PosRuntimeContext> GetRuntimeContextAsync(CancellationToken cancellationToken = default)
     {
@@ -46,34 +46,129 @@ public sealed class PosConfigurationService : IPosConfigurationService
         var terminal = Deserialize<TerminalConfigurationDto>(terminalJson);
         var taxpayer = Deserialize<TaxpayerConfigurationDto>(taxpayerJson);
 
-        return new PosRuntimeContext(global, terminal, taxpayer, _deployment);
+        var siteOverride = await ReadDeploymentStringAsync(
+                DeploymentConfigurationKeys.SiteIdOverride,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var tinOverride = await ReadDeploymentStringAsync(
+                DeploymentConfigurationKeys.TaxpayerTin,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var branchOverride = await ReadDeploymentStringAsync(
+                DeploymentConfigurationKeys.BranchId,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return new PosRuntimeContext(
+            global,
+            terminal,
+            taxpayer,
+            _deployment,
+            siteOverride,
+            tinOverride,
+            branchOverride);
+    }
+
+    private async Task<string?> ReadDeploymentStringAsync(string key, CancellationToken cancellationToken)
+    {
+        var raw = await _configurationRepository.GetJsonAsync(key, cancellationToken).ConfigureAwait(false);
+        return ExtractConfiguredString(raw);
     }
 
     private static T? Deserialize<T>(string? json) =>
         string.IsNullOrWhiteSpace(json)
             ? default
             : JsonSerializer.Deserialize<T>(json, MraJson.SerializerOptions);
+
+    /// <summary>
+    /// Accepts plain strings (first-run wizard) or small JSON envelopes like <c>{"tin":"..."}</c>
+    /// / <c>{"siteId":"..."}</c> written by terminal provisioning.
+    /// </summary>
+    public static string? ExtractConfiguredString(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var trimmed = raw.Trim();
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            if (doc.RootElement.ValueKind == JsonValueKind.String)
+            {
+                return NormalizeConfiguredValue(doc.RootElement.GetString());
+            }
+
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in doc.RootElement.EnumerateObject())
+                {
+                    if (property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        var value = NormalizeConfiguredValue(property.Value.GetString());
+                        if (value is not null)
+                        {
+                            return value;
+                        }
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return NormalizeConfiguredValue(trimmed.Trim('"'));
+        }
+
+        return null;
+    }
+
+    public static string? NormalizeConfiguredValue(string? value)
+    {
+        if (!IsConfiguredValue(value))
+        {
+            return null;
+        }
+
+        return value!.Trim();
+    }
+
+    /// <summary>True when the value is present and not an unresolved template placeholder.</summary>
+    public static bool IsConfiguredValue(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && !value.Contains('{', StringComparison.Ordinal)
+        && !value.Contains('}', StringComparison.Ordinal);
 }
 
 public sealed record PosRuntimeContext(
     GlobalConfigurationDto? Global,
     TerminalConfigurationDto? Terminal,
     TaxpayerConfigurationDto? Taxpayer,
-    TerminalDeploymentOptions? Deployment = null)
+    TerminalDeploymentOptions? Deployment = null,
+    string? DeploymentSiteId = null,
+    string? DeploymentTaxpayerTin = null,
+    string? DeploymentBranchId = null)
 {
     public string TradingName =>
         Terminal?.TradingName
         ?? Deployment?.FallbackTradingName
         ?? "Albert Retail Terminal";
 
-    public string SellerTin => Taxpayer?.Tin ?? string.Empty;
-
-    public string SiteId =>
-        Terminal?.TerminalSite?.SiteId
-        ?? Deployment?.SiteId
+    public string SellerTin =>
+        PosConfigurationService.NormalizeConfiguredValue(Taxpayer?.Tin)
+        ?? PosConfigurationService.NormalizeConfiguredValue(DeploymentTaxpayerTin)
         ?? string.Empty;
 
-    public string BranchId => Deployment?.BranchId ?? string.Empty;
+    public string SiteId =>
+        PosConfigurationService.NormalizeConfiguredValue(Terminal?.TerminalSite?.SiteId)
+        ?? PosConfigurationService.NormalizeConfiguredValue(DeploymentSiteId)
+        ?? PosConfigurationService.NormalizeConfiguredValue(Deployment?.SiteId)
+        ?? string.Empty;
+
+    public string BranchId =>
+        PosConfigurationService.NormalizeConfiguredValue(DeploymentBranchId)
+        ?? PosConfigurationService.NormalizeConfiguredValue(Deployment?.BranchId)
+        ?? string.Empty;
 
     public int GlobalConfigVersion => Global?.VersionNo ?? 0;
     public int TerminalConfigVersion => Terminal?.VersionNo ?? 0;

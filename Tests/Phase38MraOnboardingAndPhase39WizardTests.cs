@@ -86,4 +86,36 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
         Assert.True(MraOnboardingService.IsRecoverableMraEndpointFailure(new HttpRequestException("offline")));
         Assert.False(MraOnboardingService.IsRecoverableMraEndpointFailure(new ArgumentException("bad arg")));
     }
+
+    [Fact]
+    public void PosConfiguration_IgnoresPlaceholders_AndParsesDeploymentEnvelopes()
+    {
+        Assert.Null(PosConfigurationService.NormalizeConfiguredValue("{SITE-ID}"));
+        Assert.Null(PosConfigurationService.NormalizeConfiguredValue("{BRANCH-ID}"));
+        Assert.Equal("City Center", PosConfigurationService.NormalizeConfiguredValue("City Center"));
+        Assert.Equal("1234567890", PosConfigurationService.ExtractConfiguredString("{\"tin\":\"1234567890\"}"));
+        Assert.Equal("City Center", PosConfigurationService.ExtractConfiguredString("City Center"));
+        Assert.Equal("ART-1", PosConfigurationService.ExtractConfiguredString("{\"terminalId\":\"ART-1\"}"));
+    }
+
+    [Fact]
+    public void PosRuntimeContext_FallsBackToDeploymentSiteAndTin()
+    {
+        var ctx = new PosRuntimeContext(
+            Global: null,
+            Terminal: null,
+            Taxpayer: null,
+            Deployment: new PointOfSale.App.Options.TerminalDeploymentOptions
+            {
+                BranchId = "{BRANCH-ID}",
+                SiteId = "{SITE-ID}"
+            },
+            DeploymentSiteId: "City Center",
+            DeploymentTaxpayerTin: "1234567890",
+            DeploymentBranchId: "Lilongwe");
+
+        Assert.Equal("1234567890", ctx.SellerTin);
+        Assert.Equal("City Center", ctx.SiteId);
+        Assert.Equal("Lilongwe", ctx.BranchId);
+    }
 }

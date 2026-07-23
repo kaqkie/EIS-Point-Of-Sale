@@ -520,6 +520,32 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 cancellationToken)
             .ConfigureAwait(false);
 
+        var siteOverride = await ReadPlainOrEnvelopeAsync(
+                config,
+                DeploymentConfigurationKeys.SiteIdOverride,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var tinOverride = await ReadPlainOrEnvelopeAsync(
+                config,
+                DeploymentConfigurationKeys.TaxpayerTin,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var displayName = await ReadPlainOrEnvelopeAsync(
+                config,
+                DeploymentConfigurationKeys.TerminalDisplayName,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await LocalFiscalIdentitySeeder.SeedAsync(
+                config,
+                terminalId,
+                branch,
+                siteOverride ?? _deployment.SiteId,
+                tinOverride,
+                displayName ?? _deployment.FallbackTradingName,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         await MarkOnboardingCompleteFlagAsync(scope, cancellationToken).ConfigureAwait(false);
 
         _logger.LogWarning(
@@ -640,6 +666,15 @@ public sealed class MraOnboardingService : IMraOnboardingService
 
         var trimmed = value.Trim();
         return trimmed.Length <= maxChars ? trimmed : trimmed[..maxChars] + "…";
+    }
+
+    private static async Task<string?> ReadPlainOrEnvelopeAsync(
+        IConfigurationRepository config,
+        string key,
+        CancellationToken cancellationToken)
+    {
+        var raw = await config.GetJsonAsync(key, cancellationToken).ConfigureAwait(false);
+        return PosConfigurationService.ExtractConfiguredString(raw);
     }
 
     private static string BuildSandboxTerminalId(string normalizedKey)
