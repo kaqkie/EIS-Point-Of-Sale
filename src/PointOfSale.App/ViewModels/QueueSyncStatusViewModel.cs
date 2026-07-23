@@ -58,6 +58,9 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     public ObservableCollection<string> StatusFilterOptions { get; }
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PrintReceiptCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryQuarantinedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ForceSyncCommand))]
     private QueueItemViewModel? _selectedQueueItem;
 
     [ObservableProperty]
@@ -78,11 +81,25 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PrintReceiptCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryQuarantinedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ForceSyncCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SyncNextCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
+    private bool _isBusy;
+
     partial void OnSelectedStatusFilterChanged(string value) => _ = RefreshAsync();
 
-    private void OnRefreshTimerTick(object? sender, EventArgs e) => _ = RefreshAsync();
+    private void OnRefreshTimerTick(object? sender, EventArgs e)
+    {
+        if (!IsBusy)
+        {
+            _ = RefreshAsync();
+        }
+    }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRunIdleCommand))]
     private async Task RefreshAsync()
     {
         if (_disposed || Interlocked.Exchange(ref _refreshGate, 1) == 1)
@@ -92,6 +109,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 
         try
         {
+            var selectedId = SelectedQueueItem?.Id;
             var counts = await _queueRepository.GetStatusCountsAsync().ConfigureAwait(true);
             var filter = SelectedStatusFilter.Equals("All", StringComparison.OrdinalIgnoreCase)
                 ? null
@@ -115,6 +133,11 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
                 {
                     QueueItems.Add(row);
                 }
+
+                if (selectedId is int id)
+                {
+                    SelectedQueueItem = QueueItems.FirstOrDefault(x => x.Id == id);
+                }
             });
         }
         catch (Exception ex)
@@ -127,9 +150,14 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRunIdleCommand))]
     private async Task SyncNextAsync()
     {
+        if (!BeginBusy("Processing next FIFO queue item…"))
+        {
+            return;
+        }
+
         try
         {
             var processed = await _offlineSalesQueueService.ProcessNextFifoAsync().ConfigureAwait(true);
@@ -142,23 +170,35 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         {
             StatusMessage = $"Sync next failed: {ex.Message}";
         }
+        finally
+        {
+            EndBusy();
+        }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanExecuteRetry))]
     private async Task RetryQuarantinedAsync(QueueItemViewModel? item)
     {
-        item ??= SelectedQueueItem;
+        item = ResolveTarget(item);
         if (item is null || !item.CanRetry)
         {
             StatusMessage = "Select a quarantined item to retry.";
+            NotifyActionCommands();
+            return;
+        }
+
+        if (!BeginBusy($"Retrying queue item {item.Id}…"))
+        {
             return;
         }
 
         try
         {
+            // Select the row so toolbar + status stay consistent with the clicked entity.
+            SelectedQueueItem = item;
             var ok = await _queueRepository.RetryQuarantinedAsync(item.Id).ConfigureAwait(true);
             StatusMessage = ok
-                ? $"Queue item {item.Id} returned to PENDING."
+                ? $"Queue item {item.Id} ({item.InvoiceNumber}) returned to PENDING."
                 : $"Unable to retry item {item.Id}.";
             await RefreshAsync().ConfigureAwait(true);
         }
@@ -166,27 +206,39 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         {
             StatusMessage = $"Retry failed: {ex.Message}";
         }
+        finally
+        {
+            EndBusy();
+        }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanExecuteForceSync))]
     private async Task ForceSyncAsync(QueueItemViewModel? item)
     {
-        item ??= SelectedQueueItem;
+        item = ResolveTarget(item);
         if (item is null || !item.CanForceSync)
         {
             StatusMessage = "Select a quarantined or pending item to force sync.";
+            NotifyActionCommands();
+            return;
+        }
+
+        if (!BeginBusy($"Force-syncing invoice {item.InvoiceNumber} (#{item.Id})…"))
+        {
             return;
         }
 
         try
         {
+            SelectedQueueItem = item;
             var result = await _offlineSalesQueueService.ForceSyncQueueItemAsync(item.Id).ConfigureAwait(true);
             StatusMessage = result switch
             {
-                null => "Queue item not found.",
-                { SubmittedOnline: true } => $"Force sync succeeded for invoice {result.InvoiceNumber}. Receipt auto-print triggered when fiscal data is present.",
-                { IsQuarantined: true } => $"Force sync quarantined: {result.Remark}",
-                _ => result.Remark ?? "Force sync did not complete."
+                null => $"Queue item {item.Id} not found.",
+                { SubmittedOnline: true } =>
+                    $"Force sync succeeded for invoice {result.InvoiceNumber}. Receipt auto-print runs when fiscal data is present.",
+                { IsQuarantined: true } => $"Force sync quarantined item {item.Id}: {result.Remark}",
+                _ => result.Remark ?? $"Force sync did not complete for item {item.Id}."
             };
             await RefreshAsync().ConfigureAwait(true);
         }
@@ -194,47 +246,70 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         {
             StatusMessage = $"Force sync failed: {ex.Message}";
         }
+        finally
+        {
+            EndBusy();
+        }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanExecutePrintReceipt))]
     private async Task PrintReceiptAsync(QueueItemViewModel? item)
     {
-        item ??= SelectedQueueItem;
+        item = ResolveTarget(item);
         if (item is null || !item.CanPrintReceipt)
         {
-            StatusMessage = "Select a SYNCED item to print its receipt.";
+            StatusMessage = "Select a queue item with a printable payload (synced, pending, or quarantined).";
+            NotifyActionCommands();
+            return;
+        }
+
+        if (!BeginBusy($"Printing receipt for {item.InvoiceNumber}…"))
+        {
             return;
         }
 
         try
         {
+            SelectedQueueItem = item;
+            if (string.IsNullOrWhiteSpace(item.PayloadJson))
+            {
+                StatusMessage = $"Queue item {item.Id} has an empty payload.";
+                return;
+            }
+
             var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions);
             if (payload is null)
             {
-                StatusMessage = "Unable to parse invoice payload.";
+                StatusMessage = $"Unable to parse invoice payload for item {item.Id}.";
                 return;
             }
 
             var fiscal = item.ResolveFiscalResponse();
             if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceHeader.InvoiceNumber))
             {
-                var lookup = await _salesTransactionService
-                    .GetInvoiceByNumberAsync(
-                        new InvoiceNumberQueryRequest { InvoiceNumber = payload.InvoiceHeader.InvoiceNumber })
-                    .ConfigureAwait(true);
-                if (lookup.Success && lookup.Data is not null)
+                try
                 {
-                    fiscal = new SubmitSalesTransactionResponseData
+                    var lookup = await _salesTransactionService
+                        .GetInvoiceByNumberAsync(
+                            new InvoiceNumberQueryRequest { InvoiceNumber = payload.InvoiceHeader.InvoiceNumber })
+                        .ConfigureAwait(true);
+                    if (lookup.Success && lookup.Data is not null)
                     {
-                        InvoiceNumber = lookup.Data.InvoiceNumber,
-                        FiscalSignature = lookup.Data.FiscalCode,
-                        VerificationUrl = null
-                    };
+                        fiscal = new SubmitSalesTransactionResponseData
+                        {
+                            InvoiceNumber = lookup.Data.InvoiceNumber,
+                            FiscalSignature = lookup.Data.FiscalCode ?? lookup.Data.InvoiceNumber,
+                            VerificationUrl = null
+                        };
+                    }
+                }
+                catch
+                {
+                    // Offline / unreachable MRA — fall through to local fiscal / placeholder.
                 }
             }
 
-            if (fiscal is null &&
-                !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+            if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
             {
                 fiscal = new SubmitSalesTransactionResponseData
                 {
@@ -243,15 +318,70 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
                 };
             }
 
+            if (fiscal is null &&
+                item.Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase) == false)
+            {
+                fiscal = new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                    FiscalSignature = FiscalReceiptEnricher.OfflinePendingPlaceholder
+                };
+            }
+
             var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
-            await _receiptPrintingService.PrintAsync(
-                QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscal)).ConfigureAwait(true);
-            StatusMessage = $"Printed receipt for {payload.InvoiceHeader.InvoiceNumber}.";
+            await _receiptPrintingService
+                .PrintAsync(QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscal))
+                .ConfigureAwait(true);
+            StatusMessage = $"Printed receipt for {payload.InvoiceHeader.InvoiceNumber} (queue #{item.Id}).";
         }
         catch (Exception ex)
         {
             StatusMessage = $"Print failed: {ex.Message}";
         }
+        finally
+        {
+            EndBusy();
+        }
+    }
+
+    private QueueItemViewModel? ResolveTarget(QueueItemViewModel? item) => item ?? SelectedQueueItem;
+
+    private bool CanRunIdleCommand() => !IsBusy;
+
+    private bool CanExecutePrintReceipt(QueueItemViewModel? item) =>
+        !IsBusy && ResolveTarget(item)?.CanPrintReceipt == true;
+
+    private bool CanExecuteRetry(QueueItemViewModel? item) =>
+        !IsBusy && ResolveTarget(item)?.CanRetry == true;
+
+    private bool CanExecuteForceSync(QueueItemViewModel? item) =>
+        !IsBusy && ResolveTarget(item)?.CanForceSync == true;
+
+    private bool BeginBusy(string message)
+    {
+        if (IsBusy)
+        {
+            return false;
+        }
+
+        IsBusy = true;
+        StatusMessage = message;
+        return true;
+    }
+
+    private void EndBusy()
+    {
+        IsBusy = false;
+        NotifyActionCommands();
+    }
+
+    private void NotifyActionCommands()
+    {
+        PrintReceiptCommand.NotifyCanExecuteChanged();
+        RetryQuarantinedCommand.NotifyCanExecuteChanged();
+        ForceSyncCommand.NotifyCanExecuteChanged();
+        SyncNextCommand.NotifyCanExecuteChanged();
+        RefreshCommand.NotifyCanExecuteChanged();
     }
 
     private static void ApplyOnUi(Action action)
@@ -298,8 +428,14 @@ public sealed class QueueItemViewModel
         Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase) ||
         Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Print is available whenever a local sale payload exists (synced fiscal receipt or offline placeholder).
+    /// </summary>
     public bool CanPrintReceipt =>
-        Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase);
+        !string.IsNullOrWhiteSpace(PayloadJson) &&
+        (Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase) ||
+         Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase) ||
+         Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase));
 
     public SubmitSalesTransactionResponseData? ResolveFiscalResponse()
     {
@@ -308,7 +444,16 @@ public sealed class QueueItemViewModel
             return null;
         }
 
-        return JsonSerializer.Deserialize<SubmitSalesTransactionResponseData>(FiscalResponseJson, MraJson.SerializerOptions);
+        try
+        {
+            return JsonSerializer.Deserialize<SubmitSalesTransactionResponseData>(
+                FiscalResponseJson,
+                MraJson.SerializerOptions);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static QueueItemViewModel FromEntity(PointOfSale.Core.Entities.OfflineInvoiceQueueItem entity)
