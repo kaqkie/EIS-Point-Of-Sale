@@ -23,10 +23,18 @@ public static class DependencyInjection
         services.Configure<MraApiOptions>(configuration.GetSection(MraApiOptions.SectionName));
         services.PostConfigure<MraApiOptions>(options =>
         {
-            var timeoutSeconds = configuration.GetValue<int?>("MraEis:HttpTimeoutSeconds");
+            var timeoutSeconds = configuration.GetValue<int?>("MraEis:HttpTimeoutSeconds")
+                ?? (options.HttpTimeoutSeconds > 0 ? options.HttpTimeoutSeconds : null);
             if (timeoutSeconds is > 0)
             {
-                options.HttpTimeout = TimeSpan.FromSeconds(timeoutSeconds.Value);
+                // Floor at 30s so slow EIS handshakes do not false-trigger offline queueing.
+                options.HttpTimeout = TimeSpan.FromSeconds(Math.Max(30, timeoutSeconds.Value));
+                options.HttpTimeoutSeconds = (int)options.HttpTimeout.TotalSeconds;
+            }
+            else if (options.HttpTimeout < TimeSpan.FromSeconds(30))
+            {
+                options.HttpTimeout = TimeSpan.FromSeconds(30);
+                options.HttpTimeoutSeconds = 30;
             }
 
             if (string.IsNullOrWhiteSpace(options.BaseUrl))
@@ -67,7 +75,25 @@ public static class DependencyInjection
         services.AddScoped<IFiscalYearArchiveRepository, FiscalYearArchiveRepository>();
         services.AddScoped<IMultiTerminalSyncRepository, MultiTerminalSyncRepository>();
 
-        services.AddHttpClient<MraApiClient>();
+        services.AddHttpClient<MraApiClient>()
+            .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+            {
+                ConnectTimeout = TimeSpan.FromSeconds(30),
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+                {
+                    EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12
+                        | System.Security.Authentication.SslProtocols.Tls13
+                }
+            })
+            .ConfigureHttpClient((sp, client) =>
+            {
+                var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MraApiOptions>>().Value;
+                var timeout = opts.HttpTimeout < TimeSpan.FromSeconds(30)
+                    ? TimeSpan.FromSeconds(30)
+                    : opts.HttpTimeout;
+                client.Timeout = timeout;
+            });
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();

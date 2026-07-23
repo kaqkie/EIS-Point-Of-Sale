@@ -69,29 +69,47 @@ public static class EscPosReceiptEncoder
         WriteLine(buffer, Columns("Change", $"{request.ChangeDue:N2}", charactersPerLine));
 
         WriteLine(buffer, Separator(charactersPerLine));
-        var fiscalSignature = request.FiscalResponse?.ResolveFiscalSignature() ?? string.Empty;
-        var verificationUrl = request.FiscalResponse?.VerificationUrl ?? string.Empty;
+        var fiscal = request.FiscalResponse is null
+            ? null
+            : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                request.FiscalResponse,
+                request.InvoiceNumber);
+        var fiscalSignature = fiscal?.ResolveFiscalSignature() ?? string.Empty;
+        var verificationUrl = fiscal?.VerificationUrl ?? string.Empty;
+        var isOfflinePending = FiscalReceiptEnricher.IsOfflinePlaceholder(fiscalSignature);
 
         Write(buffer, AlignCenter());
-        WriteLine(buffer, "MRA EIS Fiscal Signature");
-        Write(buffer, AlignLeft());
-        foreach (var chunk in Chunk(fiscalSignature, charactersPerLine))
+        if (isOfflinePending)
         {
-            WriteLine(buffer, chunk);
-        }
-
-        if (!string.IsNullOrWhiteSpace(verificationUrl))
-        {
-            Write(buffer, AlignCenter());
-            WriteLine(buffer, "Scan to verify");
-            Write(buffer, highDensityMraQr
-                ? BuildHighDensityQrCode(verificationUrl)
-                : BuildQrCode(verificationUrl));
-            WriteLine(buffer, string.Empty);
+            WriteLine(buffer, "MRA EIS OFFLINE QUEUE");
             Write(buffer, AlignLeft());
-            foreach (var chunk in Chunk(verificationUrl, charactersPerLine))
+            foreach (var chunk in Chunk(fiscalSignature, charactersPerLine))
             {
                 WriteLine(buffer, chunk);
+            }
+        }
+        else
+        {
+            WriteLine(buffer, "MRA EIS Fiscal Signature");
+            Write(buffer, AlignLeft());
+            foreach (var chunk in Chunk(fiscalSignature, charactersPerLine))
+            {
+                WriteLine(buffer, chunk);
+            }
+
+            if (!string.IsNullOrWhiteSpace(verificationUrl))
+            {
+                Write(buffer, AlignCenter());
+                WriteLine(buffer, "Scan to verify");
+                Write(buffer, highDensityMraQr
+                    ? BuildHighDensityQrCode(verificationUrl)
+                    : BuildQrCode(verificationUrl));
+                WriteLine(buffer, string.Empty);
+                Write(buffer, AlignLeft());
+                foreach (var chunk in Chunk(verificationUrl, charactersPerLine))
+                {
+                    WriteLine(buffer, chunk);
+                }
             }
         }
 

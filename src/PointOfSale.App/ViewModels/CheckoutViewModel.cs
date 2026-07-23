@@ -492,15 +492,27 @@ public partial class CheckoutViewModel : ObservableObject
 
             var invoiceNumber = $"ART-{DateTime.Now:yyyyMMddHHmmss}";
 
-            var forceOffline = !_connectionStatusService.IsMraReachable;
-            if (forceOffline)
+            // Refresh probe with the full EIS timeout before deciding offline.
+            await _connectionStatusService.RefreshAsync().ConfigureAwait(true);
+
+            // Only force offline when there is no network at all. A failed MRA probe must not
+            // skip the authenticated sales submit — probes can false-negative (HEAD/GET on /api/v1/).
+            var forceOffline = false;
+            if (!_connectionStatusService.IsOnline)
             {
                 var proceed = ConfirmOfflineFallback();
                 if (!proceed)
                 {
-                    StatusMessage = "Sale cancelled — waiting for MRA connectivity.";
+                    StatusMessage = "Sale cancelled — waiting for network connectivity.";
                     return;
                 }
+
+                forceOffline = true;
+            }
+            else if (!_connectionStatusService.IsMraReachable)
+            {
+                // Network is up; attempt live EIS submit. Offline is only offered if submit fails.
+                StatusMessage = "MRA probe degraded — attempting live EIS submit…";
             }
 
             // Atomically redeem loyalty points before fiscal submit when requested.
@@ -567,7 +579,10 @@ public partial class CheckoutViewModel : ObservableObject
 
             if (result.SubmittedOnline && result.Response is not null)
             {
-                await PrintReceiptAsync(request, result.Response).ConfigureAwait(true);
+                var fiscal = FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                    result.Response,
+                    result.InvoiceNumber);
+                await PrintReceiptAsync(request, fiscal).ConfigureAwait(true);
                 var ok = CashierOperatorMessages.SubmittedOnline(result.InvoiceNumber);
                 StatusMessage = $"{ok.Body} Receipt sent to printer.";
             }
@@ -578,11 +593,14 @@ public partial class CheckoutViewModel : ObservableObject
                 // Same cash-register / POS path: always print a customer receipt after a successful take.
                 await PrintReceiptAsync(
                         request,
-                        new SubmitSalesTransactionResponseData
-                        {
-                            InvoiceNumber = result.InvoiceNumber,
-                            FiscalSignature = request.InvoiceSummary.OfflineSignature ?? "OFFLINE-QUEUED-PENDING-MRA-SYNC"
-                        })
+                        FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                            new SubmitSalesTransactionResponseData
+                            {
+                                InvoiceNumber = result.InvoiceNumber,
+                                FiscalSignature = request.InvoiceSummary.OfflineSignature
+                                    ?? FiscalReceiptEnricher.OfflinePendingPlaceholder
+                            },
+                            result.InvoiceNumber))
                     .ConfigureAwait(true);
                 StatusMessage = $"{queued.Body} Receipt sent to printer.";
             }
@@ -675,11 +693,14 @@ public partial class CheckoutViewModel : ObservableObject
             ShowOperatorDialog(queued);
             await PrintReceiptAsync(
                     request,
-                    new SubmitSalesTransactionResponseData
-                    {
-                        InvoiceNumber = result.InvoiceNumber,
-                        FiscalSignature = request.InvoiceSummary.OfflineSignature ?? "OFFLINE-QUEUED-PENDING-MRA-SYNC"
-                    })
+                    FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                        new SubmitSalesTransactionResponseData
+                        {
+                            InvoiceNumber = result.InvoiceNumber,
+                            FiscalSignature = request.InvoiceSummary.OfflineSignature
+                                ?? FiscalReceiptEnricher.OfflinePendingPlaceholder
+                        },
+                        result.InvoiceNumber))
                 .ConfigureAwait(true);
             StatusMessage = $"{queued.Body} Receipt sent to printer.";
             CartItems.Clear();
@@ -782,6 +803,9 @@ public partial class CheckoutViewModel : ObservableObject
         SubmitSalesTransactionResponseData response)
     {
         var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+        var fiscal = FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+            response,
+            request.InvoiceHeader.InvoiceNumber);
         var printRequest = new ReceiptPrintRequest
         {
             TradingName = context.TradingName,
@@ -795,7 +819,7 @@ public partial class CheckoutViewModel : ObservableObject
             TotalVat = request.InvoiceSummary.TotalVat,
             InvoiceTotal = request.InvoiceSummary.InvoiceTotal,
             AmountTendered = request.InvoiceSummary.AmountTendered,
-            FiscalResponse = response
+            FiscalResponse = fiscal
         };
 
         _lastPrintableReceipt = printRequest;
@@ -806,7 +830,7 @@ public partial class CheckoutViewModel : ObservableObject
     private static bool ConfirmOfflineFallback(OperatorMessage? preface = null)
     {
         var body = preface is null
-            ? "MRA is unreachable. Save this sale to the offline queue and sync later?"
+            ? "No network connection. Save this sale to the offline queue and sync later?"
             : $"{preface.Body}\n\nSave this sale to the offline queue instead?";
 
         var result = MessageBox.Show(

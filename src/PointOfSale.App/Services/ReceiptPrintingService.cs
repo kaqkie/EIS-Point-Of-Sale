@@ -37,9 +37,15 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
 
     public ReceiptPrintResult BuildReceipt(ReceiptPrintRequest request)
     {
-        var fiscalSignature = request.FiscalResponse?.ResolveFiscalSignature() ?? string.Empty;
-        var verificationUrl = request.FiscalResponse?.VerificationUrl ?? string.Empty;
-        var qr = CreateQrImage(verificationUrl);
+        var fiscal = request.FiscalResponse is null
+            ? null
+            : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                request.FiscalResponse,
+                request.InvoiceNumber);
+        var fiscalSignature = fiscal?.ResolveFiscalSignature() ?? string.Empty;
+        var verificationUrl = fiscal?.VerificationUrl ?? string.Empty;
+        var isOfflinePending = FiscalReceiptEnricher.IsOfflinePlaceholder(fiscalSignature);
+        var qr = isOfflinePending ? null : CreateQrImage(verificationUrl);
         var pageWidth = PrintPageSizeGuard.ResolveThermalWidthDip(_thermalOptions.PaperWidthMm);
 
         var document = new FlowDocument
@@ -82,13 +88,22 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
         document.Blocks.Add(Line($"Tendered: {request.AmountTendered:N2}"));
         document.Blocks.Add(Line($"Change: {request.ChangeDue:N2}"));
         document.Blocks.Add(Spacer());
-        document.Blocks.Add(Line("MRA EIS Fiscal Signature:"));
-        document.Blocks.Add(Line(Chunk(fiscalSignature, 32)));
-        if (!string.IsNullOrWhiteSpace(verificationUrl))
+
+        if (isOfflinePending)
         {
-            document.Blocks.Add(Line("Verify:"));
-            document.Blocks.Add(Line(Chunk(verificationUrl, 32)));
-            document.Blocks.Add(CreateQrBlock(qr));
+            document.Blocks.Add(Line("MRA EIS status: OFFLINE — queued for sync"));
+            document.Blocks.Add(Line(Chunk(fiscalSignature, 32)));
+        }
+        else
+        {
+            document.Blocks.Add(Line("MRA EIS Fiscal Signature:"));
+            document.Blocks.Add(Line(Chunk(fiscalSignature, 32)));
+            if (!string.IsNullOrWhiteSpace(verificationUrl))
+            {
+                document.Blocks.Add(Line("Verify:"));
+                document.Blocks.Add(Line(Chunk(verificationUrl, 32)));
+                document.Blocks.Add(CreateQrBlock(qr));
+            }
         }
 
         document.Blocks.Add(Line("Thank you — Albert Retail Terminal"));
@@ -148,14 +163,21 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
     /// <summary>Finite height estimate from line count when content measurement is unavailable.</summary>
     private static double EstimateReceiptHeightDip(ReceiptPrintRequest request)
     {
-        var verificationLines = string.IsNullOrWhiteSpace(request.FiscalResponse?.VerificationUrl) ? 0 : 10;
+        var fiscal = request.FiscalResponse is null
+            ? null
+            : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                request.FiscalResponse,
+                request.InvoiceNumber);
+        var hasQr = !string.IsNullOrWhiteSpace(fiscal?.VerificationUrl)
+            && !FiscalReceiptEnricher.IsOfflinePlaceholder(fiscal?.ResolveFiscalSignature());
+        var verificationLines = hasQr ? 10 : 0;
         var lineCount =
             10
             + request.AddressLines.Count
             + (request.LineItems.Count * 2)
             + request.TaxBreakdown.Count
             + verificationLines;
-        var qrBlock = string.IsNullOrWhiteSpace(request.FiscalResponse?.VerificationUrl) ? 0 : 140;
+        var qrBlock = hasQr ? 140 : 0;
         var estimated = 96 + (lineCount * 18) + qrBlock;
         return PrintPageSizeGuard.Sanitize(
             estimated,

@@ -26,6 +26,9 @@ public sealed class MraApiOptions
 
     public TimeSpan HttpTimeout { get; set; } = TimeSpan.FromSeconds(60);
 
+    /// <summary>Optional integer form used in appsettings (PostConfigure maps this onto HttpTimeout).</summary>
+    public int HttpTimeoutSeconds { get; set; }
+
     public string ResolveBaseUrl()
     {
         if (!string.IsNullOrWhiteSpace(BaseUrl))

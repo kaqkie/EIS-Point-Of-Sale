@@ -56,16 +56,33 @@ public sealed class OfflineInvoiceSyncReceiptHandler : IOfflineInvoiceSyncComple
 
 public static class QueueReceiptPrintHelper
 {
-    public static bool HasPrintableFiscalData(SubmitSalesTransactionResponseData? response) =>
-        response is not null &&
-        (!string.IsNullOrWhiteSpace(response.VerificationUrl) ||
-         !string.IsNullOrWhiteSpace(response.ResolveFiscalSignature()));
+    public static bool HasPrintableFiscalData(SubmitSalesTransactionResponseData? response)
+    {
+        if (response is null)
+        {
+            return false;
+        }
+
+        var enriched = FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+            response,
+            response.InvoiceNumber ?? "UNKNOWN");
+        return !string.IsNullOrWhiteSpace(enriched.VerificationUrl)
+            || (!string.IsNullOrWhiteSpace(enriched.ResolveFiscalSignature())
+                && !FiscalReceiptEnricher.IsOfflinePlaceholder(enriched.ResolveFiscalSignature()));
+    }
 
     public static ReceiptPrintRequest CreatePrintRequest(
         PosRuntimeContext context,
         SubmitSalesTransactionRequest payload,
-        SubmitSalesTransactionResponseData? fiscalResponse) =>
-        new()
+        SubmitSalesTransactionResponseData? fiscalResponse)
+    {
+        var enriched = fiscalResponse is null
+            ? null
+            : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                fiscalResponse,
+                payload.InvoiceHeader.InvoiceNumber);
+
+        return new ReceiptPrintRequest
         {
             TradingName = context.TradingName,
             SellerTin = context.SellerTin,
@@ -78,6 +95,7 @@ public static class QueueReceiptPrintHelper
             TotalVat = payload.InvoiceSummary.TotalVat,
             InvoiceTotal = payload.InvoiceSummary.InvoiceTotal,
             AmountTendered = payload.InvoiceSummary.AmountTendered,
-            FiscalResponse = fiscalResponse
+            FiscalResponse = enriched
         };
+    }
 }

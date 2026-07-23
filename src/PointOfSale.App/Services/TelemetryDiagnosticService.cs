@@ -86,7 +86,7 @@ public sealed class TelemetryDiagnosticService : ITelemetryDiagnosticService
         _options = options.Value;
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient(nameof(TelemetryDiagnosticService));
-        _httpClient.Timeout = TimeSpan.FromSeconds(8);
+        _httpClient.Timeout = ConnectionStatusService.ResolveProbeTimeout(_mraOptions.Value.HttpTimeout);
         EnsureDiagnosticDirectory();
     }
 
@@ -480,11 +480,17 @@ public sealed class TelemetryDiagnosticService : ITelemetryDiagnosticService
         var sw = Stopwatch.StartNew();
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Head, uri);
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            // GET headers-only — HEAD is often rejected/hung by EIS gateways.
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            using var response = await _httpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken)
+                .ConfigureAwait(false);
             sw.Stop();
             var code = ((int)response.StatusCode).ToString();
-            var ok = response.IsSuccessStatusCode || (int)response.StatusCode < 500;
+            // Any HTTP status proves TCP/TLS reachability.
+            var ok = (int)response.StatusCode is > 0 and < 600;
             return ok
                 ? (true, $"MRA reachable ({code}) in {sw.ElapsedMilliseconds} ms.", (int)sw.ElapsedMilliseconds, code)
                 : (false, $"MRA HTTP {code} in {sw.ElapsedMilliseconds} ms.", (int)sw.ElapsedMilliseconds, code);
