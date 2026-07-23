@@ -31,18 +31,21 @@ services.AddPointOfSaleInfrastructure(configuration);
 
 ```powershell
 dotnet build PointOfSale.sln -c Release
+dotnet clean PointOfSale.sln
 ```
+
+> Tip: From the repo root, bare `dotnet clean` / `dotnet build` now resolve to `PointOfSale.sln` only (the host project lives under `Host/`).
 
 ### Local run (solution root)
 
-From the repository root, launch the WPF terminal without `-p` flags:
-
 ```powershell
 cd "C:\Users\Albert Zee\Documents\Projects\Point Of Sale"
-dotnet run
+.\run.cmd
+# or:
+dotnet run --project Host/AlbertRetailTerminal.Host.csproj
 ```
 
-This uses `AlbertRetailTerminal.Host.csproj`: it builds the app, sets the working directory to `src/PointOfSale.App` (for `appsettings.json`, SQL scripts, and logs), then starts `AlbertRetailTerminal`. Build outputs and NuGet packages for library projects are centralized under `artifacts/` (see `Directory.Build.props` and `nuget.config`).
+This uses `Host/AlbertRetailTerminal.Host.csproj`: it builds the app, sets the working directory to `src/PointOfSale.App` (for `appsettings.json`, SQL scripts, and logs), then starts `AlbertRetailTerminal`. Build outputs and NuGet packages for library projects are centralized under `artifacts/` (see `Directory.Build.props` and `nuget.config`).
 
 Equivalent explicit command:
 
