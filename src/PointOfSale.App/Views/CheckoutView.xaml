@@ -64,8 +64,14 @@
                               CanContentScroll="False">
                     <StackPanel>
                         <TextBlock Text="{Binding CartSubtotal, StringFormat='Subtotal: {0:N2}'}" FontSize="16" />
-                        <TextBlock Text="{Binding PromoDiscountTotal, StringFormat='Promo discount: {0:N2}'}" FontSize="14" Foreground="#047857" />
-                        <TextBlock Text="{Binding LoyaltyDiscountMwk, StringFormat='Loyalty discount: {0:N2}'}" FontSize="14" Foreground="#1D4ED8" />
+                        <TextBlock Text="{Binding PromoDiscountTotal, StringFormat='Promo discount: {0:N2}'}"
+                                   FontSize="14"
+                                   Foreground="#047857"
+                                   Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Text="{Binding LoyaltyDiscountMwk, StringFormat='Loyalty discount: {0:N2}'}"
+                                   FontSize="14"
+                                   Foreground="#1D4ED8"
+                                   Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <TextBlock Text="{Binding CartTaxTotal, StringFormat='VAT (17.5%): {0:N2}'}" FontSize="16" />
                         <TextBlock Text="{Binding CartGrandTotal, StringFormat='Total: {0:N2}'}" FontSize="20" FontWeight="Bold" Margin="0,4,0,4" />
                         <TextBlock Text="{Binding ChangeDue, StringFormat='Change: {0:N2}'}"
@@ -74,7 +80,8 @@
                                    Foreground="#047857"
                                    Margin="0,0,0,8" />
 
-                        <WrapPanel Margin="0,0,0,8">
+                        <WrapPanel Margin="0,0,0,8"
+                                   Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <TextBox Width="140"
                                      MinHeight="36"
                                      Margin="0,0,8,4"
@@ -103,10 +110,12 @@
                         </WrapPanel>
                         <TextBlock Text="{Binding AttachedMember.FullName, StringFormat='Member: {0}', TargetNullValue='Member: none'}"
                                    FontSize="12"
-                                   Margin="0,0,0,4" />
+                                   Margin="0,0,0,4"
+                                   Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <TextBlock Text="{Binding AvailablePoints, StringFormat='Available points: {0:N2}'}"
                                    FontSize="12"
-                                   Margin="0,0,0,8" />
+                                   Margin="0,0,0,8"
+                                   Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <TextBlock Text="Payment:" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -155,17 +164,21 @@
                                     MinWidth="130"
                                     Padding="14,10"
                                     FontSize="16"
-                                    Margin="0,0,8,8" />
+                                    Margin="0,0,8,8"
+                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
                             <Button Content="Queue (F8)"
                                     Command="{Binding OpenQueueStatusCommand}"
                                     MinHeight="48"
                                     MinWidth="120"
                                     Padding="14,10"
                                     FontSize="16"
-                                    Margin="0,0,8,8" />
+                                    Margin="0,0,8,8"
+                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         </WrapPanel>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <StackPanel Orientation="Horizontal"
+                                    Margin="0,4,0,0"
+                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <TextBlock Text="{Binding PendingQueueCount, StringFormat='Pending sync: {0}'}"
                                        Margin="0,0,16,0"
                                        FontSize="13"

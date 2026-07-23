@@ -90,6 +90,9 @@ public partial class MainViewModel : ObservableObject
     private string _drawerToggleLabel = "Collapse menu";
 
     [ObservableProperty]
+    private string _cashRegisterToggleLabel = "Switch to Cash Register";
+
+    [ObservableProperty]
     private bool _isAuthenticated;
 
     [ObservableProperty]
@@ -266,8 +269,42 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanHardware))]
     private void NavigateHardware() => _navigationService.NavigateTo<HardwareManagementViewModel>();
 
+    [RelayCommand(CanExecute = nameof(CanCheckout))]
+    private void NavigatePosTerminal()
+    {
+        _navigationService.NavigateTo<CashierDashboardViewModel>();
+        if (CurrentViewModel is CashierDashboardViewModel cashier)
+        {
+            cashier.ShowCashRegisterMode(enabled: true);
+            CashRegisterToggleLabel = "Full Workspace";
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(IsCashierShell))]
-    private void NavigateCashierHome() => _navigationService.NavigateTo<CashierDashboardViewModel>();
+    private void ToggleCashRegisterMode()
+    {
+        if (CurrentViewModel is not CashierDashboardViewModel)
+        {
+            _navigationService.NavigateTo<CashierDashboardViewModel>();
+        }
+
+        if (CurrentViewModel is CashierDashboardViewModel cashier)
+        {
+            cashier.ToggleCashRegisterModeCommand.Execute(null);
+            CashRegisterToggleLabel = cashier.WorkspaceModeToggleLabel;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(IsCashierShell))]
+    private void NavigateCashierHome()
+    {
+        _navigationService.NavigateTo<CashierDashboardViewModel>();
+        if (CurrentViewModel is CashierDashboardViewModel cashier)
+        {
+            cashier.ShowCashRegisterMode(enabled: false);
+            CashRegisterToggleLabel = cashier.WorkspaceModeToggleLabel;
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(IsAdminShell))]
     private void NavigateAdminHome() => _navigationService.NavigateTo<AdminDashboardViewModel>();
@@ -290,6 +327,7 @@ public partial class MainViewModel : ObservableObject
         if (CurrentViewModel is CashierDashboardViewModel cashierHome)
         {
             cashierHome.ShowShiftDrawerWorkspace();
+            CashRegisterToggleLabel = cashierHome.WorkspaceModeToggleLabel;
         }
     }
 
@@ -452,6 +490,8 @@ public partial class MainViewModel : ObservableObject
         NavigateHardwareCommand.NotifyCanExecuteChanged();
         NavigateCashierHomeCommand.NotifyCanExecuteChanged();
         NavigateAdminHomeCommand.NotifyCanExecuteChanged();
+        NavigatePosTerminalCommand.NotifyCanExecuteChanged();
+        ToggleCashRegisterModeCommand.NotifyCanExecuteChanged();
         RefreshDrawerVisibility();
     }
 }

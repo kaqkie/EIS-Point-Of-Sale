@@ -97,7 +97,21 @@ public partial class CheckoutViewModel : ObservableObject
     private string _amountTenderedText = "0.00";
 
     [ObservableProperty]
+    private bool _isCashRegisterMode;
+
+    [ObservableProperty]
+    private bool _showAdvancedCheckoutTools = true;
+
+    [ObservableProperty]
     private string _statusMessage = "Ready — F2 Add · F5 Exact tender · F9 Reprint · F8 Queue · F12 Complete";
+
+    partial void OnIsCashRegisterModeChanged(bool value)
+    {
+        ShowAdvancedCheckoutTools = !value;
+        StatusMessage = value
+            ? "Cash Register — F2 Add · F5 Exact · F12 Complete"
+            : "Ready — F2 Add · F5 Exact tender · F9 Reprint · F8 Queue · F12 Complete";
+    }
 
     [ObservableProperty]
     private bool _isBusy;

@@ -67,6 +67,10 @@
                         <Button Content="Cashier home"
                                 Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateCashierHomeCommand}" />
+                        <Button Content="{Binding CashRegisterToggleLabel}"
+                                Style="{StaticResource Art.Button.Primary}"
+                                Command="{Binding ToggleCashRegisterModeCommand}"
+                                Margin="0,0,0,8" />
                         <Button Content="Checkout"
                                 Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateCheckoutCommand}"
@@ -125,6 +129,10 @@
                             <Button Content="Admin home"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateAdminHomeCommand}" />
+                            <Button Content="Open POS"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigatePosTerminalCommand}"
+                                    Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
                             <Button Content="Inventory"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateInventoryCommand}"
@@ -209,9 +217,9 @@
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateHardwareCommand}"
                                     Visibility="{Binding CanHardware, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Checkout (POS)"
+                            <Button Content="POS Terminal"
                                     Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateCheckoutCommand}"
+                                    Command="{Binding NavigatePosTerminalCommand}"
                                     Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
                             <Button Content="Queue Sync"
                                     Style="{StaticResource Art.Nav.Admin}"

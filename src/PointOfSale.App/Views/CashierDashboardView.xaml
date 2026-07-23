@@ -10,7 +10,11 @@
         <Border Grid.Row="0" Style="{StaticResource Art.Card}" Margin="0,0,0,12" Padding="18,14">
             <DockPanel>
                 <StackPanel>
-                    <TextBlock Text="Cashier workspace" Style="{StaticResource Art.Text.Title}" />
+                    <TextBlock Text="Cashier workspace" Style="{StaticResource Art.Text.Title}"
+                               Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Text="Cash Register"
+                               Style="{StaticResource Art.Text.Title}"
+                               Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Art.Text.Subtitle}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
@@ -24,16 +28,32 @@
                                    Foreground="{StaticResource Art.Brush.AccentHover}"
                                    FontWeight="SemiBold" />
                     </Border>
-                    <Button Content="Queue" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenQueueCommand}" Margin="0,0,8,0" />
+                    <Button Content="{Binding WorkspaceModeToggleLabel}"
+                            Style="{StaticResource Art.Button.Primary}"
+                            Command="{Binding ToggleCashRegisterModeCommand}"
+                            Margin="0,0,8,0"
+                            MinWidth="170" />
+                    <Button Content="Queue"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding OpenQueueCommand}"
+                            Margin="0,0,8,0"
+                            Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <Button Content="Kick drawer" Style="{StaticResource Art.Button.Success}" Command="{Binding KickDrawerCommand}" />
                 </StackPanel>
             </DockPanel>
         </Border>
 
+        <!-- Cash Register: checkout only -->
+        <ContentControl Grid.Row="1"
+                        Content="{Binding Checkout}"
+                        Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+        <!-- Full workspace tabs -->
         <TabControl Grid.Row="1"
                     SelectedIndex="{Binding SelectedWorkspaceTab}"
                     Background="Transparent"
-                    BorderThickness="0">
+                    BorderThickness="0"
+                    Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}">
             <TabItem Header="Sales processing">
                 <ScrollViewer Margin="0,12,0,0"
                               VerticalScrollBarVisibility="Auto"

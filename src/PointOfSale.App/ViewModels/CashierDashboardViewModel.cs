@@ -40,7 +40,20 @@ public partial class CashierDashboardViewModel : ObservableObject
         _ = RefreshShiftAsync();
     }
 
-    public void ShowShiftDrawerWorkspace() => SelectedWorkspaceTab = 1;
+    public void ShowShiftDrawerWorkspace()
+    {
+        IsCashRegisterMode = false;
+        SelectedWorkspaceTab = 1;
+    }
+
+    public void ShowCashRegisterMode(bool enabled = true)
+    {
+        IsCashRegisterMode = enabled;
+        if (enabled)
+        {
+            SelectedWorkspaceTab = 0;
+        }
+    }
 
     public CheckoutViewModel Checkout { get; }
 
@@ -50,6 +63,15 @@ public partial class CashierDashboardViewModel : ObservableObject
 
     [ObservableProperty]
     private int _selectedWorkspaceTab;
+
+    [ObservableProperty]
+    private bool _isCashRegisterMode;
+
+    [ObservableProperty]
+    private bool _isFullWorkspaceMode = true;
+
+    [ObservableProperty]
+    private string _workspaceModeToggleLabel = "Switch to Cash Register";
 
     [ObservableProperty]
     private string _statusMessage = "Cashier workspace ready.";
@@ -86,6 +108,23 @@ public partial class CashierDashboardViewModel : ObservableObject
 
     [ObservableProperty]
     private decimal _splitCardAmount;
+
+    partial void OnIsCashRegisterModeChanged(bool value)
+    {
+        IsFullWorkspaceMode = !value;
+        WorkspaceModeToggleLabel = value ? "Full Workspace" : "Switch to Cash Register";
+        Checkout.IsCashRegisterMode = value;
+        StatusMessage = value
+            ? "Cash Register mode — scan/add items, tender cash, complete sale."
+            : "Full workspace — split pay, refunds, shift tools, and queue available.";
+        if (value)
+        {
+            SelectedWorkspaceTab = 0;
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleCashRegisterMode() => IsCashRegisterMode = !IsCashRegisterMode;
 
     [RelayCommand]
     private async Task RefreshShiftAsync()
