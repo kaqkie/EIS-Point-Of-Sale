@@ -43,6 +43,16 @@ public partial class AuthenticationViewModel : ObservableObject
     [ObservableProperty]
     private string? _routedWorkspace;
 
+    public void ResetForSignIn()
+    {
+        Password = string.Empty;
+        IsBusy = false;
+        IsAuthenticated = false;
+        CurrentOperator = null;
+        RoutedWorkspace = null;
+        StatusMessage = "Sign in with your Albert Retail operator credentials.";
+    }
+
     [RelayCommand]
     private async Task SignInAsync()
     {

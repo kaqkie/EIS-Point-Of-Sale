@@ -271,7 +271,13 @@ public partial class MainViewModel : ObservableObject
     private async Task SignOutAsync()
     {
         await _auth.SignOutAsync().ConfigureAwait(true);
+        CompleteSignedOutUi();
+    }
+
+    private void CompleteSignedOutUi()
+    {
         CurrentViewModel = null;
+        Authentication.ResetForSignIn();
         RefreshAuthState();
     }
 
@@ -344,6 +350,13 @@ public partial class MainViewModel : ObservableObject
         OperatorDisplay = session is null
             ? "Not signed in"
             : $"{session.DisplayName} · {session.Role}";
+
+        if (!IsAuthenticated)
+        {
+            // Tear down workspace so admin/cashier content cannot remain active under the login overlay.
+            CurrentViewModel = null;
+            Authentication.ResetForSignIn();
+        }
 
         CanCheckout = _auth.HasPermission(OperatorPermissions.ExecuteCheckout);
         CanInventory = _auth.HasPermission(OperatorPermissions.ManageInventory);

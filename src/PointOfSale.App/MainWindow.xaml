@@ -239,6 +239,12 @@
                                     Style="{StaticResource Art.Button.Secondary}"
                                     Command="{Binding RefreshConnectionCommand}"
                                     Margin="8,0,0,0" />
+                            <Button Content="Sign out"
+                                    Style="{StaticResource Art.Button.Danger}"
+                                    Command="{Binding SignOutCommand}"
+                                    Margin="8,0,0,0"
+                                    MinWidth="110"
+                                    Visibility="{Binding IsAdminShell, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         </StackPanel>
                     </DockPanel>
                 </Border>

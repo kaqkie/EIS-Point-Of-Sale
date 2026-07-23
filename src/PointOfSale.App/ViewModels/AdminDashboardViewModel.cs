@@ -243,7 +243,14 @@ public partial class AdminDashboardViewModel : ObservableObject
     [RelayCommand]
     private async Task SignOutAsync()
     {
+        // Clear any password-change fields held in the admin console before ending the session.
+        SelfCurrentPassword = string.Empty;
+        SelfNewPassword = string.Empty;
+        SelfConfirmPassword = string.Empty;
+        StatusMessage = "Signing out…";
+
         await _auth.SignOutAsync().ConfigureAwait(true);
+        // MainViewModel listens for SessionChanged: clears workspace, permissions, and shows login overlay.
     }
 
     [RelayCommand]
