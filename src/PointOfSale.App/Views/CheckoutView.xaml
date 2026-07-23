@@ -195,14 +195,13 @@
                                     FontSize="16"
                                     FontWeight="Bold"
                                     Margin="0,0,8,8" />
-                            <Button Content="Reprint (F9)"
+                            <Button Content="Print / Reprint (F9)"
                                     Command="{Binding ReprintLastReceiptCommand}"
                                     MinHeight="48"
-                                    MinWidth="130"
+                                    MinWidth="150"
                                     Padding="14,10"
                                     FontSize="16"
-                                    Margin="0,0,8,8"
-                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    Margin="0,0,8,8" />
                             <Button Content="Queue (F8)"
                                     Command="{Binding OpenQueueStatusCommand}"
                                     MinHeight="48"

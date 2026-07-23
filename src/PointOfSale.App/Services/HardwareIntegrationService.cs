@@ -385,6 +385,8 @@ public sealed class HardwareIntegrationService : IHardwareIntegrationService
             InvoiceDateTime = request.InvoiceDateTime,
             LineItems = request.LineItems,
             TaxBreakdown = taxes,
+            SubtotalNet = request.ResolveSubtotalNet(),
+            TotalVat = request.ResolveTotalVat(),
             InvoiceTotal = request.InvoiceTotal,
             AmountTendered = request.AmountTendered,
             FiscalResponse = request.FiscalResponse

@@ -60,15 +60,13 @@ public static class EscPosReceiptEncoder
             WriteLine(buffer, Truncate($"  Taxable {tax.TaxableAmount:N2}", charactersPerLine));
         }
 
+        WriteLine(buffer, Columns("Subtotal", $"{request.ResolveSubtotalNet():N2}", charactersPerLine));
+        WriteLine(buffer, Columns("VAT 17.5%", $"{request.ResolveTotalVat():N2}", charactersPerLine));
         Write(buffer, Bold(true));
         WriteLine(buffer, Columns("TOTAL", $"{request.InvoiceTotal:N2}", charactersPerLine));
         Write(buffer, Bold(false));
         WriteLine(buffer, Columns("Tendered", $"{request.AmountTendered:N2}", charactersPerLine));
-        var change = request.AmountTendered - request.InvoiceTotal;
-        if (change > 0)
-        {
-            WriteLine(buffer, Columns("Change", $"{change:N2}", charactersPerLine));
-        }
+        WriteLine(buffer, Columns("Change", $"{request.ChangeDue:N2}", charactersPerLine));
 
         WriteLine(buffer, Separator(charactersPerLine));
         var fiscalSignature = request.FiscalResponse?.ResolveFiscalSignature() ?? string.Empty;

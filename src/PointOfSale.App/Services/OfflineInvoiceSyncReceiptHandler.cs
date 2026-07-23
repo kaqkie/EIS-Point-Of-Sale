@@ -74,6 +74,8 @@ public static class QueueReceiptPrintHelper
             InvoiceDateTime = payload.InvoiceHeader.InvoiceDateTime,
             LineItems = payload.InvoiceLineItems,
             TaxBreakdown = payload.InvoiceSummary.TaxBreakDown,
+            SubtotalNet = payload.InvoiceSummary.InvoiceTotal - payload.InvoiceSummary.TotalVat,
+            TotalVat = payload.InvoiceSummary.TotalVat,
             InvoiceTotal = payload.InvoiceSummary.InvoiceTotal,
             AmountTendered = payload.InvoiceSummary.AmountTendered,
             FiscalResponse = fiscalResponse

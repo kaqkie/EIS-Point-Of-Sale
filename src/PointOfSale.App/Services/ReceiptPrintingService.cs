@@ -76,8 +76,12 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
             document.Blocks.Add(Line($"Tax {tax.RateId}: taxable {tax.TaxableAmount:N2}  VAT {tax.TaxAmount:N2}"));
         }
 
-        document.Blocks.Add(Line($"TOTAL: {request.InvoiceTotal:N2}"));
+        document.Blocks.Add(Spacer());
+        document.Blocks.Add(Line($"Subtotal: {request.ResolveSubtotalNet():N2}"));
+        document.Blocks.Add(Line($"VAT (17.5%): {request.ResolveTotalVat():N2}"));
+        document.Blocks.Add(HeadingInline($"TOTAL: {request.InvoiceTotal:N2}"));
         document.Blocks.Add(Line($"Tendered: {request.AmountTendered:N2}"));
+        document.Blocks.Add(Line($"Change: {request.ChangeDue:N2}"));
         document.Blocks.Add(Spacer());
         document.Blocks.Add(Line("MRA EIS Fiscal Signature:"));
         document.Blocks.Add(Line(Chunk(fiscalSignature, 32)));
@@ -186,6 +190,12 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
             Margin = new Thickness(0, 0, 0, 4)
         };
 
+    private static Paragraph HeadingInline(string text) =>
+        new(new Run(text) { FontWeight = FontWeights.Bold, FontSize = 12 })
+        {
+            Margin = new Thickness(0, 2, 0, 2)
+        };
+
     private static Paragraph Line(string text) =>
         new(new Run(text)) { Margin = new Thickness(0, 0, 0, 2) };
 
@@ -219,7 +229,26 @@ public sealed class ReceiptPrintRequest
     public required IReadOnlyList<TaxBreakDownDto> TaxBreakdown { get; init; }
     public decimal InvoiceTotal { get; init; }
     public decimal AmountTendered { get; init; }
+
+    /// <summary>Net merchandise total before VAT (MWK).</summary>
+    public decimal SubtotalNet { get; init; }
+
+    /// <summary>Total VAT collected (statutory 17.5% for rate A in Malawi).</summary>
+    public decimal TotalVat { get; init; }
+
     public SubmitSalesTransactionResponseData? FiscalResponse { get; init; }
+
+    public decimal ResolveSubtotalNet() =>
+        SubtotalNet > 0m
+            ? SubtotalNet
+            : LineItems.Sum(i => i.Total - i.TotalVat);
+
+    public decimal ResolveTotalVat() =>
+        TotalVat > 0m
+            ? TotalVat
+            : TaxBreakdown.Sum(t => t.TaxAmount);
+
+    public decimal ChangeDue => Math.Max(0m, AmountTendered - InvoiceTotal);
 }
 
 public sealed class ReceiptPrintResult

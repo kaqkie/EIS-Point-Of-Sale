@@ -108,8 +108,14 @@ public partial class CheckoutViewModel : ObservableObject
     partial void OnIsCashRegisterModeChanged(bool value)
     {
         ShowAdvancedCheckoutTools = !value;
+        if (value)
+        {
+            // Cash Register uses the same CompleteSale / tax / print pipeline — lock tender UI to cash.
+            PaymentMethod = "Cash";
+        }
+
         StatusMessage = value
-            ? "Cash Register — F2 Add · F5 Exact · F12 Complete"
+            ? "Cash Register — F2 Add · F5 Exact · F12 Complete (receipt prints on success)"
             : "Ready — F2 Add · F5 Exact tender · F9 Reprint · F8 Queue · F12 Complete";
     }
 
@@ -563,13 +569,22 @@ public partial class CheckoutViewModel : ObservableObject
             {
                 await PrintReceiptAsync(request, result.Response).ConfigureAwait(true);
                 var ok = CashierOperatorMessages.SubmittedOnline(result.InvoiceNumber);
-                StatusMessage = ok.Body;
+                StatusMessage = $"{ok.Body} Receipt sent to printer.";
             }
             else
             {
                 var queued = CashierOperatorMessages.QueuedOffline(result.InvoiceNumber, forceOffline);
                 ShowOperatorDialog(queued);
-                StatusMessage = queued.Body;
+                // Same cash-register / POS path: always print a customer receipt after a successful take.
+                await PrintReceiptAsync(
+                        request,
+                        new SubmitSalesTransactionResponseData
+                        {
+                            InvoiceNumber = result.InvoiceNumber,
+                            FiscalSignature = request.InvoiceSummary.OfflineSignature ?? "OFFLINE-QUEUED-PENDING-MRA-SYNC"
+                        })
+                    .ConfigureAwait(true);
+                StatusMessage = $"{queued.Body} Receipt sent to printer.";
             }
 
             // Capture before cart reset — earn points on the final paid invoice total.
@@ -658,7 +673,15 @@ public partial class CheckoutViewModel : ObservableObject
 
             var queued = CashierOperatorMessages.QueuedOffline(result.InvoiceNumber, forcedOffline: true);
             ShowOperatorDialog(queued);
-            StatusMessage = queued.Body;
+            await PrintReceiptAsync(
+                    request,
+                    new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = result.InvoiceNumber,
+                        FiscalSignature = request.InvoiceSummary.OfflineSignature ?? "OFFLINE-QUEUED-PENDING-MRA-SYNC"
+                    })
+                .ConfigureAwait(true);
+            StatusMessage = $"{queued.Body} Receipt sent to printer.";
             CartItems.Clear();
             RecalculateTotals();
             AmountTendered = 0;
@@ -768,6 +791,8 @@ public partial class CheckoutViewModel : ObservableObject
             InvoiceDateTime = request.InvoiceHeader.InvoiceDateTime,
             LineItems = request.InvoiceLineItems,
             TaxBreakdown = request.InvoiceSummary.TaxBreakDown,
+            SubtotalNet = request.InvoiceSummary.InvoiceTotal - request.InvoiceSummary.TotalVat,
+            TotalVat = request.InvoiceSummary.TotalVat,
             InvoiceTotal = request.InvoiceSummary.InvoiceTotal,
             AmountTendered = request.InvoiceSummary.AmountTendered,
             FiscalResponse = response
