@@ -275,8 +275,12 @@ public sealed class LabelTemplateService : ILabelTemplateService
 
             if (dialog.ShowDialog() == true)
             {
-                document.PageHeight = dialog.PrintableAreaHeight;
-                document.PageWidth = dialog.PrintableAreaWidth;
+                PrintPageSizeGuard.ApplySafePageSize(
+                    document,
+                    dialog,
+                    fallbackWidthDip: Math.Max(PrintPageSizeGuard.MinPageDimensionDip, document.PageWidth),
+                    fallbackHeightDip: PrintPageSizeGuard.DefaultReceiptHeightDip);
+                PrintPageSizeGuard.EnsureDocumentReadyToPrint(document);
                 dialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, "Product Labels");
             }
         });

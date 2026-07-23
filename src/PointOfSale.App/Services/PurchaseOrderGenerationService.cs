@@ -300,8 +300,12 @@ public sealed class PurchaseOrderGenerationService : IPurchaseOrderGenerationSer
             var dialog = new PrintDialog();
             if (dialog.ShowDialog() == true)
             {
-                doc.PageHeight = dialog.PrintableAreaHeight;
-                doc.PageWidth = dialog.PrintableAreaWidth;
+                PrintPageSizeGuard.ApplySafePageSize(
+                    doc,
+                    dialog,
+                    fallbackWidthDip: 793,
+                    fallbackHeightDip: 1122);
+                PrintPageSizeGuard.EnsureDocumentReadyToPrint(doc);
                 dialog.PrintDocument(((IDocumentPaginatorSource)doc).DocumentPaginator, order.PoNumber);
             }
         });

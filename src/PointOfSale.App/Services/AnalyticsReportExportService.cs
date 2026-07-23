@@ -170,8 +170,12 @@ public sealed class AnalyticsReportExportService : IAnalyticsReportExportService
             return;
         }
 
-        document.PageHeight = printDialog.PrintableAreaHeight;
-        document.PageWidth = printDialog.PrintableAreaWidth;
+        PrintPageSizeGuard.ApplySafePageSize(
+            document,
+            printDialog,
+            fallbackWidthDip: 793,   // ~A4 width at 96 DPI
+            fallbackHeightDip: 1122); // ~A4 height at 96 DPI
+        PrintPageSizeGuard.EnsureDocumentReadyToPrint(document);
         printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, description);
     }
 

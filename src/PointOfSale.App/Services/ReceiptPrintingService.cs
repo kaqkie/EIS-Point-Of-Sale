@@ -21,9 +21,6 @@ public interface IReceiptPrintingService
 
 public sealed class ReceiptPrintingService : IReceiptPrintingService
 {
-    private const double ThermalWidth58 = 200;
-    private const double ThermalWidth80 = 280;
-
     private readonly IThermalPrinterHardwareService _thermalPrinter;
     private readonly ThermalPrinterOptions _thermalOptions;
     private readonly ILogger<ReceiptPrintingService> _logger;
@@ -43,14 +40,16 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
         var fiscalSignature = request.FiscalResponse?.ResolveFiscalSignature() ?? string.Empty;
         var verificationUrl = request.FiscalResponse?.VerificationUrl ?? string.Empty;
         var qr = CreateQrImage(verificationUrl);
-        var pageWidth = _thermalOptions.PaperWidthMm <= 58 ? ThermalWidth58 : ThermalWidth80;
+        var pageWidth = PrintPageSizeGuard.ResolveThermalWidthDip(_thermalOptions.PaperWidthMm);
 
         var document = new FlowDocument
         {
             PageWidth = pageWidth,
+            PageHeight = PrintPageSizeGuard.DefaultReceiptHeightDip,
             PagePadding = new Thickness(8),
             FontFamily = new FontFamily("Consolas"),
-            FontSize = 11
+            FontSize = 11,
+            ColumnWidth = Math.Max(72, pageWidth - 16)
         };
 
         document.Blocks.Add(Heading(request.TradingName));
@@ -135,11 +134,34 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
             throw new InvalidOperationException("No default printer is configured for thermal receipt printing.");
         }
 
-        receipt.Document.PageHeight = double.MaxValue;
+        var fallbackWidth = PrintPageSizeGuard.ResolveThermalWidthDip(_thermalOptions.PaperWidthMm);
+        var fallbackHeight = EstimateReceiptHeightDip(request);
+        PrintPageSizeGuard.ApplySafePageSize(receipt.Document, printDialog, fallbackWidth, fallbackHeight);
+        PrintPageSizeGuard.EnsureDocumentReadyToPrint(receipt.Document);
+
         printDialog.PrintDocument(
             ((IDocumentPaginatorSource)receipt.Document).DocumentPaginator,
             "Albert Retail Terminal Receipt");
         return Task.CompletedTask;
+    }
+
+    /// <summary>Finite height estimate from line count when content measurement is unavailable.</summary>
+    private static double EstimateReceiptHeightDip(ReceiptPrintRequest request)
+    {
+        var verificationLines = string.IsNullOrWhiteSpace(request.FiscalResponse?.VerificationUrl) ? 0 : 10;
+        var lineCount =
+            10
+            + request.AddressLines.Count
+            + (request.LineItems.Count * 2)
+            + request.TaxBreakdown.Count
+            + verificationLines;
+        var qrBlock = string.IsNullOrWhiteSpace(request.FiscalResponse?.VerificationUrl) ? 0 : 140;
+        var estimated = 96 + (lineCount * 18) + qrBlock;
+        return PrintPageSizeGuard.Sanitize(
+            estimated,
+            PrintPageSizeGuard.DefaultReceiptHeightDip,
+            PrintPageSizeGuard.MinPageDimensionDip,
+            PrintPageSizeGuard.MaxPageHeightDip);
     }
 
     private static BitmapSource? CreateQrImage(string verificationUrl)
