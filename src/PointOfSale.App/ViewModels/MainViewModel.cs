@@ -78,6 +78,18 @@ public partial class MainViewModel : ObservableObject
     private bool _isDrawerOpen = true;
 
     [ObservableProperty]
+    private bool _isNavDrawerCollapsed;
+
+    [ObservableProperty]
+    private bool _isCashierNavVisible;
+
+    [ObservableProperty]
+    private bool _isAdminNavVisible;
+
+    [ObservableProperty]
+    private string _drawerToggleLabel = "Collapse menu";
+
+    [ObservableProperty]
     private bool _isAuthenticated;
 
     [ObservableProperty]
@@ -261,7 +273,25 @@ public partial class MainViewModel : ObservableObject
     private void NavigateAdminHome() => _navigationService.NavigateTo<AdminDashboardViewModel>();
 
     [RelayCommand]
-    private void ToggleDrawer() => IsDrawerOpen = !IsDrawerOpen;
+    private void ToggleDrawer()
+    {
+        IsDrawerOpen = !IsDrawerOpen;
+        RefreshDrawerVisibility();
+    }
+
+    [RelayCommand(CanExecute = nameof(IsCashierShell))]
+    private void OpenCashierShiftDrawer()
+    {
+        if (CurrentViewModel is not CashierDashboardViewModel)
+        {
+            _navigationService.NavigateTo<CashierDashboardViewModel>();
+        }
+
+        if (CurrentViewModel is CashierDashboardViewModel cashierHome)
+        {
+            cashierHome.ShowShiftDrawerWorkspace();
+        }
+    }
 
     [RelayCommand]
     private async Task RefreshConnectionAsync() =>
@@ -290,6 +320,15 @@ public partial class MainViewModel : ObservableObject
 
     private void TickClock() =>
         CurrentDateTimeText = DateTime.Now.ToString("dddd, dd MMM yyyy  HH:mm:ss");
+
+    private void RefreshDrawerVisibility()
+    {
+        IsNavDrawerCollapsed = IsAuthenticated && !IsDrawerOpen;
+        IsCashierNavVisible = IsAuthenticated && IsCashierShell && IsDrawerOpen;
+        IsAdminNavVisible = IsAuthenticated && IsAdminShell && IsDrawerOpen;
+        DrawerToggleLabel = IsDrawerOpen ? "Collapse menu" : "Expand menu";
+        OpenCashierShiftDrawerCommand.NotifyCanExecuteChanged();
+    }
 
     private static void Dispatch(Action action)
     {
@@ -413,5 +452,6 @@ public partial class MainViewModel : ObservableObject
         NavigateHardwareCommand.NotifyCanExecuteChanged();
         NavigateCashierHomeCommand.NotifyCanExecuteChanged();
         NavigateAdminHomeCommand.NotifyCanExecuteChanged();
+        RefreshDrawerVisibility();
     }
 }

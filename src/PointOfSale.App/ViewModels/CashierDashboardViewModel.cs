@@ -40,6 +40,8 @@ public partial class CashierDashboardViewModel : ObservableObject
         _ = RefreshShiftAsync();
     }
 
+    public void ShowShiftDrawerWorkspace() => SelectedWorkspaceTab = 1;
+
     public CheckoutViewModel Checkout { get; }
 
     public string[] PaymentMethodOptions { get; }

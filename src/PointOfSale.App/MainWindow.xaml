@@ -10,17 +10,43 @@
     <Grid>
         <Grid Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="252" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
+            <!-- Collapsed rail strip (re-open control) -->
+            <Border Grid.Column="0"
+                    Width="56"
+                    Background="{StaticResource Art.Brush.Canvas}"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="0,0,1,0"
+                    Padding="8"
+                    Visibility="{Binding IsNavDrawerCollapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel VerticalAlignment="Top">
+                    <Button Content="☰"
+                            ToolTip="Expand navigation drawer"
+                            Style="{StaticResource Art.Button.Ghost}"
+                            Command="{Binding ToggleDrawerCommand}"
+                            FontSize="18"
+                            Padding="8,10"
+                            Margin="0,0,0,8" />
+                    <Button Content="↕"
+                            ToolTip="Open shift &amp; drawer workspace"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding OpenCashierShiftDrawerCommand}"
+                            Visibility="{Binding IsCashierShell, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Padding="8,10" />
+                </StackPanel>
+            </Border>
+
             <!-- Cashier light rail -->
             <Border Grid.Column="0"
+                    Width="252"
                     Background="{StaticResource Art.Brush.Canvas}"
                     BorderBrush="{StaticResource Art.Brush.Border}"
                     BorderThickness="0,0,1,0"
                     Padding="16"
-                    Visibility="{Binding IsCashierShell, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    Visibility="{Binding IsCashierNavVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top">
                         <Border Background="{StaticResource Art.Brush.AccentSoft}" CornerRadius="10" Padding="10,8" Margin="0,0,0,12">
@@ -53,7 +79,11 @@
                                 Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateLoyaltyCommand}"
                                 Visibility="{Binding CanLoyalty, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                        <Button Content="Toggle drawer UI"
+                        <Button Content="Shift &amp; drawer"
+                                Style="{StaticResource Art.Nav.Cashier}"
+                                Command="{Binding OpenCashierShiftDrawerCommand}"
+                                Margin="0,8,0,0" />
+                        <Button Content="{Binding DrawerToggleLabel}"
                                 Style="{StaticResource Art.Button.Ghost}"
                                 Command="{Binding ToggleDrawerCommand}"
                                 Margin="0,16,0,0" />
@@ -69,9 +99,10 @@
 
             <!-- Admin light rail (deep accent header, still light mode) -->
             <Border Grid.Column="0"
+                    Width="252"
                     Background="{StaticResource Art.Brush.AdminRail}"
                     Padding="16"
-                    Visibility="{Binding IsAdminShell, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    Visibility="{Binding IsAdminNavVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <DockPanel>
                     <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto">
                         <StackPanel>

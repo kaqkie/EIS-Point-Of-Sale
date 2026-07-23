@@ -35,44 +35,49 @@
                     Background="Transparent"
                     BorderThickness="0">
             <TabItem Header="Sales processing">
-                <Grid Margin="0,12,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="320" />
-                    </Grid.ColumnDefinitions>
+                <ScrollViewer Margin="0,12,0,0"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              CanContentScroll="False">
+                    <Grid MinHeight="520">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="320" />
+                        </Grid.ColumnDefinitions>
 
-                    <ContentControl Grid.Column="0" Content="{Binding Checkout}" Margin="0,0,12,0" />
+                        <ContentControl Grid.Column="0" Content="{Binding Checkout}" Margin="0,0,12,0" MinHeight="480" />
 
-                    <StackPanel Grid.Column="1">
-                        <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12">
-                            <StackPanel>
-                                <TextBlock Text="Tender &amp; split pay" Style="{StaticResource Art.Text.Title}" FontSize="16" />
-                                <TextBlock Text="Cash / card / mobile / split" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,10" />
-                                <TextBlock Text="Split cash" Style="{StaticResource Art.Text.Caption}" />
-                                <TextBox Text="{Binding SplitCashAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
-                                <TextBlock Text="Split card / digital" Style="{StaticResource Art.Text.Caption}" />
-                                <TextBox Text="{Binding SplitCardAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
-                                <Button Content="Apply split tender" Style="{StaticResource Art.Button.Primary}" Command="{Binding ApplySplitTenderCommand}" />
-                            </StackPanel>
-                        </Border>
+                        <StackPanel Grid.Column="1">
+                            <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Tender &amp; split pay" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                                    <TextBlock Text="Cash / card / mobile / split" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,10" />
+                                    <TextBlock Text="Split cash" Style="{StaticResource Art.Text.Caption}" />
+                                    <TextBox Text="{Binding SplitCashAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                    <TextBlock Text="Split card / digital" Style="{StaticResource Art.Text.Caption}" />
+                                    <TextBox Text="{Binding SplitCardAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                    <Button Content="Apply split tender" Style="{StaticResource Art.Button.Primary}" Command="{Binding ApplySplitTenderCommand}" />
+                                </StackPanel>
+                            </Border>
 
-                        <Border Style="{StaticResource Art.Card}">
-                            <StackPanel>
-                                <TextBlock Text="Refund / exchange" Style="{StaticResource Art.Text.Title}" FontSize="16" />
-                                <TextBlock Text="Requires supervisor PIN or password authorization"
-                                           Style="{StaticResource Art.Text.Caption}"
-                                           Margin="0,0,0,10" />
-                                <TextBlock Text="Amount (MWK)" Style="{StaticResource Art.Text.Caption}" />
-                                <TextBox Text="{Binding RefundAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
-                                <TextBlock Text="Reason" Style="{StaticResource Art.Text.Caption}" />
-                                <TextBox Text="{Binding RefundReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
-                                <Button Content="Request supervisor override"
-                                        Style="{StaticResource Art.Button.Danger}"
-                                        Command="{Binding RequestRefundOverrideCommand}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Grid>
+                            <Border Style="{StaticResource Art.Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Refund / exchange" Style="{StaticResource Art.Text.Title}" FontSize="16" />
+                                    <TextBlock Text="Requires supervisor PIN or password authorization"
+                                               Style="{StaticResource Art.Text.Caption}"
+                                               Margin="0,0,0,10" />
+                                    <TextBlock Text="Amount (MWK)" Style="{StaticResource Art.Text.Caption}" />
+                                    <TextBox Text="{Binding RefundAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                    <TextBlock Text="Reason" Style="{StaticResource Art.Text.Caption}" />
+                                    <TextBox Text="{Binding RefundReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
+                                    <Button Content="Request supervisor override"
+                                            Style="{StaticResource Art.Button.Danger}"
+                                            Command="{Binding RequestRefundOverrideCommand}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Shift &amp; drawer">

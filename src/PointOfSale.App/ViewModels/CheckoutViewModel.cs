@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -91,6 +92,10 @@ public partial class CheckoutViewModel : ObservableObject
     [ObservableProperty]
     private decimal _amountTendered;
 
+    /// <summary>Text-box facing tender amount so typing updates change without decimal parse failures.</summary>
+    [ObservableProperty]
+    private string _amountTenderedText = "0.00";
+
     [ObservableProperty]
     private string _statusMessage = "Ready — F2 Add · F5 Exact tender · F9 Reprint · F8 Queue · F12 Complete";
 
@@ -121,9 +126,11 @@ public partial class CheckoutViewModel : ObservableObject
     [ObservableProperty]
     private decimal _promoDiscountTotal;
 
-    public decimal ChangeDue => Math.Max(0, AmountTendered - CartGrandTotal);
+    public decimal ChangeDue => Math.Max(0m, AmountTendered - CartGrandTotal);
 
     public bool CanReprintLastReceipt => _lastPrintableReceipt is not null;
+
+    public IReadOnlyList<string> PaymentMethodOptions { get; } = ["Cash", "Card", "MobileMoney"];
 
     public IEnumerable<LocalInventoryItem> FilteredProducts =>
         string.IsNullOrWhiteSpace(SearchText)
@@ -134,7 +141,52 @@ public partial class CheckoutViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => OnPropertyChanged(nameof(FilteredProducts));
 
-    partial void OnAmountTenderedChanged(decimal value) => OnPropertyChanged(nameof(ChangeDue));
+    partial void OnAmountTenderedChanged(decimal value)
+    {
+        var formatted = value.ToString("N2", CultureInfo.CurrentCulture);
+        if (!string.Equals(AmountTenderedText, formatted, StringComparison.Ordinal))
+        {
+            // Keep the text box in sync when Exact / split / reset updates the decimal.
+            var typedParses =
+                decimal.TryParse(AmountTenderedText, NumberStyles.Number, CultureInfo.CurrentCulture, out var typed)
+                || decimal.TryParse(AmountTenderedText, NumberStyles.Number, CultureInfo.InvariantCulture, out typed);
+            if (!typedParses || typed != value)
+            {
+                AmountTenderedText = formatted;
+            }
+        }
+
+        OnPropertyChanged(nameof(ChangeDue));
+    }
+
+    partial void OnAmountTenderedTextChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            if (AmountTendered != 0m)
+            {
+                AmountTendered = 0m;
+            }
+            else
+            {
+                OnPropertyChanged(nameof(ChangeDue));
+            }
+
+            return;
+        }
+
+        if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out var amount)
+            || decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out amount))
+        {
+            if (AmountTendered != amount)
+            {
+                AmountTendered = amount;
+                return;
+            }
+        }
+
+        OnPropertyChanged(nameof(ChangeDue));
+    }
 
     partial void OnCartGrandTotalChanged(decimal value) => OnPropertyChanged(nameof(ChangeDue));
 
@@ -217,6 +269,7 @@ public partial class CheckoutViewModel : ObservableObject
         }
 
         AmountTendered = CartGrandTotal;
+        AmountTenderedText = CartGrandTotal.ToString("N2", CultureInfo.CurrentCulture);
         StatusMessage = $"Exact tender set to {CartGrandTotal:N2}.";
     }
 
