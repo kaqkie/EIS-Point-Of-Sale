@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using PointOfSale.App.ViewModels;
@@ -10,9 +11,69 @@ public partial class CashierDashboardView
     {
         InitializeComponent();
         PreviewKeyDown += OnPreviewKeyDown;
+        DataContextChanged += OnDataContextChanged;
+        Unloaded += OnUnloaded;
     }
 
     private CashierDashboardViewModel? ViewModel => DataContext as CashierDashboardViewModel;
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is CashierDashboardViewModel oldVm)
+        {
+            oldVm.Checkout.TenderInputFocusRequested -= OnTenderInputFocusRequested;
+        }
+
+        if (e.NewValue is CashierDashboardViewModel newVm)
+        {
+            newVm.Checkout.TenderInputFocusRequested -= OnTenderInputFocusRequested;
+            newVm.Checkout.TenderInputFocusRequested += OnTenderInputFocusRequested;
+        }
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not null)
+        {
+            ViewModel.Checkout.TenderInputFocusRequested -= OnTenderInputFocusRequested;
+        }
+    }
+
+    private void OnTenderInputFocusRequested(object? sender, EventArgs e)
+    {
+        // Prefer keypad panel so digit keys update cash tender / change due.
+        Dispatcher.BeginInvoke(() =>
+        {
+            TenderKeypadPanel.Focus();
+            Keyboard.Focus(TenderKeypadPanel);
+        });
+    }
+
+    /// <summary>
+    /// Click fallback when Command binding fails to resolve (ensures Cash/Credit still activate).
+    /// Skips when Command already executed successfully.
+    /// </summary>
+    private void PaymentMethodButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || ViewModel is null)
+        {
+            return;
+        }
+
+        if (button.Command is not null)
+        {
+            // Command binding resolved — ButtonBase already invoked it before Click.
+            return;
+        }
+
+        if (button.CommandParameter is not string method)
+        {
+            return;
+        }
+
+        ViewModel.SelectPaymentMethodCommand.Execute(method);
+        e.Handled = true;
+    }
 
     private void ProductQuickPick_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
@@ -139,7 +200,11 @@ public partial class CashierDashboardView
                 e.Handled = true;
                 break;
             case Key.F12:
-                if (checkout.CompleteSaleCommand.CanExecute(null))
+                if (checkout.ProcessPaymentCommand.CanExecute(null))
+                {
+                    checkout.ProcessPaymentCommand.Execute(null);
+                }
+                else if (checkout.CompleteSaleCommand.CanExecute(null))
                 {
                     checkout.CompleteSaleCommand.Execute(null);
                 }

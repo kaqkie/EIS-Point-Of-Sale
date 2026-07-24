@@ -149,7 +149,10 @@
                 </Border>
 
                 <!-- Top-Right: total display + numeric keypad -->
-                <DockPanel Grid.Column="1" Margin="0,0,0,10">
+                <DockPanel x:Name="TenderKeypadPanel"
+                           Grid.Column="1"
+                           Margin="0,0,0,10"
+                           Focusable="True">
                     <Border DockPanel.Dock="Top"
                             Background="#0F172A"
                             CornerRadius="10"
@@ -171,7 +174,8 @@
                             <Separator Background="#334155" Margin="0,0,0,10" />
                             <DockPanel>
                                 <TextBlock Text="Tendered" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Checkout.AmountTenderedText}"
+                                <TextBlock x:Name="TenderAmountDisplay"
+                                           Text="{Binding Checkout.AmountTenderedText}"
                                            Foreground="#FBBF24"
                                            FontSize="22"
                                            FontWeight="Bold"
@@ -179,29 +183,23 @@
                                            HorizontalAlignment="Right" />
                             </DockPanel>
                             <DockPanel Margin="0,6,0,0">
-                                <TextBlock Text="Change due" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                                <Grid HorizontalAlignment="Right">
-                                    <TextBlock Text="{Binding Checkout.ChangeDue, StringFormat={}{0:N2}}"
-                                               Foreground="#4ADE80"
-                                               FontSize="22"
-                                               FontWeight="Bold"
-                                               FontFamily="{StaticResource Art.Font.Mono}"
-                                               HorizontalAlignment="Right"
-                                               Visibility="{Binding Checkout.HasSufficientTender, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                    <TextBlock Text="{Binding Checkout.TenderShortfall, StringFormat='Short {0:N2}'}"
-                                               Foreground="#F87171"
-                                               FontSize="18"
-                                               FontWeight="Bold"
-                                               FontFamily="{StaticResource Art.Font.Mono}"
-                                               HorizontalAlignment="Right"
-                                               Visibility="{Binding Checkout.HasInsufficientTender, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                </Grid>
+                                <TextBlock Text="Change" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Checkout.ChangeDue, StringFormat=N2}"
+                                           Foreground="#4ADE80"
+                                           FontSize="20"
+                                           FontWeight="Bold"
+                                           FontFamily="{StaticResource Art.Font.Mono}"
+                                           HorizontalAlignment="Right" />
                             </DockPanel>
                             <TextBlock Text="{Binding Checkout.TenderStatusMessage}"
                                        Foreground="#CBD5E1"
-                                       FontSize="12"
-                                       Margin="0,10,0,0"
-                                       TextWrapping="Wrap" />
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Margin="0,8,0,0" />
+                            <TextBlock Text="{Binding Checkout.PaymentMethod, StringFormat=Payment: {0}}"
+                                       Foreground="#94A3B8"
+                                       FontSize="11"
+                                       Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
 
@@ -246,23 +244,32 @@
 
                     <UniformGrid Grid.Row="0" Columns="6">
                         <Button Content="Cash" Style="{StaticResource Art.Pos.PayCash}"
-                                Command="{Binding Checkout.SelectPaymentMethodCommand}" CommandParameter="Cash" />
+                                Command="{Binding SelectPaymentMethodCommand}"
+                                CommandParameter="Cash"
+                                Click="PaymentMethodButton_OnClick"
+                                ToolTip="Cash tender — focus keypad and calculate change" />
                         <Button Content="Credit" Style="{StaticResource Art.Pos.PayCredit}"
-                                Command="{Binding Checkout.SelectPaymentMethodCommand}" CommandParameter="Credit" />
+                                Command="{Binding SelectPaymentMethodCommand}"
+                                CommandParameter="Credit"
+                                Click="PaymentMethodButton_OnClick" />
                         <Button Content="Other Card" Style="{StaticResource Art.Pos.PayOther}"
-                                Command="{Binding Checkout.SelectPaymentMethodCommand}" CommandParameter="Other Card" />
+                                Command="{Binding SelectPaymentMethodCommand}"
+                                CommandParameter="Other Card"
+                                Click="PaymentMethodButton_OnClick" />
                         <Button Content="Gift Card" Style="{StaticResource Art.Pos.ActionGift}"
-                                Command="{Binding Checkout.SelectPaymentMethodCommand}" CommandParameter="Gift Card" />
+                                Command="{Binding SelectPaymentMethodCommand}"
+                                CommandParameter="Gift Card"
+                                Click="PaymentMethodButton_OnClick" />
                         <Button Content="Print" Style="{StaticResource Art.Pos.ActionPrint}"
-                                Command="{Binding Checkout.ReprintLastReceiptCommand}" />
+                                Command="{Binding ReprintLastReceiptCommand}" />
                         <Button Content="Paid" Style="{StaticResource Art.Pos.ActionPaid}"
-                                Command="{Binding Checkout.CompleteSaleCommand}"
+                                Command="{Binding ProcessPaymentCommand}"
                                 ToolTip="Complete sale (F12)" />
                     </UniformGrid>
 
                     <UniformGrid Grid.Row="1" Columns="6" Margin="0,4,0,0">
                         <Button Content="Void" Style="{StaticResource Art.Pos.ActionVoid}"
-                                Command="{Binding Checkout.VoidSelectedCartLineCommand}"
+                                Command="{Binding VoidSelectedCartLineCommand}"
                                 ToolTip="Void selected cart line" />
                         <Button Content="Refund" Style="{StaticResource Art.Pos.ActionRefund}"
                                 Command="{Binding RequestRefundOverrideCommand}"

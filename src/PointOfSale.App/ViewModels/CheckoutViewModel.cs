@@ -308,6 +308,7 @@ public partial class CheckoutViewModel : ObservableObject
         OnPropertyChanged(nameof(TenderStatusMessage));
         OnPropertyChanged(nameof(IsCashPayment));
         CompleteSaleCommand.NotifyCanExecuteChanged();
+        ProcessPaymentCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -504,23 +505,63 @@ public partial class CheckoutViewModel : ObservableObject
             : $"Tender OK — {AmountTendered:N2} received. Change due: {ChangeDue:N2}. Press Paid to complete.";
     }
 
+    /// <summary>Public entry for payment-method selection (commands + code-behind click fallbacks).</summary>
+    public void ApplyPaymentMethodSelection(string? method)
+    {
+        SelectPaymentMethod(method);
+    }
+
+    /// <summary>Maps register button labels to persisted MRA payment method values.</summary>
+    public static string NormalizePaymentMethodForTest(string? method) =>
+        NormalizePaymentMethod(method);
+
+    private static string NormalizePaymentMethod(string? method)
+    {
+        var raw = method?.Trim() ?? string.Empty;
+        if (raw.Equals("Cash", StringComparison.OrdinalIgnoreCase) || raw.Length == 0)
+        {
+            return "Cash";
+        }
+
+        if (raw.Equals("Credit", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("Other Card", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("Card", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Card";
+        }
+
+        if (raw.Equals("Gift Card", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("MobileMoney", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("Mobile Money", StringComparison.OrdinalIgnoreCase))
+        {
+            return "MobileMoney";
+        }
+
+        return raw;
+    }
+
     [RelayCommand]
     private void SelectPaymentMethod(string? method)
     {
-        var normalized = method?.Trim() switch
-        {
-            "Credit" or "Other Card" or "Card" => "Card",
-            "Gift Card" => "MobileMoney",
-            "MobileMoney" => "MobileMoney",
-            _ => "Cash"
-        };
+        var raw = method?.Trim() ?? string.Empty;
+        var normalized = NormalizePaymentMethod(raw);
 
         PaymentMethod = normalized;
         _keypadEditing = false;
 
         if (IsCashPayment)
         {
-            StatusMessage = "Cash selected — type amount on the keypad, then OK / Tender.";
+            // Enter cash tender workflow: keep any amount already typed, ready keypad for change calc.
+            if (AmountTendered <= 0m && CartGrandTotal > 0m)
+            {
+                AmountTenderedText = "0";
+                AmountTendered = 0m;
+            }
+
+            StatusMessage = CartGrandTotal > 0m
+                ? $"Cash selected — enter tender on the keypad (total {CartGrandTotal:N2}). Change calculates automatically."
+                : "Cash selected — add items, then enter tender on the keypad.";
+            TenderInputFocusRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
 
@@ -530,8 +571,15 @@ public partial class CheckoutViewModel : ObservableObject
             AmountTenderedText = CartGrandTotal.ToString("N2", CultureInfo.CurrentCulture);
         }
 
-        StatusMessage = $"{normalized} selected — tender set to exact total {CartGrandTotal:N2}.";
+        StatusMessage = $"{(string.IsNullOrWhiteSpace(raw) ? normalized : raw)} selected — tender set to exact total {CartGrandTotal:N2}.";
     }
+
+    /// <summary>Alias for Paid / F12 — completes the sale with the selected payment method.</summary>
+    [RelayCommand(CanExecute = nameof(CanCompleteSale))]
+    private Task ProcessPaymentAsync() => CompleteSaleAsync();
+
+    /// <summary>Raised when Cash (or keypad) should receive keyboard/touch focus for tender entry.</summary>
+    public event EventHandler? TenderInputFocusRequested;
 
     [RelayCommand]
     private async Task VoidSelectedCartLineAsync()
@@ -713,6 +761,7 @@ public partial class CheckoutViewModel : ObservableObject
 
         IsBusy = true;
         CompleteSaleCommand.NotifyCanExecuteChanged();
+        ProcessPaymentCommand.NotifyCanExecuteChanged();
         try
         {
             await _productionSecretGuard.EnsureReadyForLiveSalesAsync().ConfigureAwait(true);
@@ -889,6 +938,7 @@ public partial class CheckoutViewModel : ObservableObject
         {
             IsBusy = false;
             CompleteSaleCommand.NotifyCanExecuteChanged();
+            ProcessPaymentCommand.NotifyCanExecuteChanged();
         }
     }
 

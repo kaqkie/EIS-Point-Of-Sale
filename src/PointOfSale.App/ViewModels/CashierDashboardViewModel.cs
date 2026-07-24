@@ -128,6 +128,54 @@ public partial class CashierDashboardViewModel : ObservableObject
     [RelayCommand]
     private void ToggleCashRegisterMode() => IsCashRegisterMode = !IsCashRegisterMode;
 
+    /// <summary>
+    /// Dashboard-level payment command so XAML binds without nested <c>Checkout.*</c> paths
+    /// (nested ICommand bindings are often null/disabled on the touch register surface).
+    /// </summary>
+    [RelayCommand]
+    private void SelectPaymentMethod(string? method)
+    {
+        Checkout.ApplyPaymentMethodSelection(method);
+        StatusMessage = Checkout.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task ProcessPaymentAsync()
+    {
+        if (Checkout.ProcessPaymentCommand.CanExecute(null))
+        {
+            await Checkout.ProcessPaymentCommand.ExecuteAsync(null).ConfigureAwait(true);
+        }
+        else if (Checkout.CompleteSaleCommand.CanExecute(null))
+        {
+            await Checkout.CompleteSaleCommand.ExecuteAsync(null).ConfigureAwait(true);
+        }
+
+        StatusMessage = Checkout.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task VoidSelectedCartLineAsync()
+    {
+        if (Checkout.VoidSelectedCartLineCommand.CanExecute(null))
+        {
+            await Checkout.VoidSelectedCartLineCommand.ExecuteAsync(null).ConfigureAwait(true);
+        }
+
+        StatusMessage = Checkout.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task ReprintLastReceiptAsync()
+    {
+        if (Checkout.ReprintLastReceiptCommand.CanExecute(null))
+        {
+            await Checkout.ReprintLastReceiptCommand.ExecuteAsync(null).ConfigureAwait(true);
+        }
+
+        StatusMessage = Checkout.StatusMessage;
+    }
+
     [RelayCommand]
     private void ReturnToFullWorkspace()
     {
