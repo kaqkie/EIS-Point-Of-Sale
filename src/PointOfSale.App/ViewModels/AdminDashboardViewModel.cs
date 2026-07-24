@@ -265,7 +265,7 @@ public partial class AdminDashboardViewModel : ObservableObject
             cashier.ShowCashRegisterMode(enabled: true);
         }
 
-        StatusMessage = "Cashier Register opened — same cart, inventory search, and checkout as the counter workspace.";
+        StatusMessage = "Opened shared POS Terminal — same cart, keypad tender, and Paid checkout for Admin and Cashier.";
     }
 
     [RelayCommand]

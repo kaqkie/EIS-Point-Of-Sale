@@ -90,7 +90,7 @@ public partial class MainViewModel : ObservableObject
     private string _drawerToggleLabel = "Collapse menu";
 
     [ObservableProperty]
-    private string _cashRegisterToggleLabel = "Switch to Cash Register";
+    private string _cashRegisterToggleLabel = "Shift tools";
 
     [ObservableProperty]
     private bool _isAuthenticated;
@@ -194,9 +194,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _currentDateTimeText = string.Empty;
 
-    [RelayCommand(CanExecute = nameof(CanCheckout))]
-    private void NavigateCheckout() => _navigationService.NavigateTo<CheckoutViewModel>();
-
     [RelayCommand(CanExecute = nameof(CanInventory))]
     private void NavigateInventory() => _navigationService.NavigateTo<InventoryViewModel>();
 
@@ -270,6 +267,9 @@ public partial class MainViewModel : ObservableObject
     private void NavigateHardware() => _navigationService.NavigateTo<HardwareManagementViewModel>();
 
     [RelayCommand(CanExecute = nameof(CanCheckout))]
+    private void NavigateCheckout() => NavigateCashierRegister();
+
+    [RelayCommand(CanExecute = nameof(CanCheckout))]
     private void NavigateCashierRegister()
     {
         _navigationService.NavigateTo<CashierDashboardViewModel>();
@@ -283,6 +283,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanCheckout))]
     private void NavigatePosWorkspace()
     {
+        // Advanced shift/split tools — same dashboard, not a different checkout UI.
         _navigationService.NavigateTo<CashierDashboardViewModel>();
         if (CurrentViewModel is CashierDashboardViewModel cashier)
         {
@@ -317,7 +318,7 @@ public partial class MainViewModel : ObservableObject
         _navigationService.NavigateTo<CashierDashboardViewModel>();
         if (CurrentViewModel is CashierDashboardViewModel cashier)
         {
-            cashier.ShowCashRegisterMode(enabled: false);
+            cashier.ShowCashRegisterMode(enabled: true);
             CashRegisterToggleLabel = cashier.WorkspaceModeToggleLabel;
         }
     }

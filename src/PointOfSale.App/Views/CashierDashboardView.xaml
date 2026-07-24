@@ -29,19 +29,19 @@
                                    Foreground="{StaticResource Art.Brush.AccentHover}"
                                    FontWeight="SemiBold" />
                     </Border>
-                    <Button Content="Back to Full Workspace"
+                    <Button Content="Shift tools"
                             Style="{StaticResource Art.Button.Secondary}"
                             Command="{Binding ReturnToFullWorkspaceCommand}"
                             Margin="0,0,8,0"
-                            MinWidth="190"
+                            MinWidth="140"
                             FontWeight="SemiBold"
                             FocusVisualStyle="{x:Null}"
                             Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                    <Button Content="Switch to Cash Register"
+                    <Button Content="Cash Register"
                             Style="{StaticResource Art.Button.Primary}"
                             Command="{Binding ToggleCashRegisterModeCommand}"
                             Margin="0,0,8,0"
-                            MinWidth="170"
+                            MinWidth="150"
                             FocusVisualStyle="{x:Null}"
                             Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <Button Content="Queue"
@@ -270,13 +270,15 @@
                         <Button Content="Queue" Style="{StaticResource Art.Pos.ActionNav}"
                                 Command="{Binding OpenQueueCommand}" />
                         <Button Content="Full Workspace" Style="{StaticResource Art.Pos.ActionNav}"
-                                Command="{Binding ReturnToFullWorkspaceCommand}" />
+                                Command="{Binding ReturnToFullWorkspaceCommand}"
+                                ToolTip="Open shift tools, split pay, and refunds" />
                         <Button Content="Back Office" Style="{StaticResource Art.Pos.ActionNav}"
                                 Command="{Binding OpenBackOfficeCommand}"
                                 ToolTip="Open Admin management console" />
-                        <Button Content="Main Menu" Style="{StaticResource Art.Pos.ActionNav}"
+                        <Button Content="Admin Menu" Style="{StaticResource Art.Pos.ActionNav}"
                                 Command="{Binding OpenBackOfficeCommand}"
-                                ToolTip="Open Admin / Back Office" />
+                                ToolTip="Open Admin / Back Office"
+                                Visibility="{Binding CanOpenBackOffice, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     </UniformGrid>
                 </Grid>
             </Border>

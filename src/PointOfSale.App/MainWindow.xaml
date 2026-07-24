@@ -67,14 +67,19 @@
                         <Button Content="Cashier home"
                                 Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateCashierHomeCommand}" />
-                        <Button Content="{Binding CashRegisterToggleLabel}"
+                        <Button Content="Cash Register"
                                 Style="{StaticResource Art.Button.Primary}"
+                                Command="{Binding NavigateCashierRegisterCommand}"
+                                Margin="0,0,0,8"
+                                FocusVisualStyle="{x:Null}"
+                                Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Button Content="{Binding CashRegisterToggleLabel}"
+                                Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding ToggleCashRegisterModeCommand}"
                                 Margin="0,0,0,8" />
-                        <Button Content="Checkout"
+                        <Button Content="Shift &amp; drawer"
                                 Style="{StaticResource Art.Nav.Cashier}"
-                                Command="{Binding NavigateCheckoutCommand}"
-                                Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                Command="{Binding OpenCashierShiftDrawerCommand}" />
                         <Button Content="Queue sync"
                                 Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateQueueCommand}"
@@ -83,10 +88,12 @@
                                 Style="{StaticResource Art.Nav.Cashier}"
                                 Command="{Binding NavigateLoyaltyCommand}"
                                 Visibility="{Binding CanLoyalty, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                        <Button Content="Shift &amp; drawer"
+                        <Button Content="Back Office"
                                 Style="{StaticResource Art.Nav.Cashier}"
-                                Command="{Binding OpenCashierShiftDrawerCommand}"
-                                Margin="0,8,0,0" />
+                                Command="{Binding NavigateAdminHomeCommand}"
+                                Visibility="{Binding CanAnalytics, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,8,0,0"
+                                ToolTip="Open Admin management console" />
                         <Button Content="{Binding DrawerToggleLabel}"
                                 Style="{StaticResource Art.Button.Ghost}"
                                 Command="{Binding ToggleDrawerCommand}"
@@ -129,11 +136,11 @@
                             <Button Content="Admin home"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateAdminHomeCommand}" />
-                            <Button Content="Cashier Register"
+                            <Button Content="POS Terminal"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateCashierRegisterCommand}"
                                     Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="POS workspace"
+                            <Button Content="Shift tools"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigatePosWorkspaceCommand}"
                                     Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />

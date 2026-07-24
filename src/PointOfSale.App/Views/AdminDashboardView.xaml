@@ -54,11 +54,12 @@
                         </UniformGrid>
 
                         <UniformGrid Columns="4" Margin="0,0,0,12">
-                            <Button Content="Cashier Register"
+                            <Button Content="POS Terminal"
                                     Style="{StaticResource Art.Button.Primary}"
                                     Command="{Binding OpenCashierRegisterCommand}"
                                     Margin="0,0,8,0"
-                                    ToolTip="Open the shared cart / checkout register (cash tender + change)" />
+                                    FocusVisualStyle="{x:Null}"
+                                    ToolTip="Open the shared touch POS terminal (cart, keypad, tender)" />
                             <Button Content="Inventory CRUD" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenInventoryCommand}" Margin="0,0,8,0" />
                             <Button Content="Stock alerts" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenStockAlertsCommand}" Margin="0,0,8,0" />
                             <Button Content="Users directory" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenUsersCommand}" />

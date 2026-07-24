@@ -37,6 +37,8 @@ public partial class CashierDashboardViewModel : ObservableObject
         _supervisorDialog = supervisorDialog;
         SelectedWorkspaceTab = 0;
         PaymentMethodOptions = new[] { "Cash", "Card", "MobileMoney", "Split" };
+        // Both Admin and Cashier land on the unified touch terminal by default.
+        ShowCashRegisterMode(enabled: true);
         _ = RefreshShiftAsync();
     }
 
@@ -65,13 +67,13 @@ public partial class CashierDashboardViewModel : ObservableObject
     private int _selectedWorkspaceTab;
 
     [ObservableProperty]
-    private bool _isCashRegisterMode;
+    private bool _isCashRegisterMode = true;
 
     [ObservableProperty]
-    private bool _isFullWorkspaceMode = true;
+    private bool _isFullWorkspaceMode;
 
     [ObservableProperty]
-    private string _workspaceModeToggleLabel = "Switch to Cash Register";
+    private string _workspaceModeToggleLabel = "Shift tools";
 
     [ObservableProperty]
     private string _statusMessage = "Cashier workspace ready.";
@@ -112,11 +114,11 @@ public partial class CashierDashboardViewModel : ObservableObject
     partial void OnIsCashRegisterModeChanged(bool value)
     {
         IsFullWorkspaceMode = !value;
-        WorkspaceModeToggleLabel = value ? "Back to Full Workspace" : "Switch to Cash Register";
+        WorkspaceModeToggleLabel = value ? "Shift tools" : "Cash Register";
         Checkout.IsCashRegisterMode = value;
         StatusMessage = value
-            ? "Cash Register mode — search inventory, tender cash, complete sale. Cart is preserved when you switch views."
-            : "Full workspace — split pay, refunds, shift tools, and queue available. Cart is preserved.";
+            ? "POS terminal — search, keypad tender, Paid to complete. Cart is preserved when you switch views."
+            : "Shift tools — split pay, refunds, Z-report, and queue. Cart is preserved.";
         if (value)
         {
             SelectedWorkspaceTab = 0;
@@ -345,7 +347,7 @@ public partial class CashierDashboardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenStandaloneCheckout() => _navigation.NavigateTo<CheckoutViewModel>();
+    private void OpenStandaloneCheckout() => ShowCashRegisterMode(enabled: true);
 
     [RelayCommand]
     private void OpenQueue() => _navigation.NavigateTo<QueueSyncStatusViewModel>();
