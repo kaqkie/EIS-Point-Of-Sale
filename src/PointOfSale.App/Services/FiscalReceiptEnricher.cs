@@ -12,9 +12,9 @@ public static class FiscalReceiptEnricher
     public const string OfflinePendingPlaceholder = "OFFLINE-QUEUED-PENDING-MRA-SYNC";
 
     public static bool IsOfflinePlaceholder(string? fiscalToken) =>
-        string.IsNullOrWhiteSpace(fiscalToken)
-        || fiscalToken.Contains("OFFLINE-QUEUED", StringComparison.OrdinalIgnoreCase)
-        || fiscalToken.Contains("PENDING-MRA-SYNC", StringComparison.OrdinalIgnoreCase);
+        !string.IsNullOrWhiteSpace(fiscalToken)
+        && (fiscalToken.Contains("OFFLINE-QUEUED", StringComparison.OrdinalIgnoreCase)
+            || fiscalToken.Contains("PENDING-MRA-SYNC", StringComparison.OrdinalIgnoreCase));
 
     public static SubmitSalesTransactionResponseData EnsurePrintableFiscalPayload(
         SubmitSalesTransactionResponseData response,

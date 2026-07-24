@@ -1,4 +1,3 @@
-using System.IO;
 using System.Printing;
 using System.Windows;
 using System.Windows.Controls;
@@ -9,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PointOfSale.App.Options;
 using PointOfSale.Mra.Contracts.Sales;
-using QRCoder;
 
 namespace PointOfSale.App.Services;
 
@@ -22,30 +20,27 @@ public interface IReceiptPrintingService
 public sealed class ReceiptPrintingService : IReceiptPrintingService
 {
     private readonly IThermalPrinterHardwareService _thermalPrinter;
+    private readonly IMraReceiptLayoutService _layoutService;
     private readonly ThermalPrinterOptions _thermalOptions;
     private readonly ILogger<ReceiptPrintingService> _logger;
 
     public ReceiptPrintingService(
         IThermalPrinterHardwareService thermalPrinter,
+        IMraReceiptLayoutService layoutService,
         IOptions<ThermalPrinterOptions> thermalOptions,
         ILogger<ReceiptPrintingService> logger)
     {
         _thermalPrinter = thermalPrinter;
+        _layoutService = layoutService;
         _thermalOptions = thermalOptions.Value;
         _logger = logger;
     }
 
     public ReceiptPrintResult BuildReceipt(ReceiptPrintRequest request)
     {
-        var fiscal = request.FiscalResponse is null
-            ? null
-            : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
-                request.FiscalResponse,
-                request.InvoiceNumber);
-        var fiscalSignature = fiscal?.ResolveFiscalSignature() ?? string.Empty;
-        var verificationUrl = fiscal?.VerificationUrl ?? string.Empty;
-        var isOfflinePending = FiscalReceiptEnricher.IsOfflinePlaceholder(fiscalSignature);
-        var qr = isOfflinePending ? null : CreateQrImage(verificationUrl);
+        var charactersPerLine = _thermalOptions.PaperWidthMm <= 58 ? 32 : 42;
+        var layout = _layoutService.Build(request, charactersPerLine);
+        var fiscal = layout.FiscalStatus;
         var pageWidth = PrintPageSizeGuard.ResolveThermalWidthDip(_thermalOptions.PaperWidthMm);
 
         var document = new FlowDocument
@@ -58,57 +53,57 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
             ColumnWidth = Math.Max(72, pageWidth - 16)
         };
 
-        document.Blocks.Add(Heading(request.TradingName));
-        foreach (var line in request.AddressLines)
+        foreach (var text in layout.HeaderLines)
         {
-            document.Blocks.Add(Line(line));
+            document.Blocks.Add(Mono(text));
         }
 
-        document.Blocks.Add(Line($"TIN: {request.SellerTin}"));
-        document.Blocks.Add(Line($"Invoice: {request.InvoiceNumber}"));
-        document.Blocks.Add(Line($"Date: {request.InvoiceDateTime:yyyy-MM-dd HH:mm}"));
-        document.Blocks.Add(Spacer());
-
-        foreach (var item in request.LineItems)
+        foreach (var text in layout.MetaLines)
         {
-            document.Blocks.Add(Line($"{item.Description}"));
-            document.Blocks.Add(Line($"  {item.Quantity:N2} x {item.UnitPrice:N2} = {item.Total:N2}  VAT {item.TotalVat:N2}"));
+            document.Blocks.Add(Mono(text));
         }
 
-        document.Blocks.Add(Spacer());
-        foreach (var tax in request.TaxBreakdown)
+        foreach (var item in layout.LineItems)
         {
-            document.Blocks.Add(Line($"Tax {tax.RateId}: taxable {tax.TaxableAmount:N2}  VAT {tax.TaxAmount:N2}"));
+            document.Blocks.Add(Mono(item.Description));
+            document.Blocks.Add(Mono(item.QuantityPriceLine));
+            document.Blocks.Add(Mono(item.VatBreakdownLine));
         }
 
-        document.Blocks.Add(Spacer());
-        document.Blocks.Add(Line($"Subtotal: {request.ResolveSubtotalNet():N2}"));
-        document.Blocks.Add(Line($"VAT (17.5%): {request.ResolveTotalVat():N2}"));
-        document.Blocks.Add(HeadingInline($"TOTAL: {request.InvoiceTotal:N2}"));
-        document.Blocks.Add(Line($"Tendered: {request.AmountTendered:N2}"));
-        document.Blocks.Add(Line($"Change: {request.ChangeDue:N2}"));
-        document.Blocks.Add(Spacer());
-
-        if (isOfflinePending)
+        foreach (var text in layout.TaxBreakdownLines)
         {
-            document.Blocks.Add(Line("MRA EIS status: OFFLINE — queued for sync"));
-            document.Blocks.Add(Line(Chunk(fiscalSignature, 32)));
-        }
-        else
-        {
-            document.Blocks.Add(Line("MRA EIS Fiscal Signature:"));
-            document.Blocks.Add(Line(Chunk(fiscalSignature, 32)));
-            if (!string.IsNullOrWhiteSpace(verificationUrl))
-            {
-                document.Blocks.Add(Line("Verify:"));
-                document.Blocks.Add(Line(Chunk(verificationUrl, 32)));
-                document.Blocks.Add(CreateQrBlock(qr));
-            }
+            document.Blocks.Add(Mono(text));
         }
 
-        document.Blocks.Add(Line("Thank you — Albert Retail Terminal"));
+        foreach (var text in layout.TotalsLines)
+        {
+            document.Blocks.Add(
+                text.StartsWith("TOTAL", StringComparison.Ordinal)
+                    ? HeadingInline(text)
+                    : Mono(text));
+        }
 
-        return new ReceiptPrintResult(document, qr, fiscalSignature, verificationUrl);
+        document.Blocks.Add(Heading(fiscal.Title.Trim('*').Trim()));
+        foreach (var text in fiscal.BodyLines)
+        {
+            document.Blocks.Add(Mono(text));
+        }
+
+        if (fiscal.IncludeQrCode && fiscal.QrCodeImage is not null)
+        {
+            document.Blocks.Add(CreateQrBlock(fiscal.QrCodeImage));
+        }
+
+        foreach (var text in layout.FooterLines)
+        {
+            document.Blocks.Add(Mono(text));
+        }
+
+        return new ReceiptPrintResult(
+            document,
+            fiscal.QrCodeImage,
+            fiscal.FiscalSignature,
+            fiscal.VerificationUrl ?? string.Empty);
     }
 
     public async Task PrintAsync(ReceiptPrintRequest request, CancellationToken cancellationToken = default)
@@ -160,25 +155,12 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
         return Task.CompletedTask;
     }
 
-    /// <summary>Finite height estimate from line count when content measurement is unavailable.</summary>
-    private static double EstimateReceiptHeightDip(ReceiptPrintRequest request)
+    private double EstimateReceiptHeightDip(ReceiptPrintRequest request)
     {
-        var fiscal = request.FiscalResponse is null
-            ? null
-            : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
-                request.FiscalResponse,
-                request.InvoiceNumber);
-        var hasQr = !string.IsNullOrWhiteSpace(fiscal?.VerificationUrl)
-            && !FiscalReceiptEnricher.IsOfflinePlaceholder(fiscal?.ResolveFiscalSignature());
-        var verificationLines = hasQr ? 10 : 0;
-        var lineCount =
-            10
-            + request.AddressLines.Count
-            + (request.LineItems.Count * 2)
-            + request.TaxBreakdown.Count
-            + verificationLines;
-        var qrBlock = hasQr ? 140 : 0;
-        var estimated = 96 + (lineCount * 18) + qrBlock;
+        var charactersPerLine = _thermalOptions.PaperWidthMm <= 58 ? 32 : 42;
+        var layout = _layoutService.Build(request, charactersPerLine);
+        var qrBlock = layout.FiscalStatus.IncludeQrCode ? 140 : 0;
+        var estimated = 96 + (layout.OrderedTextLines.Count * 16) + qrBlock;
         return PrintPageSizeGuard.Sanitize(
             estimated,
             PrintPageSizeGuard.DefaultReceiptHeightDip,
@@ -186,45 +168,18 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
             PrintPageSizeGuard.MaxPageHeightDip);
     }
 
-    private static BitmapSource? CreateQrImage(string verificationUrl)
+    private static BlockUIContainer CreateQrBlock(BitmapSource qr)
     {
-        if (string.IsNullOrWhiteSpace(verificationUrl))
+        return new BlockUIContainer
         {
-            return null;
-        }
-
-        using var generator = new QRCodeGenerator();
-        using var data = generator.CreateQrCode(verificationUrl, QRCodeGenerator.ECCLevel.Q);
-        var png = new PngByteQRCode(data);
-        var bytes = png.GetGraphic(4);
-
-        using var stream = new MemoryStream(bytes);
-        var image = new BitmapImage();
-        image.BeginInit();
-        image.StreamSource = stream;
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.EndInit();
-        image.Freeze();
-        return image;
-    }
-
-    private static BlockUIContainer CreateQrBlock(BitmapSource? qr)
-    {
-        var container = new BlockUIContainer();
-        if (qr is null)
-        {
-            return container;
-        }
-
-        var image = new Image
-        {
-            Source = qr,
-            Width = 120,
-            Height = 120,
-            HorizontalAlignment = HorizontalAlignment.Center
+            Child = new Image
+            {
+                Source = qr,
+                Width = 120,
+                Height = 120,
+                HorizontalAlignment = HorizontalAlignment.Center
+            }
         };
-        container.Child = image;
-        return container;
     }
 
     private static Paragraph Heading(string text) =>
@@ -240,26 +195,8 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
             Margin = new Thickness(0, 2, 0, 2)
         };
 
-    private static Paragraph Line(string text) =>
-        new(new Run(text)) { Margin = new Thickness(0, 0, 0, 2) };
-
-    private static Paragraph Spacer() => new(new Run(" ")) { Margin = new Thickness(0, 4, 0, 4) };
-
-    private static string Chunk(string value, int size)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        var parts = new List<string>();
-        for (var i = 0; i < value.Length; i += size)
-        {
-            parts.Add(value.Substring(i, Math.Min(size, value.Length - i)));
-        }
-
-        return string.Join(Environment.NewLine, parts);
-    }
+    private static Paragraph Mono(string text) =>
+        new(new Run(text)) { Margin = new Thickness(0, 0, 0, 1) };
 }
 
 public sealed class ReceiptPrintRequest

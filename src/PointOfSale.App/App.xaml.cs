@@ -179,6 +179,7 @@ public partial class App : Application
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
                 services.AddSingleton<IPosConfigurationService, PosConfigurationService>();
+                services.AddSingleton<IMraReceiptLayoutService, MraReceiptLayoutService>();
                 services.AddSingleton<IReceiptPrintingService, ReceiptPrintingService>();
 
                 services.AddTransient<CheckoutView>();

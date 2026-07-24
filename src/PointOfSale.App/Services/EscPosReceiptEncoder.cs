@@ -6,6 +6,7 @@ namespace PointOfSale.App.Services;
 
 /// <summary>
 /// Builds ESC/POS byte streams for 58mm/80mm thermal receipts including QR verification codes.
+/// Layout text comes from <see cref="MraReceiptLayoutService"/> so FlowDocument and ESC/POS stay aligned.
 /// </summary>
 public static class EscPosReceiptEncoder
 {
@@ -16,6 +17,7 @@ public static class EscPosReceiptEncoder
     }
 
     private static readonly Encoding PrinterEncoding;
+    private static readonly MraReceiptLayoutService LayoutService = new();
 
     public static byte[] Encode(ReceiptPrintRequest request, int charactersPerLine, bool highDensityMraQr = false)
     {
@@ -25,97 +27,32 @@ public static class EscPosReceiptEncoder
             charactersPerLine = 24;
         }
 
+        var layout = LayoutService.Build(request, charactersPerLine);
+        var fiscal = layout.FiscalStatus;
+
         using var buffer = new MemoryStream(2048);
         Write(buffer, Init());
-        Write(buffer, AlignCenter());
-        Write(buffer, Bold(true));
-        WriteLine(buffer, Truncate(request.TradingName, charactersPerLine));
-        Write(buffer, Bold(false));
-
-        foreach (var address in request.AddressLines.Where(a => !string.IsNullOrWhiteSpace(a)))
-        {
-            WriteLine(buffer, Truncate(address, charactersPerLine));
-        }
-
-        WriteLine(buffer, Truncate($"TIN: {request.SellerTin}", charactersPerLine));
         Write(buffer, AlignLeft());
-        WriteLine(buffer, Separator(charactersPerLine));
-        WriteLine(buffer, Truncate($"Invoice: {request.InvoiceNumber}", charactersPerLine));
-        WriteLine(buffer, Truncate($"Date: {request.InvoiceDateTime:yyyy-MM-dd HH:mm}", charactersPerLine));
-        WriteLine(buffer, Separator(charactersPerLine));
 
-        foreach (var item in request.LineItems)
+        foreach (var line in layout.OrderedTextLines)
         {
-            WriteLine(buffer, Truncate(item.Description, charactersPerLine));
-            var detail = $"{item.Quantity:N2} x {item.UnitPrice:N2}";
-            var amount = $"{item.Total:N2}";
-            WriteLine(buffer, Columns(detail, amount, charactersPerLine));
-            WriteLine(buffer, Truncate($"  VAT {item.TotalVat:N2}", charactersPerLine));
-        }
-
-        WriteLine(buffer, Separator(charactersPerLine));
-        foreach (var tax in request.TaxBreakdown)
-        {
-            WriteLine(buffer, Columns($"Tax {tax.RateId}", $"{tax.TaxAmount:N2}", charactersPerLine));
-            WriteLine(buffer, Truncate($"  Taxable {tax.TaxableAmount:N2}", charactersPerLine));
-        }
-
-        WriteLine(buffer, Columns("Subtotal", $"{request.ResolveSubtotalNet():N2}", charactersPerLine));
-        WriteLine(buffer, Columns("VAT 17.5%", $"{request.ResolveTotalVat():N2}", charactersPerLine));
-        Write(buffer, Bold(true));
-        WriteLine(buffer, Columns("TOTAL", $"{request.InvoiceTotal:N2}", charactersPerLine));
-        Write(buffer, Bold(false));
-        WriteLine(buffer, Columns("Tendered", $"{request.AmountTendered:N2}", charactersPerLine));
-        WriteLine(buffer, Columns("Change", $"{request.ChangeDue:N2}", charactersPerLine));
-
-        WriteLine(buffer, Separator(charactersPerLine));
-        var fiscal = request.FiscalResponse is null
-            ? null
-            : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
-                request.FiscalResponse,
-                request.InvoiceNumber);
-        var fiscalSignature = fiscal?.ResolveFiscalSignature() ?? string.Empty;
-        var verificationUrl = fiscal?.VerificationUrl ?? string.Empty;
-        var isOfflinePending = FiscalReceiptEnricher.IsOfflinePlaceholder(fiscalSignature);
-
-        Write(buffer, AlignCenter());
-        if (isOfflinePending)
-        {
-            WriteLine(buffer, "MRA EIS OFFLINE QUEUE");
-            Write(buffer, AlignLeft());
-            foreach (var chunk in Chunk(fiscalSignature, charactersPerLine))
-            {
-                WriteLine(buffer, chunk);
-            }
-        }
-        else
-        {
-            WriteLine(buffer, "MRA EIS Fiscal Signature");
-            Write(buffer, AlignLeft());
-            foreach (var chunk in Chunk(fiscalSignature, charactersPerLine))
-            {
-                WriteLine(buffer, chunk);
-            }
-
-            if (!string.IsNullOrWhiteSpace(verificationUrl))
+            if (fiscal.IncludeQrCode
+                && !string.IsNullOrWhiteSpace(fiscal.VerificationUrl)
+                && string.Equals(line, "Scan MRA verification QR", StringComparison.Ordinal))
             {
                 Write(buffer, AlignCenter());
                 WriteLine(buffer, "Scan to verify");
                 Write(buffer, highDensityMraQr
-                    ? BuildHighDensityQrCode(verificationUrl)
-                    : BuildQrCode(verificationUrl));
+                    ? BuildHighDensityQrCode(fiscal.VerificationUrl)
+                    : BuildQrCode(fiscal.VerificationUrl));
                 WriteLine(buffer, string.Empty);
                 Write(buffer, AlignLeft());
-                foreach (var chunk in Chunk(verificationUrl, charactersPerLine))
-                {
-                    WriteLine(buffer, chunk);
-                }
+                continue;
             }
+
+            WriteLine(buffer, line);
         }
 
-        Write(buffer, AlignCenter());
-        WriteLine(buffer, "Thank you");
-        WriteLine(buffer, "Albert Retail Terminal");
         Write(buffer, FeedAndCut());
         return buffer.ToArray();
     }
@@ -200,9 +137,9 @@ public static class EscPosReceiptEncoder
         Write(buffer, Bold(false));
         WriteLine(buffer, Truncate("Hardware peripheral test", charactersPerLine));
         Write(buffer, AlignLeft());
-        WriteLine(buffer, Separator(charactersPerLine));
+        WriteLine(buffer, new string('-', Math.Min(charactersPerLine, 64)));
         WriteLine(buffer, Truncate($"Printed: {DateTime.Now:yyyy-MM-dd HH:mm:ss}", charactersPerLine));
-        WriteLine(buffer, Truncate("ESC/POS · auto-cut · MRA QR", charactersPerLine));
+        WriteLine(buffer, Truncate($"VAT {MraReceiptLayoutService.StatutoryVatPercentLabel} · ESC/POS · MRA QR", charactersPerLine));
         Write(buffer, AlignCenter());
         WriteLine(buffer, "High-density MRA QR");
         Write(buffer, BuildHighDensityQrCode(
@@ -230,28 +167,6 @@ public static class EscPosReceiptEncoder
         stream.Write(bytes, 0, bytes.Length);
     }
 
-    private static string Separator(int width) => new('-', Math.Min(width, 64));
-
-    private static string Columns(string left, string right, int width)
-    {
-        left = Truncate(left, Math.Max(1, width - right.Length - 1));
-        var spaces = Math.Max(1, width - left.Length - right.Length);
-        return left + new string(' ', spaces) + right;
-    }
-
     private static string Truncate(string value, int max) =>
         string.IsNullOrEmpty(value) ? string.Empty : value.Length <= max ? value : value[..max];
-
-    private static IEnumerable<string> Chunk(string value, int size)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            yield break;
-        }
-
-        for (var i = 0; i < value.Length; i += size)
-        {
-            yield return value.Substring(i, Math.Min(size, value.Length - i));
-        }
-    }
 }
