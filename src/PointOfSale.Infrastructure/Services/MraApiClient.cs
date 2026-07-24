@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PointOfSale.Infrastructure.Http;
 using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Options;
@@ -12,32 +13,42 @@ namespace PointOfSale.Infrastructure.Services;
 
 /// <summary>
 /// MRA EIS HTTP client — Authorization JWT and optional x-signature (HMAC-SHA512, Base64).
-/// HttpClient lifetime/base address/timeout/Accept headers are owned by <c>IHttpClientFactory</c>
-/// (<see cref="Http.MraHttpClientFactory"/>); this type must not mutate client properties.
+/// Uses named <see cref="IHttpClientFactory"/> client <see cref="MraHttpClientFactory.ClientName"/>;
+/// each send obtains a factory client and never mutates BaseAddress/Timeout/DefaultRequestHeaders.
 /// </summary>
 public sealed class MraApiClient
 {
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly MraApiOptions _options;
     private readonly ILogger<MraApiClient> _logger;
     private readonly IAuditLoggingService? _auditLoggingService;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
 
     public MraApiClient(
-        HttpClient httpClient,
+        IHttpClientFactory httpClientFactory,
         IOptions<MraApiOptions> options,
         ILogger<MraApiClient> logger,
         IAuditLoggingService? auditLoggingService = null,
         MraRuntimeEnvironmentState? runtimeState = null)
     {
-        _httpClient = httpClient;
+        _httpClientFactory = httpClientFactory;
         _options = options.Value;
         _logger = logger;
         _auditLoggingService = auditLoggingService;
         _runtimeState = runtimeState;
-        // Do NOT set BaseAddress, Timeout, or DefaultRequestHeaders here.
-        // IHttpClientFactory configures those once in ConfigureHttpClient; mutating a
-        // started/reused HttpClient throws InvalidOperationException.
+    }
+
+    /// <summary>
+    /// Test/harness constructor — wraps a single <see cref="HttpClient"/> without mutating it.
+    /// </summary>
+    public MraApiClient(
+        HttpClient httpClient,
+        IOptions<MraApiOptions> options,
+        ILogger<MraApiClient> logger,
+        IAuditLoggingService? auditLoggingService = null,
+        MraRuntimeEnvironmentState? runtimeState = null)
+        : this(new FixedHttpClientFactory(httpClient), options, logger, auditLoggingService, runtimeState)
+    {
     }
 
     public async Task<EisApiResponse<TResponse>> PostAsync<TRequest, TResponse>(
@@ -121,12 +132,24 @@ public sealed class MraApiClient
         EnsureAbsoluteRequestUri(request);
         _logger.LogInformation("MRA EIS {Method} {Uri}", request.Method, request.RequestUri);
 
+        if (!string.IsNullOrWhiteSpace(auditRequestBody) &&
+            request.Method == HttpMethod.Post)
+        {
+            _logger.LogInformation(
+                "MRA EIS request payload for {Uri}: {RequestPayload}",
+                request.RequestUri,
+                TruncateForLog(auditRequestBody, max: 16000));
+        }
+
         var path = ResolveAuditPath(request.RequestUri);
         var started = Environment.TickCount64;
 
+        // Fresh factory client per call — never mutate Timeout/BaseAddress/headers on a shared instance.
+        var httpClient = _httpClientFactory.CreateClient(MraHttpClientFactory.ClientName);
+
         try
         {
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var durationMs = (int)Math.Min(int.MaxValue, Environment.TickCount64 - started);
 
@@ -228,8 +251,8 @@ public sealed class MraApiClient
             (int)statusCode,
             request.Method,
             request.RequestUri,
-            TruncateForLog(requestBody),
-            TruncateForLog(responseBody));
+            TruncateForLog(requestBody, max: 16000),
+            TruncateForLog(responseBody, max: 8000));
     }
 
     private static string TruncateForLog(string? value, int max = 4000)
@@ -340,6 +363,11 @@ public sealed class MraApiClient
 
         var relativePath = request.RequestUri?.ToString() ?? string.Empty;
         request.RequestUri = MraApiOptions.CombineEndpoint(baseUrl, relativePath);
+    }
+
+    private sealed class FixedHttpClientFactory(HttpClient client) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => client;
     }
 }
 

@@ -187,10 +187,16 @@ public sealed class MraApiException : Exception
 
     /// <summary>
     /// True when the HTTP failure looks like a permanent payload/validation rejection
-    /// (including sandbox 500s that embed field validation in the body).
+    /// (including sandbox 500s that embed field validation in the body, and opaque
+    /// ASP.NET <c>{"message":"An internal error occurred"}</c> responses that retrying will not fix).
     /// </summary>
     public bool LooksLikeValidationOrClientError()
     {
+        if (IsHttpClientLifetimeError())
+        {
+            return true;
+        }
+
         if (HttpStatusCode is >= 400 and < 500 and not 408 and not 429)
         {
             return true;
@@ -201,7 +207,57 @@ public sealed class MraApiException : Exception
             return false;
         }
 
-        return HasValidationSignals(ResponseBody);
+        return HasValidationSignals(ResponseBody) || IsOpaqueSandboxInternalError(ResponseBody);
+    }
+
+    /// <summary>
+    /// Detects the classic shared-HttpClient mutation fault so the queue can quarantine
+    /// instead of retrying forever.
+    /// </summary>
+    public bool IsHttpClientLifetimeError()
+    {
+        for (var current = (Exception?)this; current is not null; current = current.InnerException)
+        {
+            if (current is InvalidOperationException &&
+                current.Message.Contains("already started one or more requests", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Sandbox often returns HTTP 500 with only <c>{"message":"An internal error occurred"}</c>
+    /// when payload/schema/auth state is wrong — not a transient gateway blip.
+    /// </summary>
+    public static bool IsOpaqueSandboxInternalError(string? responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("message", out var message) &&
+                message.ValueKind == JsonValueKind.String)
+            {
+                var text = message.GetString();
+                return !string.IsNullOrWhiteSpace(text)
+                    && text.Contains("internal error occurred", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch (JsonException)
+        {
+            // Fall through.
+        }
+
+        return responseBody.Contains("An internal error occurred", StringComparison.OrdinalIgnoreCase)
+            && !HasValidationSignals(responseBody);
     }
 
     public static bool HasValidationSignals(string? responseBody)
@@ -331,6 +387,15 @@ public sealed class MraApiException : Exception
             if (root.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String)
             {
                 var text = NullIfWhiteSpace(t.GetString());
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    return text;
+                }
+            }
+
+            if (root.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String)
+            {
+                var text = NullIfWhiteSpace(message.GetString());
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     return text;

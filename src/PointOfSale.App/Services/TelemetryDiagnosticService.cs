@@ -86,7 +86,7 @@ public sealed class TelemetryDiagnosticService : ITelemetryDiagnosticService
         _options = options.Value;
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient(nameof(TelemetryDiagnosticService));
-        _httpClient.Timeout = ConnectionStatusService.ResolveProbeTimeout(_mraOptions.Value.HttpTimeout);
+        // Timeout is configured once via AddHttpClient — do not mutate after the client starts.
         EnsureDiagnosticDirectory();
     }
 

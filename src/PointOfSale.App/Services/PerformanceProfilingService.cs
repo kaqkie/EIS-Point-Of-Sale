@@ -63,7 +63,7 @@ public sealed class PerformanceProfilingService : IPerformanceProfilingService
         _options = options.Value;
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient(nameof(PerformanceProfilingService));
-        _httpClient.Timeout = TimeSpan.FromSeconds(Math.Max(5, _options.HttpTimeoutSeconds));
+        // Timeout is configured once via AddHttpClient — do not mutate after the client starts.
     }
 
     public event EventHandler<PerformanceProfileSnapshot>? SnapshotUpdated;

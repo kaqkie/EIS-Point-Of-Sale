@@ -17,6 +17,7 @@ public static class MraJson
             NumberHandling = JsonNumberHandling.AllowReadingFromString
         };
 
+        options.Converters.Add(new MraDateTimeJsonConverter());
         return options;
     }
 }

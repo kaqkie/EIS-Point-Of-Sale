@@ -55,7 +55,7 @@ public static class DependencyInjection
         services.AddScoped<IFiscalYearArchiveRepository, FiscalYearArchiveRepository>();
         services.AddScoped<IMultiTerminalSyncRepository, MultiTerminalSyncRepository>();
 
-        services.AddHttpClient<MraApiClient>()
+        services.AddHttpClient(MraHttpClientFactory.ClientName)
             .ConfigurePrimaryHttpMessageHandler(sp =>
             {
                 var opts = sp.GetRequiredService<IOptions<MraApiOptions>>().Value;
@@ -64,11 +64,10 @@ public static class DependencyInjection
             .ConfigureHttpClient((sp, client) =>
             {
                 var opts = sp.GetRequiredService<IOptions<MraApiOptions>>().Value;
-                var runtime = sp.GetService<MraRuntimeEnvironmentState>();
-                var baseUrl = runtime?.GetEffectiveBaseUrl(opts) ?? opts.ResolveBaseUrl();
-                MraHttpClientFactory.ConfigureClient(client, opts, baseUrl);
+                MraHttpClientFactory.ConfigureClient(client, opts);
             });
 
+        services.AddTransient<MraApiClient>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();

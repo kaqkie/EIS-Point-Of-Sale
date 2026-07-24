@@ -11,11 +11,15 @@ using PointOfSale.Mra.Options;
 namespace PointOfSale.Infrastructure.Http;
 
 /// <summary>
-/// Shared HttpClient wiring for MRA EIS — base address, TLS 1.2/1.3, timeouts, optional sandbox cert leniency.
-/// All client property mutation (BaseAddress / Timeout / Accept) happens here once via IHttpClientFactory.
+/// Shared HttpClient wiring for MRA EIS — TLS 1.2/1.3, timeouts, optional sandbox cert leniency.
+/// Named client <see cref="ClientName"/> is configured once via IHttpClientFactory.
+/// Callers must use absolute request URIs and must never mutate BaseAddress/Timeout/headers after send.
 /// </summary>
 public static class MraHttpClientFactory
 {
+    /// <summary>Named <see cref="IHttpClientFactory"/> client for all MRA EIS traffic.</summary>
+    public const string ClientName = "MraEis";
+
     /// <summary>Floor for HttpClient.Timeout — prevents premature offline fallbacks on slow sandbox links.</summary>
     public const int MinimumTimeoutSeconds = 30;
 
@@ -63,18 +67,15 @@ public static class MraHttpClientFactory
 
     /// <summary>
     /// One-time HttpClient property configuration for IHttpClientFactory.ConfigureHttpClient.
-    /// Must not be called again after the client has started sending requests.
+    /// Does not set <see cref="HttpClient.BaseAddress"/> — callers pass absolute URIs so runtime
+    /// environment switches never mutate a started client.
     /// </summary>
     public static void ConfigureClient(HttpClient client, MraApiOptions options, string? effectiveBaseUrl = null)
     {
+        _ = effectiveBaseUrl; // retained for call-site compatibility; absolute URIs are built per request
+
         // Always enforce ≥30s timeout (spec: TimeSpan.FromSeconds(30) floor).
         client.Timeout = ResolveTimeout(options);
-
-        var baseUrl = MraApiOptions.NormalizeBaseUrl(effectiveBaseUrl ?? options.ResolveBaseUrl());
-        if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
-        {
-            client.BaseAddress = baseUri;
-        }
 
         // Set Accept once during factory init — never from typed-client constructors after send.
         if (!client.DefaultRequestHeaders.Accept.Any(h =>

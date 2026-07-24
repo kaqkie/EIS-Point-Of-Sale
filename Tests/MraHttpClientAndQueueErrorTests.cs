@@ -1,6 +1,8 @@
+using System.Text.Json;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Http;
+using PointOfSale.Mra.Serialization;
 using Xunit;
 
 namespace PointOfSale.Tests;
@@ -34,10 +36,56 @@ public sealed class MraHttpClientAndQueueErrorTests
     }
 
     [Fact]
+    public void LooksLikeValidationOrClientError_True_ForOpaqueSandboxInternalError()
+    {
+        var ex = new MraApiException(
+            "MRA EIS HTTP 500: Internal Server Error — An internal error occurred",
+            500,
+            """{"message":"An internal error occurred"}""");
+
+        Assert.True(MraApiException.IsOpaqueSandboxInternalError(ex.ResponseBody));
+        Assert.True(ex.LooksLikeValidationOrClientError());
+    }
+
+    [Fact]
+    public void LooksLikeValidationOrClientError_True_ForHttpClientLifetimeFault()
+    {
+        var inner = new InvalidOperationException(
+            "This instance has already started one or more requests. Properties can only be modified before sending the first request.");
+        var ex = new MraApiException(
+            "MRA EIS request failed: InvalidOperationException: " + inner.Message,
+            httpStatusCode: 0,
+            responseBody: null,
+            inner: inner);
+
+        Assert.True(ex.IsHttpClientLifetimeError());
+        Assert.True(ex.LooksLikeValidationOrClientError());
+    }
+
+    [Fact]
     public void LooksLikeValidationOrClientError_False_ForEmptyInfrastructure500()
     {
         var ex = new MraApiException("MRA EIS HTTP 500: Internal Server Error", 500, "<html>Gateway error</html>");
         Assert.False(ex.LooksLikeValidationOrClientError());
+    }
+
+    [Fact]
+    public void MraJson_WritesInvoiceDateTime_WithMillisecondPrecisionAndZ()
+    {
+        var header = new InvoiceHeaderDto
+        {
+            InvoiceNumber = "ART-1",
+            InvoiceDateTime = new DateTime(2026, 7, 23, 7, 1, 36, 42, DateTimeKind.Utc)
+                .AddTicks(7521), // sub-millisecond noise that must be truncated
+            SellerTin = "1234567890",
+            SiteId = "SITE-01",
+            PaymentMethod = "Cash"
+        };
+
+        var json = JsonSerializer.Serialize(header, MraJson.SerializerOptions);
+
+        Assert.Contains("\"invoiceDateTime\":\"2026-07-23T07:01:36.042Z\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("0427521", json, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -48,7 +96,7 @@ public sealed class MraHttpClientAndQueueErrorTests
             InvoiceHeader = new InvoiceHeaderDto
             {
                 InvoiceNumber = " INV-1 ",
-                InvoiceDateTime = DateTime.UtcNow,
+                InvoiceDateTime = new DateTime(2026, 7, 23, 7, 1, 36, 42, DateTimeKind.Utc).AddTicks(7521),
                 SellerTin = " 123 ",
                 BuyerTin = "   ",
                 BuyerName = "",
@@ -93,5 +141,7 @@ public sealed class MraHttpClientAndQueueErrorTests
         Assert.Equal("P1", normalized.InvoiceLineItems[0].ProductCode);
         Assert.Null(normalized.InvoiceSummary.OfflineSignature);
         Assert.Equal("A", normalized.InvoiceSummary.TaxBreakDown[0].RateId);
+        Assert.Equal(0, normalized.InvoiceHeader.InvoiceDateTime.Ticks % TimeSpan.TicksPerMillisecond);
+        Assert.Equal(DateTimeKind.Utc, normalized.InvoiceHeader.InvoiceDateTime.Kind);
     }
 }

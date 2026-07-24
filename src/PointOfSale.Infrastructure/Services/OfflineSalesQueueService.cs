@@ -250,8 +250,23 @@ public sealed class OfflineSalesQueueService
         }
         catch (MraApiException ex) when (ex.LooksLikeValidationOrClientError())
         {
-            // HTTP 400 and sandbox 500s that embed validation details — quarantine instead of retry storm.
+            // HTTP 400, HttpClient lifetime faults, sandbox validation 500s, and opaque
+            // {"message":"An internal error occurred"} — quarantine instead of retry storm.
             var detail = TruncateError(ex.Message);
+            if (ex.IsHttpClientLifetimeError())
+            {
+                detail = TruncateError(
+                    "HttpClient lifetime fault (properties mutated after first request). " +
+                    "Resubmit after upgrade; do not share/mutate a started HttpClient. " + detail);
+            }
+            else if (MraApiException.IsOpaqueSandboxInternalError(ex.ResponseBody))
+            {
+                detail = TruncateError(
+                    "MRA sandbox rejected the payload (opaque internal error). " +
+                    "Verify sellerTIN, siteId, taxRateId, and config versions match terminal activation. " +
+                    "Full JSON was logged as RequestPayload. " + detail);
+            }
+
             await _queueRepository.MarkQuarantinedAsync(queueId, detail, cancellationToken)
                 .ConfigureAwait(false);
             _logger.LogWarning(
@@ -278,6 +293,14 @@ public sealed class OfflineSalesQueueService
                     cancellationToken)
                 .ConfigureAwait(false);
             return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, error);
+        }
+        catch (Exception ex) when (IsHttpClientLifetimeFault(ex))
+        {
+            var detail = TruncateError(
+                "HttpClient lifetime fault (properties mutated after first request). " + FormatQueueError(ex));
+            await _queueRepository.MarkQuarantinedAsync(queueId, detail, cancellationToken)
+                .ConfigureAwait(false);
+            return SaleQueueResult.Quarantined(queueId, payload.InvoiceHeader.InvoiceNumber, detail);
         }
         catch (Exception ex)
         {
@@ -344,7 +367,7 @@ public sealed class OfflineSalesQueueService
         var header = new InvoiceHeaderDto
         {
             InvoiceNumber = sourceHeader.InvoiceNumber.Trim(),
-            InvoiceDateTime = sourceHeader.InvoiceDateTime,
+            InvoiceDateTime = NormalizeInvoiceDateTime(sourceHeader.InvoiceDateTime),
             SellerTin = sourceHeader.SellerTin.Trim(),
             BuyerTin = NullIfWhiteSpace(sourceHeader.BuyerTin),
             BuyerName = NullIfWhiteSpace(sourceHeader.BuyerName),
@@ -456,6 +479,11 @@ public sealed class OfflineSalesQueueService
 
     private static bool IsTransientFailure(Exception ex)
     {
+        if (IsHttpClientLifetimeFault(ex))
+        {
+            return false;
+        }
+
         if (ex is HttpRequestException or TaskCanceledException or TimeoutException or IOException)
         {
             return true;
@@ -473,6 +501,20 @@ public sealed class OfflineSalesQueueService
         }
 
         return ex.InnerException is HttpRequestException or TaskCanceledException or TimeoutException;
+    }
+
+    private static bool IsHttpClientLifetimeFault(Exception ex)
+    {
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is InvalidOperationException &&
+                current.Message.Contains("already started one or more requests", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsPermanentBusinessFailure(SalesResult<SubmitSalesTransactionResponseData> submit) =>
@@ -493,6 +535,23 @@ public sealed class OfflineSalesQueueService
 
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// Forces UTC and truncates to whole milliseconds so Force Sync / Retry emit the MRA datetime shape.
+    /// </summary>
+    public static DateTime NormalizeInvoiceDateTime(DateTime value)
+    {
+        var utc = value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
+        return new DateTime(
+            utc.Ticks - (utc.Ticks % TimeSpan.TicksPerMillisecond),
+            DateTimeKind.Utc);
+    }
 
     private Task LogComplianceAsync(
         string category,

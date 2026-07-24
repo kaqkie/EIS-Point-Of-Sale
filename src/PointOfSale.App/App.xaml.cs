@@ -111,8 +111,14 @@ public partial class App : Application
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
-                services.AddHttpClient(nameof(TelemetryDiagnosticService));
-                services.AddHttpClient(nameof(PerformanceProfilingService));
+                services.AddHttpClient(nameof(TelemetryDiagnosticService), client =>
+                {
+                    client.Timeout = TimeSpan.FromSeconds(15);
+                });
+                services.AddHttpClient(nameof(PerformanceProfilingService), client =>
+                {
+                    client.Timeout = TimeSpan.FromSeconds(15);
+                });
                 services.AddHttpClient(nameof(MraProductionHandshakeService));
 
                 services.AddSingleton<IOfflineInvoiceSyncCompletedHandler, OfflineInvoiceSyncReceiptHandler>();
