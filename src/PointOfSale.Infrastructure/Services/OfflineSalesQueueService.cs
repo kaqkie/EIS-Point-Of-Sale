@@ -4,8 +4,10 @@ using Microsoft.Extensions.Options;
 using PointOfSale.Core.Compliance;
 using PointOfSale.Core.Constants;
 using PointOfSale.Core.Entities;
+using PointOfSale.Core.Pricing;
 using PointOfSale.Infrastructure.Options;
 using PointOfSale.Infrastructure.Repositories;
+using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Serialization;
@@ -16,6 +18,7 @@ public sealed class OfflineSalesQueueService
 {
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly SalesTransactionService _salesTransactionService;
+    private readonly IConfigurationRepository? _configurationRepository;
     private readonly IOfflineInvoiceSyncCompletedHandler? _syncCompletedHandler;
     private readonly IComplianceAuditLogger? _complianceAudit;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
@@ -29,7 +32,8 @@ public sealed class OfflineSalesQueueService
         ILogger<OfflineSalesQueueService> logger,
         IOfflineInvoiceSyncCompletedHandler? syncCompletedHandler = null,
         IComplianceAuditLogger? complianceAudit = null,
-        MraRuntimeEnvironmentState? runtimeState = null)
+        MraRuntimeEnvironmentState? runtimeState = null,
+        IConfigurationRepository? configurationRepository = null)
     {
         _queueRepository = queueRepository;
         _salesTransactionService = salesTransactionService;
@@ -38,6 +42,7 @@ public sealed class OfflineSalesQueueService
         _syncCompletedHandler = syncCompletedHandler;
         _complianceAudit = complianceAudit;
         _runtimeState = runtimeState;
+        _configurationRepository = configurationRepository;
     }
 
     public async Task<SaleQueueResult> EnqueueAndTrySubmitAsync(
@@ -45,6 +50,9 @@ public sealed class OfflineSalesQueueService
         bool forceOffline,
         CancellationToken cancellationToken = default)
     {
+        var identity = await LoadFiscalIdentityOverlayAsync(cancellationToken).ConfigureAwait(false);
+        request = NormalizeQueuedPayloadForResubmit(request, identity);
+
         await _salesTransactionService.ValidateSaleAgainstInventoryAsync(request, cancellationToken)
             .ConfigureAwait(false);
 
@@ -335,95 +343,156 @@ public sealed class OfflineSalesQueueService
         var deserialized = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(payloadJson, MraJson.SerializerOptions)
             ?? throw new InvalidOperationException($"Queue item {queueId} payload is invalid.");
 
-        var normalized = NormalizeQueuedPayloadForResubmit(deserialized);
+        var identity = await LoadFiscalIdentityOverlayAsync(cancellationToken).ConfigureAwait(false);
+        var normalized = NormalizeQueuedPayloadForResubmit(deserialized, identity);
         var normalizedJson = JsonSerializer.Serialize(normalized, MraJson.SerializerOptions);
         if (!string.Equals(payloadJson.Trim(), normalizedJson, StringComparison.Ordinal))
         {
             await _queueRepository.UpdatePayloadJsonAsync(queueId, normalizedJson, cancellationToken)
                 .ConfigureAwait(false);
             _logger.LogInformation(
-                "Normalized queue payload for item {QueueId} before MRA resubmit (length {Before} -> {After}).",
+                "Normalized queue payload for item {QueueId} before MRA resubmit (length {Before} -> {After}). sellerTIN={Tin} siteId={SiteId} taxRates={TaxRates}",
                 queueId,
                 payloadJson.Length,
-                normalizedJson.Length);
+                normalizedJson.Length,
+                normalized.InvoiceHeader.SellerTin,
+                normalized.InvoiceHeader.SiteId,
+                string.Join(",", normalized.InvoiceLineItems.Select(l => l.TaxRateId).Distinct()));
         }
 
         return normalized;
     }
 
     /// <summary>
-    /// Round-trips through the current serializer and cleans empty optional strings / line ids
-    /// so Force Sync and Retry send a stable payload structure.
+    /// Round-trips through the current serializer and aligns MRA fiscal fields
+    /// (site codes, taxRateId A, config versions, 2-dp money) for Force Sync / Retry.
     /// </summary>
-    public static SubmitSalesTransactionRequest NormalizeQueuedPayloadForResubmit(SubmitSalesTransactionRequest request)
+    public static SubmitSalesTransactionRequest NormalizeQueuedPayloadForResubmit(
+        SubmitSalesTransactionRequest request,
+        MraFiscalIdentityOverlay? identity = null) =>
+        MraFiscalPayloadNormalizer.Normalize(request, identity);
+
+    private async Task<MraFiscalIdentityOverlay?> LoadFiscalIdentityOverlayAsync(CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var roundTripJson = JsonSerializer.Serialize(request, MraJson.SerializerOptions);
-        var normalized = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(roundTripJson, MraJson.SerializerOptions)
-            ?? request;
-
-        var sourceHeader = normalized.InvoiceHeader;
-        var header = new InvoiceHeaderDto
+        if (_configurationRepository is null)
         {
-            InvoiceNumber = sourceHeader.InvoiceNumber.Trim(),
-            InvoiceDateTime = NormalizeInvoiceDateTime(sourceHeader.InvoiceDateTime),
-            SellerTin = sourceHeader.SellerTin.Trim(),
-            BuyerTin = NullIfWhiteSpace(sourceHeader.BuyerTin),
-            BuyerName = NullIfWhiteSpace(sourceHeader.BuyerName),
-            BuyerAuthorizationCode = NullIfWhiteSpace(sourceHeader.BuyerAuthorizationCode),
-            SiteId = sourceHeader.SiteId.Trim(),
-            GlobalConfigVersion = sourceHeader.GlobalConfigVersion,
-            TaxpayerConfigVersion = sourceHeader.TaxpayerConfigVersion,
-            TerminalConfigVersion = sourceHeader.TerminalConfigVersion,
-            IsReliefSupply = sourceHeader.IsReliefSupply,
-            Vat5CertificateDetails = sourceHeader.Vat5CertificateDetails,
-            PaymentMethod = sourceHeader.PaymentMethod.Trim()
-        };
+            return new MraFiscalIdentityOverlay(StandardTaxRateId: MraTaxRateCodes.StandardVat);
+        }
 
-        var lines = normalized.InvoiceLineItems
-            .Select((line, index) => new InvoiceLineItemDto
+        try
+        {
+            var globalJson = await _configurationRepository
+                .GetJsonAsync(MraConfigurationKeys.GlobalConfiguration, cancellationToken)
+                .ConfigureAwait(false);
+            var terminalJson = await _configurationRepository
+                .GetJsonAsync(MraConfigurationKeys.TerminalConfiguration, cancellationToken)
+                .ConfigureAwait(false);
+            var taxpayerJson = await _configurationRepository
+                .GetJsonAsync(MraConfigurationKeys.TaxpayerConfiguration, cancellationToken)
+                .ConfigureAwait(false);
+            var siteOverride = await _configurationRepository
+                .GetJsonAsync(DeploymentConfigurationKeys.SiteIdOverride, cancellationToken)
+                .ConfigureAwait(false);
+            var tinOverride = await _configurationRepository
+                .GetJsonAsync(DeploymentConfigurationKeys.TaxpayerTin, cancellationToken)
+                .ConfigureAwait(false);
+
+            var global = string.IsNullOrWhiteSpace(globalJson)
+                ? null
+                : JsonSerializer.Deserialize<GlobalConfigurationDto>(globalJson, MraJson.SerializerOptions);
+            var terminal = string.IsNullOrWhiteSpace(terminalJson)
+                ? null
+                : JsonSerializer.Deserialize<TerminalConfigurationDto>(terminalJson, MraJson.SerializerOptions);
+            var taxpayer = string.IsNullOrWhiteSpace(taxpayerJson)
+                ? null
+                : JsonSerializer.Deserialize<TaxpayerConfigurationDto>(taxpayerJson, MraJson.SerializerOptions);
+
+            var rates = global?.TaxRates?
+                .Where(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate > 0m)
+                .Select(r => (Id: r.Id!.Trim(), Rate: r.Rate))
+                .ToList();
+
+            var standardFromRate = rates?.FirstOrDefault(r => r.Rate is >= 16m and <= 18m);
+            var standardId = !string.IsNullOrWhiteSpace(standardFromRate?.Id)
+                ? standardFromRate.Value.Id
+                : taxpayer?.ActivatedTaxRateIds?.FirstOrDefault(id =>
+                    !string.IsNullOrWhiteSpace(id)
+                    && id.Trim().Equals(MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase))
+                ?? MraTaxRateCodes.StandardVat;
+
+            var siteId = FirstNonEmpty(
+                terminal?.TerminalSite?.SiteId,
+                ExtractConfiguredString(siteOverride));
+            var sellerTin = FirstNonEmpty(
+                taxpayer?.Tin,
+                ExtractConfiguredString(tinOverride));
+
+            return new MraFiscalIdentityOverlay(
+                SellerTin: sellerTin,
+                SiteId: siteId,
+                GlobalConfigVersion: global?.VersionNo,
+                TaxpayerConfigVersion: taxpayer?.VersionNo,
+                TerminalConfigVersion: terminal?.VersionNo,
+                StandardTaxRateId: standardId,
+                ConfiguredTaxRates: rates);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not load fiscal identity overlay for payload normalize; using defaults.");
+            return new MraFiscalIdentityOverlay(StandardTaxRateId: MraTaxRateCodes.StandardVat);
+        }
+    }
+
+    private static string? ExtractConfiguredString(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var trimmed = raw.Trim();
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            if (doc.RootElement.ValueKind == JsonValueKind.String)
             {
-                Id = index + 1,
-                ProductCode = line.ProductCode.Trim(),
-                Description = line.Description.Trim(),
-                UnitPrice = line.UnitPrice,
-                Quantity = line.Quantity,
-                Discount = line.Discount,
-                Total = line.Total,
-                TotalVat = line.TotalVat,
-                TaxRateId = line.TaxRateId.Trim(),
-                IsProduct = line.IsProduct
-            })
-            .ToList();
+                return NullIfWhiteSpace(doc.RootElement.GetString());
+            }
 
-        var summary = normalized.InvoiceSummary with
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in doc.RootElement.EnumerateObject())
+                {
+                    if (property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        var value = NullIfWhiteSpace(property.Value.GetString());
+                        if (value is not null)
+                        {
+                            return value;
+                        }
+                    }
+                }
+            }
+        }
+        catch (JsonException)
         {
-            OfflineSignature = NullIfWhiteSpace(normalized.InvoiceSummary.OfflineSignature),
-            TaxBreakDown = normalized.InvoiceSummary.TaxBreakDown
-                .Select(t => new TaxBreakDownDto
-                {
-                    RateId = t.RateId.Trim(),
-                    TaxableAmount = t.TaxableAmount,
-                    TaxAmount = t.TaxAmount
-                })
-                .ToList(),
-            LevyBreakDown = normalized.InvoiceSummary.LevyBreakDown?
-                .Select(l => new LevyBreakDownDto
-                {
-                    LevyTypeId = l.LevyTypeId.Trim(),
-                    LevyRate = l.LevyRate,
-                    LevyAmount = l.LevyAmount
-                })
-                .ToList()
-        };
+            return NullIfWhiteSpace(trimmed.Trim('"'));
+        }
 
-        return normalized with
+        return null;
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
         {
-            InvoiceHeader = header,
-            InvoiceLineItems = lines,
-            InvoiceSummary = summary
-        };
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
     }
 
     private async Task<SubmitSalesTransactionRequest> PreparePayloadAsync(

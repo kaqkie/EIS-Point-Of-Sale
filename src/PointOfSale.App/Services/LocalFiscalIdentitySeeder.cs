@@ -21,9 +21,11 @@ public static class LocalFiscalIdentitySeeder
         string? tradingName,
         CancellationToken cancellationToken = default)
     {
-        var resolvedSite = PosConfigurationService.NormalizeConfiguredValue(siteId)
+        var resolvedSiteName = PosConfigurationService.NormalizeConfiguredValue(siteId)
             ?? PosConfigurationService.NormalizeConfiguredValue(branchId)
             ?? "SITE-LOCAL";
+        // MRA expects site codes (SITE-…); convert human labels like "City Center".
+        var resolvedSite = PointOfSale.Infrastructure.Services.MraFiscalPayloadNormalizer.NormalizeSiteId(resolvedSiteName);
         // Prefer configured TIN; in sandbox allow the developer seed so trial selling can proceed.
         var resolvedTin = PosConfigurationService.NormalizeTaxpayerTin(taxpayerTin, allowSandboxDeveloperTin: true);
         var resolvedBranch = PosConfigurationService.NormalizeConfiguredValue(branchId) ?? "LOCAL";
@@ -105,7 +107,7 @@ public static class LocalFiscalIdentitySeeder
                 TerminalSite = new TerminalSiteDto
                 {
                     SiteId = resolvedSite,
-                    SiteName = resolvedSite
+                    SiteName = resolvedSiteName
                 },
                 OfflineLimit = new OfflineLimitDto
                 {

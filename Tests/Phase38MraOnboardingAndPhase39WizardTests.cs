@@ -118,7 +118,10 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
 
         Assert.Equal("2007123456", ctx.SellerTin);
         Assert.Equal("City Center", ctx.SiteId);
+        Assert.Equal("SITE-CITY-CENTER", ctx.FiscalSiteId);
         Assert.Equal("Lilongwe", ctx.BranchId);
+        Assert.Equal(1, ctx.GlobalConfigVersion);
+        Assert.Equal("A", ctx.StandardVatTaxRateId);
         Assert.True(ctx.HasRequiredSalesIdentity);
     }
 

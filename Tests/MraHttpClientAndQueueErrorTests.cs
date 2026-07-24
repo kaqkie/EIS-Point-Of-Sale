@@ -1,8 +1,7 @@
-using System.Text.Json;
+using PointOfSale.Core.Pricing;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Http;
-using PointOfSale.Mra.Serialization;
 using Xunit;
 
 namespace PointOfSale.Tests;
@@ -76,20 +75,37 @@ public sealed class MraHttpClientAndQueueErrorTests
         {
             InvoiceNumber = "ART-1",
             InvoiceDateTime = new DateTime(2026, 7, 23, 7, 1, 36, 42, DateTimeKind.Utc)
-                .AddTicks(7521), // sub-millisecond noise that must be truncated
+                .AddTicks(7521),
             SellerTin = "1234567890",
             SiteId = "SITE-01",
             PaymentMethod = "Cash"
         };
 
-        var json = JsonSerializer.Serialize(header, MraJson.SerializerOptions);
+        var json = System.Text.Json.JsonSerializer.Serialize(header, PointOfSale.Mra.Serialization.MraJson.SerializerOptions);
 
         Assert.Contains("\"invoiceDateTime\":\"2026-07-23T07:01:36.042Z\"", json, StringComparison.Ordinal);
         Assert.DoesNotContain("0427521", json, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void NormalizeQueuedPayload_TrimsAndDropsEmptyOptionalFields()
+    public void NormalizeSiteId_ConvertsDisplayNamesToSiteCodes()
+    {
+        Assert.Equal("SITE-CITY-CENTER", MraFiscalPayloadNormalizer.NormalizeSiteId("City Center"));
+        Assert.Equal("SITE-01", MraFiscalPayloadNormalizer.NormalizeSiteId("SITE-01"));
+        Assert.Equal("SITE001", MraFiscalPayloadNormalizer.NormalizeSiteId("SITE001"));
+    }
+
+    [Fact]
+    public void MraTaxRateCodes_MapsLegacyT_ToStandardA()
+    {
+        Assert.Equal(MraTaxRateCodes.StandardVat, MraTaxRateCodes.Normalize("T"));
+        Assert.Equal(MraTaxRateCodes.StandardVat, MraTaxRateCodes.Normalize(null));
+        Assert.Equal("A", MraTaxRateCodes.Normalize("A"));
+        Assert.Equal(17.5m, MraTaxRateCodes.ResolveRatePercent("A", [("A", 17.5m)]));
+    }
+
+    [Fact]
+    public void NormalizeQueuedPayload_AlignsFiscalFieldsForMra()
     {
         var request = new SubmitSalesTransactionRequest
         {
@@ -97,10 +113,13 @@ public sealed class MraHttpClientAndQueueErrorTests
             {
                 InvoiceNumber = " INV-1 ",
                 InvoiceDateTime = new DateTime(2026, 7, 23, 7, 1, 36, 42, DateTimeKind.Utc).AddTicks(7521),
-                SellerTin = " 123 ",
+                SellerTin = " 1234567890 ",
                 BuyerTin = "   ",
                 BuyerName = "",
-                SiteId = " SITE ",
+                SiteId = " City Center ",
+                GlobalConfigVersion = 0,
+                TaxpayerConfigVersion = 0,
+                TerminalConfigVersion = 0,
                 PaymentMethod = " Cash "
             },
             InvoiceLineItems =
@@ -110,7 +129,7 @@ public sealed class MraHttpClientAndQueueErrorTests
                     Id = 99,
                     ProductCode = " P1 ",
                     Description = " Item ",
-                    TaxRateId = " A ",
+                    TaxRateId = " T ",
                     Quantity = 1,
                     UnitPrice = 100,
                     Total = 100,
@@ -121,7 +140,7 @@ public sealed class MraHttpClientAndQueueErrorTests
             {
                 TaxBreakDown =
                 [
-                    new TaxBreakDownDto { RateId = " A ", TaxableAmount = 100, TaxAmount = 17.5m }
+                    new TaxBreakDownDto { RateId = " T ", TaxableAmount = 100, TaxAmount = 17.5m }
                 ],
                 OfflineSignature = "  ",
                 TotalVat = 17.5m,
@@ -130,17 +149,29 @@ public sealed class MraHttpClientAndQueueErrorTests
             }
         };
 
-        var normalized = OfflineSalesQueueService.NormalizeQueuedPayloadForResubmit(request);
+        var normalized = OfflineSalesQueueService.NormalizeQueuedPayloadForResubmit(
+            request,
+            new MraFiscalIdentityOverlay(
+                SellerTin: "1234567890",
+                SiteId: "City Center",
+                GlobalConfigVersion: 1,
+                TaxpayerConfigVersion: 1,
+                TerminalConfigVersion: 1,
+                StandardTaxRateId: "A",
+                ConfiguredTaxRates: [("A", 17.5m)]));
 
         Assert.Equal("INV-1", normalized.InvoiceHeader.InvoiceNumber);
-        Assert.Equal("123", normalized.InvoiceHeader.SellerTin);
+        Assert.Equal("1234567890", normalized.InvoiceHeader.SellerTin);
         Assert.Null(normalized.InvoiceHeader.BuyerTin);
         Assert.Null(normalized.InvoiceHeader.BuyerName);
         Assert.Equal("Cash", normalized.InvoiceHeader.PaymentMethod);
+        Assert.Equal("SITE-CITY-CENTER", normalized.InvoiceHeader.SiteId);
+        Assert.Equal(1, normalized.InvoiceHeader.GlobalConfigVersion);
         Assert.Equal(1, normalized.InvoiceLineItems[0].Id);
         Assert.Equal("P1", normalized.InvoiceLineItems[0].ProductCode);
-        Assert.Null(normalized.InvoiceSummary.OfflineSignature);
+        Assert.Equal("A", normalized.InvoiceLineItems[0].TaxRateId);
         Assert.Equal("A", normalized.InvoiceSummary.TaxBreakDown[0].RateId);
+        Assert.Null(normalized.InvoiceSummary.OfflineSignature);
         Assert.Equal(0, normalized.InvoiceHeader.InvoiceDateTime.Ticks % TimeSpan.TicksPerMillisecond);
         Assert.Equal(DateTimeKind.Utc, normalized.InvoiceHeader.InvoiceDateTime.Kind);
     }

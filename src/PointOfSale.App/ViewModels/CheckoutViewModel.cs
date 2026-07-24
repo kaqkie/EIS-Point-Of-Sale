@@ -849,34 +849,10 @@ public partial class CheckoutViewModel : ObservableObject
                 RecalculateTotals();
             }
 
-            var lineItems = CartItems.Select((x, index) => x.ToInvoiceLine(index + 1)).ToList();
-            var request = new SubmitSalesTransactionRequest
-            {
-                InvoiceHeader = new InvoiceHeaderDto
-                {
-                    InvoiceNumber = invoiceNumber,
-                    InvoiceDateTime = DateTime.UtcNow,
-                    SellerTin = context.SellerTin,
-                    SiteId = context.SiteId,
-                    GlobalConfigVersion = context.GlobalConfigVersion,
-                    TaxpayerConfigVersion = context.TaxpayerConfigVersion,
-                    TerminalConfigVersion = context.TerminalConfigVersion,
-                    PaymentMethod = PaymentMethod
-                },
-                InvoiceLineItems = lineItems,
-                InvoiceSummary = new InvoiceSummaryDto
-                {
-                    TaxBreakDown = TaxLines.Select(t => new TaxBreakDownDto
-                    {
-                        RateId = t.RateId,
-                        TaxableAmount = t.TaxableAmount,
-                        TaxAmount = t.TaxAmount
-                    }).ToList(),
-                    TotalVat = CartTaxTotal,
-                    InvoiceTotal = CartGrandTotal,
-                    AmountTendered = AmountTendered
-                }
-            };
+            ApplyFiscalRatesFromContext(context);
+            RecalculateTotals();
+
+            var request = BuildSubmitSalesRequest(context, invoiceNumber);
 
             var result = await _offlineSalesQueueService
                 .EnqueueAndTrySubmitAsync(request, forceOffline)
@@ -986,34 +962,9 @@ public partial class CheckoutViewModel : ObservableObject
             }
 
             var invoiceNumber = $"ART-{DateTime.Now:yyyyMMddHHmmss}";
-            var lineItems = CartItems.Select((x, index) => x.ToInvoiceLine(index + 1)).ToList();
-            var request = new SubmitSalesTransactionRequest
-            {
-                InvoiceHeader = new InvoiceHeaderDto
-                {
-                    InvoiceNumber = invoiceNumber,
-                    InvoiceDateTime = DateTime.UtcNow,
-                    SellerTin = context.SellerTin,
-                    SiteId = context.SiteId,
-                    GlobalConfigVersion = context.GlobalConfigVersion,
-                    TaxpayerConfigVersion = context.TaxpayerConfigVersion,
-                    TerminalConfigVersion = context.TerminalConfigVersion,
-                    PaymentMethod = PaymentMethod
-                },
-                InvoiceLineItems = lineItems,
-                InvoiceSummary = new InvoiceSummaryDto
-                {
-                    TaxBreakDown = TaxLines.Select(t => new TaxBreakDownDto
-                    {
-                        RateId = t.RateId,
-                        TaxableAmount = t.TaxableAmount,
-                        TaxAmount = t.TaxAmount
-                    }).ToList(),
-                    TotalVat = CartTaxTotal,
-                    InvoiceTotal = CartGrandTotal,
-                    AmountTendered = AmountTendered
-                }
-            };
+            ApplyFiscalRatesFromContext(context);
+            RecalculateTotals();
+            var request = BuildSubmitSalesRequest(context, invoiceNumber);
 
             var result = await _offlineSalesQueueService
                 .EnqueueAndTrySubmitAsync(request, forceOffline: true)
@@ -1130,6 +1081,65 @@ public partial class CheckoutViewModel : ObservableObject
         }
     }
 
+    private void ApplyFiscalRatesFromContext(PosRuntimeContext context)
+    {
+        foreach (var cartLine in CartItems)
+        {
+            var rateId = MraTaxRateCodes.Normalize(cartLine.TaxRateId);
+            cartLine.TaxRateId = rateId.Equals(MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase)
+                ? context.StandardVatTaxRateId
+                : rateId;
+            cartLine.VatRatePercent = context.ResolveVatRatePercent(cartLine.TaxRateId);
+            cartLine.RefreshTotals();
+        }
+    }
+
+    private SubmitSalesTransactionRequest BuildSubmitSalesRequest(PosRuntimeContext context, string invoiceNumber)
+    {
+        var lineItems = CartItems.Select((x, index) => x.ToInvoiceLine(index + 1)).ToList();
+        var request = new SubmitSalesTransactionRequest
+        {
+            InvoiceHeader = new InvoiceHeaderDto
+            {
+                InvoiceNumber = invoiceNumber,
+                InvoiceDateTime = DateTime.UtcNow,
+                SellerTin = context.SellerTin,
+                SiteId = context.FiscalSiteId,
+                GlobalConfigVersion = context.GlobalConfigVersion,
+                TaxpayerConfigVersion = context.TaxpayerConfigVersion,
+                TerminalConfigVersion = context.TerminalConfigVersion,
+                PaymentMethod = PaymentMethod
+            },
+            InvoiceLineItems = lineItems,
+            InvoiceSummary = new InvoiceSummaryDto
+            {
+                TaxBreakDown = TaxLines.Select(t => new TaxBreakDownDto
+                {
+                    RateId = t.RateId,
+                    TaxableAmount = t.TaxableAmount,
+                    TaxAmount = t.TaxAmount
+                }).ToList(),
+                TotalVat = CartTaxTotal,
+                InvoiceTotal = CartGrandTotal,
+                AmountTendered = AmountTendered
+            }
+        };
+
+        return OfflineSalesQueueService.NormalizeQueuedPayloadForResubmit(
+            request,
+            new MraFiscalIdentityOverlay(
+                SellerTin: context.SellerTin,
+                SiteId: context.FiscalSiteId,
+                GlobalConfigVersion: context.GlobalConfigVersion,
+                TaxpayerConfigVersion: context.TaxpayerConfigVersion,
+                TerminalConfigVersion: context.TerminalConfigVersion,
+                StandardTaxRateId: context.StandardVatTaxRateId,
+                ConfiguredTaxRates: context.Global?.TaxRates?
+                    .Where(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate > 0m)
+                    .Select(r => (r.Id!.Trim(), r.Rate))
+                    .ToList()));
+    }
+
     private async Task PrintReceiptAsync(
         SubmitSalesTransactionRequest request,
         SubmitSalesTransactionResponseData response)
@@ -1218,9 +1228,9 @@ public partial class CartLineViewModel : ObservableObject
 
     public required string ProductCode { get; init; }
     public required string Description { get; init; }
-    public required string TaxRateId { get; init; }
+    public required string TaxRateId { get; set; }
     public decimal UnitPrice { get; init; }
-    public decimal VatRatePercent { get; init; }
+    public decimal VatRatePercent { get; set; }
 
     public decimal GrossNet => PosTaxCalculator.CalculateNetAmount(UnitPrice, Quantity);
     public decimal NetBeforeLoyalty => PosTaxCalculator.RoundMoney(Math.Max(0m, GrossNet - PromoDiscountNet));
@@ -1235,7 +1245,7 @@ public partial class CartLineViewModel : ObservableObject
         {
             ProductCode = product.ProductCode,
             Description = product.Name,
-            TaxRateId = product.TaxRateId ?? "T",
+            TaxRateId = MraTaxRateCodes.Normalize(product.TaxRateId),
             UnitPrice = product.UnitPrice,
             VatRatePercent = PosTaxCalculator.MalawiStandardVatRatePercent,
             Quantity = quantity

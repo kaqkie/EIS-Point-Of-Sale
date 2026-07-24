@@ -247,6 +247,10 @@ public sealed record PosRuntimeContext(
         ?? PosConfigurationService.NormalizeConfiguredValue(Deployment?.SiteId)
         ?? string.Empty;
 
+    /// <summary>Site id formatted for MRA EIS submit (e.g. <c>SITE-CITY-CENTER</c>).</summary>
+    public string FiscalSiteId =>
+        PointOfSale.Infrastructure.Services.MraFiscalPayloadNormalizer.NormalizeSiteId(SiteId);
+
     public string BranchId =>
         PosConfigurationService.NormalizeConfiguredValue(DeploymentBranchId)
         ?? PosConfigurationService.NormalizeConfiguredValue(Deployment?.BranchId)
@@ -258,8 +262,40 @@ public sealed record PosRuntimeContext(
         && !string.IsNullOrWhiteSpace(SiteId)
         && !string.IsNullOrWhiteSpace(SellerTin);
 
-    public int GlobalConfigVersion => Global?.VersionNo ?? 0;
-    public int TerminalConfigVersion => Terminal?.VersionNo ?? 0;
-    public int TaxpayerConfigVersion => Taxpayer?.VersionNo ?? 0;
+    public int GlobalConfigVersion => Global?.VersionNo > 0 ? Global.VersionNo : 1;
+    public int TerminalConfigVersion => Terminal?.VersionNo > 0 ? Terminal.VersionNo : 1;
+    public int TaxpayerConfigVersion => Taxpayer?.VersionNo > 0 ? Taxpayer.VersionNo : 1;
+
+    /// <summary>MRA taxRateId for the standard VAT tier — prefers configured 16–18% rate, else <c>A</c>.</summary>
+    public string StandardVatTaxRateId
+    {
+        get
+        {
+            var fromRates = Global?.TaxRates?
+                .FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate is >= 16m and <= 18m)
+                ?.Id;
+            if (!string.IsNullOrWhiteSpace(fromRates))
+            {
+                return fromRates.Trim();
+            }
+
+            var activated = Taxpayer?.ActivatedTaxRateIds?
+                .FirstOrDefault(id =>
+                    !string.IsNullOrWhiteSpace(id)
+                    && id.Trim().Equals(PointOfSale.Core.Pricing.MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase));
+            return string.IsNullOrWhiteSpace(activated)
+                ? PointOfSale.Core.Pricing.MraTaxRateCodes.StandardVat
+                : activated.Trim();
+        }
+    }
+
+    public decimal ResolveVatRatePercent(string? taxRateId)
+    {
+        var rates = Global?.TaxRates?
+            .Where(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate > 0m)
+            .Select(r => (r.Id!.Trim(), r.Rate));
+        return PointOfSale.Core.Pricing.MraTaxRateCodes.ResolveRatePercent(taxRateId, rates);
+    }
+
     public IReadOnlyList<string> AddressLines => Terminal?.AddressLines ?? Array.Empty<string>();
 }
