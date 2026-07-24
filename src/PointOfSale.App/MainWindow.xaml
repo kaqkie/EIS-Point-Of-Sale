@@ -129,9 +129,13 @@
                             <Button Content="Admin home"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateAdminHomeCommand}" />
-                            <Button Content="Open POS"
+                            <Button Content="Cashier Register"
                                     Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigatePosTerminalCommand}"
+                                    Command="{Binding NavigateCashierRegisterCommand}"
+                                    Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Content="POS workspace"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigatePosWorkspaceCommand}"
                                     Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
                             <Button Content="Inventory"
                                     Style="{StaticResource Art.Nav.Admin}"

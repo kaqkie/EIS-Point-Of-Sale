@@ -111,11 +111,34 @@
                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <TextBlock Text="{Binding CartTaxTotal, StringFormat='VAT (17.5%): {0:N2}'}" FontSize="16" />
                         <TextBlock Text="{Binding CartGrandTotal, StringFormat='Total: {0:N2}'}" FontSize="20" FontWeight="Bold" Margin="0,4,0,4" />
-                        <TextBlock Text="{Binding ChangeDue, StringFormat='Change: {0:N2}'}"
-                                   FontSize="18"
+                        <TextBlock Text="{Binding TenderStatusMessage}"
+                                   FontSize="16"
                                    FontWeight="SemiBold"
+                                   Margin="0,0,0,4"
+                                   TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#047857" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasInsufficientTender}" Value="True">
+                                            <Setter Property="Foreground" Value="#B91C1C" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Text="{Binding ChangeDue, StringFormat='Change due: {0:N2}'}"
+                                   FontSize="18"
+                                   FontWeight="Bold"
                                    Foreground="#047857"
-                                   Margin="0,0,0,8" />
+                                   Margin="0,0,0,8"
+                                   Visibility="{Binding HasSufficientTender, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Text="{Binding TenderShortfall, StringFormat='Short by: {0:N2}'}"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#B91C1C"
+                                   Margin="0,0,0,8"
+                                   Visibility="{Binding HasInsufficientTender, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
                         <WrapPanel Margin="0,0,0,8"
                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -159,16 +182,19 @@
                             <ComboBox Width="160"
                                       MinHeight="40"
                                       ItemsSource="{Binding PaymentMethodOptions}"
-                                      SelectedItem="{Binding PaymentMethod, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                      SelectedItem="{Binding PaymentMethod, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEnabled="{Binding IsCashRegisterMode, Converter={StaticResource InverseBooleanConverter}}"
+                                      ToolTip="Cash Register locks payment to Cash" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="Tendered:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="Cash tendered:" VerticalAlignment="Center" Margin="0,0,8,0" />
                             <TextBox x:Name="TenderBox"
                                      Width="160"
                                      MinHeight="40"
                                      FontSize="16"
                                      Style="{StaticResource Art.TextBox}"
+                                     ToolTip="Enter the exact cash handed over by the customer"
                                      Text="{Binding AmountTenderedText, UpdateSourceTrigger=PropertyChanged}" />
                             <Button Content="Exact (F5)"
                                     Command="{Binding TenderExactAmountCommand}"
@@ -176,8 +202,44 @@
                                     MinWidth="100"
                                     Margin="8,0,0,0"
                                     Padding="12,8"
-                                    FontSize="14" />
+                                    FontSize="14"
+                                    ToolTip="Set tendered amount equal to the grand total" />
                         </StackPanel>
+
+                        <WrapPanel Margin="0,0,0,8">
+                            <Button Content="+500"
+                                    Command="{Binding AddQuickTenderCommand}"
+                                    CommandParameter="500"
+                                    MinHeight="36"
+                                    MinWidth="64"
+                                    Margin="0,0,6,4"
+                                    Padding="10,6"
+                                    ToolTip="Add 500 MWK to cash tendered" />
+                            <Button Content="+1,000"
+                                    Command="{Binding AddQuickTenderCommand}"
+                                    CommandParameter="1000"
+                                    MinHeight="36"
+                                    MinWidth="72"
+                                    Margin="0,0,6,4"
+                                    Padding="10,6"
+                                    ToolTip="Add 1,000 MWK to cash tendered" />
+                            <Button Content="+2,000"
+                                    Command="{Binding AddQuickTenderCommand}"
+                                    CommandParameter="2000"
+                                    MinHeight="36"
+                                    MinWidth="72"
+                                    Margin="0,0,6,4"
+                                    Padding="10,6"
+                                    ToolTip="Add 2,000 MWK to cash tendered" />
+                            <Button Content="+5,000"
+                                    Command="{Binding AddQuickTenderCommand}"
+                                    CommandParameter="5000"
+                                    MinHeight="36"
+                                    MinWidth="72"
+                                    Margin="0,0,6,4"
+                                    Padding="10,6"
+                                    ToolTip="Add 5,000 MWK to cash tendered" />
+                        </WrapPanel>
 
                         <WrapPanel>
                             <Button Content="Add Item (F2)"

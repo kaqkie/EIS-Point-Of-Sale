@@ -146,7 +146,38 @@ public partial class CheckoutViewModel : ObservableObject
     [ObservableProperty]
     private decimal _promoDiscountTotal;
 
+    /// <summary>Change owed to the customer: Amount Tendered − Grand Total (never negative).</summary>
     public decimal ChangeDue => Math.Max(0m, AmountTendered - CartGrandTotal);
+
+    /// <summary>Cash still needed when tender is below the grand total.</summary>
+    public decimal TenderShortfall => Math.Max(0m, CartGrandTotal - AmountTendered);
+
+    public bool IsCashPayment =>
+        string.Equals(PaymentMethod, "Cash", StringComparison.OrdinalIgnoreCase);
+
+    public bool HasSufficientTender =>
+        CartItems.Count > 0 && AmountTendered >= CartGrandTotal && CartGrandTotal > 0m;
+
+    public bool HasInsufficientTender =>
+        CartItems.Count > 0 && CartGrandTotal > 0m && AmountTendered < CartGrandTotal;
+
+    public string TenderStatusMessage
+    {
+        get
+        {
+            if (CartItems.Count == 0 || CartGrandTotal <= 0m)
+            {
+                return "Add items to begin cash tender.";
+            }
+
+            if (HasInsufficientTender)
+            {
+                return $"Short by {TenderShortfall:N2} — enter cash handed over or press Exact (F5).";
+            }
+
+            return $"Change due: {ChangeDue:N2}";
+        }
+    }
 
     public bool CanReprintLastReceipt => _lastPrintableReceipt is not null;
 
@@ -189,7 +220,7 @@ public partial class CheckoutViewModel : ObservableObject
             }
         }
 
-        OnPropertyChanged(nameof(ChangeDue));
+        NotifyTenderDerived();
     }
 
     partial void OnAmountTenderedTextChanged(string value)
@@ -202,15 +233,30 @@ public partial class CheckoutViewModel : ObservableObject
             }
             else
             {
-                OnPropertyChanged(nameof(ChangeDue));
+                NotifyTenderDerived();
             }
 
+            return;
+        }
+
+        var trimmed = value.Trim();
+        // Allow incomplete decimals while typing (e.g. "12." / "12,") without resetting the field.
+        if (trimmed is "." or ","
+            || trimmed.EndsWith('.')
+            || trimmed.EndsWith(','))
+        {
+            NotifyTenderDerived();
             return;
         }
 
         if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out var amount)
             || decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out amount))
         {
+            if (amount < 0m)
+            {
+                amount = 0m;
+            }
+
             if (AmountTendered != amount)
             {
                 AmountTendered = amount;
@@ -218,10 +264,34 @@ public partial class CheckoutViewModel : ObservableObject
             }
         }
 
-        OnPropertyChanged(nameof(ChangeDue));
+        NotifyTenderDerived();
     }
 
-    partial void OnCartGrandTotalChanged(decimal value) => OnPropertyChanged(nameof(ChangeDue));
+    partial void OnCartGrandTotalChanged(decimal value) => NotifyTenderDerived();
+
+    partial void OnPaymentMethodChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsCashPayment));
+        // Non-cash tenders settle at exact total; cash keeps the cashier-entered amount.
+        if (!IsCashPayment && CartGrandTotal > 0m)
+        {
+            AmountTendered = CartGrandTotal;
+            AmountTenderedText = CartGrandTotal.ToString("N2", CultureInfo.CurrentCulture);
+        }
+
+        NotifyTenderDerived();
+    }
+
+    private void NotifyTenderDerived()
+    {
+        OnPropertyChanged(nameof(ChangeDue));
+        OnPropertyChanged(nameof(TenderShortfall));
+        OnPropertyChanged(nameof(HasSufficientTender));
+        OnPropertyChanged(nameof(HasInsufficientTender));
+        OnPropertyChanged(nameof(TenderStatusMessage));
+        OnPropertyChanged(nameof(IsCashPayment));
+        CompleteSaleCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand]
     private async Task LoadProductsAsync()
@@ -307,7 +377,28 @@ public partial class CheckoutViewModel : ObservableObject
 
         AmountTendered = CartGrandTotal;
         AmountTenderedText = CartGrandTotal.ToString("N2", CultureInfo.CurrentCulture);
-        StatusMessage = $"Exact tender set to {CartGrandTotal:N2}.";
+        StatusMessage = $"Exact tender set to {CartGrandTotal:N2}. Change due: {ChangeDue:N2}.";
+    }
+
+    [RelayCommand]
+    private void AddQuickTender(string? denomination)
+    {
+        if (!decimal.TryParse(denomination, NumberStyles.Number, CultureInfo.InvariantCulture, out var add)
+            && !decimal.TryParse(denomination, NumberStyles.Number, CultureInfo.CurrentCulture, out add))
+        {
+            return;
+        }
+
+        if (add <= 0m)
+        {
+            return;
+        }
+
+        AmountTendered = PosTaxCalculator.RoundMoney(AmountTendered + add);
+        AmountTenderedText = AmountTendered.ToString("N2", CultureInfo.CurrentCulture);
+        StatusMessage = HasInsufficientTender
+            ? $"Tendered {AmountTendered:N2} — short by {TenderShortfall:N2}."
+            : $"Tendered {AmountTendered:N2} — change due {ChangeDue:N2}.";
     }
 
     [RelayCommand]
@@ -453,7 +544,10 @@ public partial class CheckoutViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    private bool CanCompleteSale() =>
+        !IsBusy && CartItems.Count > 0 && AmountTendered >= CartGrandTotal;
+
+    [RelayCommand(CanExecute = nameof(CanCompleteSale))]
     private async Task CompleteSaleAsync()
     {
         if (CartItems.Count == 0)
@@ -466,14 +560,15 @@ public partial class CheckoutViewModel : ObservableObject
         {
             ShowOperatorDialog(new OperatorMessage(
                 "Insufficient tender",
-                $"Amount tendered ({AmountTendered:N2}) is less than the total ({CartGrandTotal:N2}). Press F5 for exact cash.",
+                $"Cash tendered ({AmountTendered:N2}) is less than the total ({CartGrandTotal:N2}). Short by {TenderShortfall:N2}. Enter the cash handed over or press Exact (F5).",
                 OperatorMessageSeverity.Warning,
                 SuggestOfflineFallback: false));
-            StatusMessage = "Amount tendered is less than total.";
+            StatusMessage = TenderStatusMessage;
             return;
         }
 
         IsBusy = true;
+        CompleteSaleCommand.NotifyCanExecuteChanged();
         try
         {
             await _productionSecretGuard.EnsureReadyForLiveSalesAsync().ConfigureAwait(true);
@@ -647,6 +742,7 @@ public partial class CheckoutViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            CompleteSaleCommand.NotifyCanExecuteChanged();
         }
     }
 

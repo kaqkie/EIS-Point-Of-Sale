@@ -251,6 +251,24 @@ public partial class AdminDashboardViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenCashierRegister()
+    {
+        if (!_auth.HasPermission(OperatorPermissions.ExecuteCheckout))
+        {
+            StatusMessage = "Cashier Register requires Execute Checkout permission for this operator.";
+            return;
+        }
+
+        _navigation.NavigateTo<CashierDashboardViewModel>();
+        if (_navigation.CurrentViewModel is CashierDashboardViewModel cashier)
+        {
+            cashier.ShowCashRegisterMode(enabled: true);
+        }
+
+        StatusMessage = "Cashier Register opened — same cart, inventory search, and checkout as the counter workspace.";
+    }
+
+    [RelayCommand]
     private void OpenInventory() => _navigation.NavigateTo<InventoryViewModel>();
 
     [RelayCommand]

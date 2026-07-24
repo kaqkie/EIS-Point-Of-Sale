@@ -270,7 +270,7 @@ public partial class MainViewModel : ObservableObject
     private void NavigateHardware() => _navigationService.NavigateTo<HardwareManagementViewModel>();
 
     [RelayCommand(CanExecute = nameof(CanCheckout))]
-    private void NavigatePosTerminal()
+    private void NavigateCashierRegister()
     {
         _navigationService.NavigateTo<CashierDashboardViewModel>();
         if (CurrentViewModel is CashierDashboardViewModel cashier)
@@ -280,7 +280,21 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(IsCashierShell))]
+    [RelayCommand(CanExecute = nameof(CanCheckout))]
+    private void NavigatePosWorkspace()
+    {
+        _navigationService.NavigateTo<CashierDashboardViewModel>();
+        if (CurrentViewModel is CashierDashboardViewModel cashier)
+        {
+            cashier.ShowCashRegisterMode(enabled: false);
+            CashRegisterToggleLabel = cashier.WorkspaceModeToggleLabel;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCheckout))]
+    private void NavigatePosTerminal() => NavigateCashierRegister();
+
+    [RelayCommand(CanExecute = nameof(CanToggleCashRegister))]
     private void ToggleCashRegisterMode()
     {
         if (CurrentViewModel is not CashierDashboardViewModel)
@@ -294,6 +308,8 @@ public partial class MainViewModel : ObservableObject
             CashRegisterToggleLabel = cashier.WorkspaceModeToggleLabel;
         }
     }
+
+    private bool CanToggleCashRegister() => IsCashierShell || (IsAdminShell && CanCheckout);
 
     [RelayCommand(CanExecute = nameof(IsCashierShell))]
     private void NavigateCashierHome()
@@ -491,6 +507,8 @@ public partial class MainViewModel : ObservableObject
         NavigateCashierHomeCommand.NotifyCanExecuteChanged();
         NavigateAdminHomeCommand.NotifyCanExecuteChanged();
         NavigatePosTerminalCommand.NotifyCanExecuteChanged();
+        NavigateCashierRegisterCommand.NotifyCanExecuteChanged();
+        NavigatePosWorkspaceCommand.NotifyCanExecuteChanged();
         ToggleCashRegisterModeCommand.NotifyCanExecuteChanged();
         RefreshDrawerVisibility();
     }
