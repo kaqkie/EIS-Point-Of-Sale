@@ -91,6 +91,13 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedStatusFilterChanged(string value) => _ = RefreshAsync();
 
+    partial void OnSelectedQueueItemChanged(QueueItemViewModel? value)
+    {
+        // Re-evaluate toolbar CanExecute whenever the highlighted row changes.
+        // Do not touch StatusMessage here — refresh/restore selection would wipe action results.
+        NotifyActionCommands();
+    }
+
     private void OnRefreshTimerTick(object? sender, EventArgs e)
     {
         if (!IsBusy)
@@ -364,7 +371,25 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         }
     }
 
-    private QueueItemViewModel? ResolveTarget(QueueItemViewModel? item) => item ?? SelectedQueueItem;
+    /// <summary>
+    /// Prefers the explicit command parameter (row button or toolbar SelectedItem),
+    /// then falls back to <see cref="SelectedQueueItem"/>.
+    /// </summary>
+    private QueueItemViewModel? ResolveTarget(QueueItemViewModel? item)
+    {
+        if (item is not null)
+        {
+            return item;
+        }
+
+        return SelectedQueueItem;
+    }
+
+    /// <summary>Resolves which queue row a toolbar/row action should target.</summary>
+    public static QueueItemViewModel? ResolveTargetForTest(
+        QueueItemViewModel? commandParameter,
+        QueueItemViewModel? selectedQueueItem) =>
+        commandParameter ?? selectedQueueItem;
 
     private bool CanRunIdleCommand() => !IsBusy;
 

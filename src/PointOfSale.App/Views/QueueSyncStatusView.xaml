@@ -56,10 +56,15 @@
                     FontWeight="SemiBold" />
         </StackPanel>
 
+        <!--
+          Toolbar actions target the grid's SelectedItem (visual highlight).
+          Binding CommandParameter to QueueGrid.SelectedItem keeps the command in sync
+          with the highlighted row even if the VM property briefly lags.
+        -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
             <Button Content="Print Receipt"
                     Command="{Binding PrintReceiptCommand}"
-                    CommandParameter="{Binding SelectedQueueItem}"
+                    CommandParameter="{Binding SelectedItem, ElementName=QueueGrid}"
                     Padding="10,8"
                     Margin="0,0,8,0"
                     FontWeight="SemiBold"
@@ -67,14 +72,14 @@
                     ToolTip="Print the selected queue invoice receipt" />
             <Button Content="Retry"
                     Command="{Binding RetryQuarantinedCommand}"
-                    CommandParameter="{Binding SelectedQueueItem}"
+                    CommandParameter="{Binding SelectedItem, ElementName=QueueGrid}"
                     Padding="10,8"
                     Margin="0,0,8,0"
                     FocusVisualStyle="{x:Null}"
                     ToolTip="Return quarantined item to PENDING and submit to MRA immediately" />
             <Button Content="Force Sync"
                     Command="{Binding ForceSyncCommand}"
-                    CommandParameter="{Binding SelectedQueueItem}"
+                    CommandParameter="{Binding SelectedItem, ElementName=QueueGrid}"
                     Padding="10,8"
                     FontWeight="SemiBold"
                     FocusVisualStyle="{x:Null}"
@@ -84,12 +89,14 @@
         <DataGrid x:Name="QueueGrid"
                   Grid.Row="3"
                   ItemsSource="{Binding QueueItems}"
-                  SelectedItem="{Binding SelectedQueueItem, Mode=TwoWay}"
+                  SelectedItem="{Binding SelectedQueueItem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
                   IsReadOnly="True"
                   SelectionMode="Single"
-                  SelectionUnit="FullRow">
+                  SelectionUnit="FullRow"
+                  IsSynchronizedWithCurrentItem="True"
+                  SelectionChanged="QueueGrid_OnSelectionChanged">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="60" />
                 <DataGridTextColumn Header="Invoice" Binding="{Binding InvoiceNumber}" Width="160" />
@@ -102,29 +109,36 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate DataType="{x:Type vm:QueueItemViewModel}">
                             <StackPanel Orientation="Horizontal">
+                                <!--
+                                  Bind via DataGrid ancestor (visual tree). ElementName often fails inside
+                                  DataTemplate name scopes; RelativeSource AncestorType=UserControl is also unreliable.
+                                -->
                                 <Button Content="Print Receipt"
-                                        Command="{Binding DataContext.PrintReceiptCommand, ElementName=QueueSyncRoot}"
+                                        Command="{Binding DataContext.PrintReceiptCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}"
                                         Margin="0,0,4,0"
                                         Padding="6,2"
                                         FocusVisualStyle="{x:Null}"
                                         IsEnabled="{Binding CanPrintReceipt}"
-                                        ToolTip="Print this invoice receipt" />
+                                        ToolTip="Print this invoice receipt"
+                                        Click="RowActionButton_OnClick" />
                                 <Button Content="Retry"
-                                        Command="{Binding DataContext.RetryQuarantinedCommand, ElementName=QueueSyncRoot}"
+                                        Command="{Binding DataContext.RetryQuarantinedCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}"
                                         Margin="0,0,4,0"
                                         Padding="6,2"
                                         FocusVisualStyle="{x:Null}"
                                         IsEnabled="{Binding CanRetry}"
-                                        ToolTip="Retry quarantined item now (submit to MRA)" />
+                                        ToolTip="Retry quarantined item now (submit to MRA)"
+                                        Click="RowActionButton_OnClick" />
                                 <Button Content="Force Sync"
-                                        Command="{Binding DataContext.ForceSyncCommand, ElementName=QueueSyncRoot}"
+                                        Command="{Binding DataContext.ForceSyncCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}"
                                         Padding="6,2"
                                         FocusVisualStyle="{x:Null}"
                                         IsEnabled="{Binding CanForceSync}"
-                                        ToolTip="Force immediate MRA sync for this item" />
+                                        ToolTip="Force immediate MRA sync for this item"
+                                        Click="RowActionButton_OnClick" />
                             </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
