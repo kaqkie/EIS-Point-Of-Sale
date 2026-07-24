@@ -541,7 +541,8 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 terminalId,
                 branch,
                 siteOverride ?? _deployment.SiteId,
-                tinOverride,
+                PosConfigurationService.NormalizeTaxpayerTin(tinOverride)
+                    ?? PosConfigurationService.NormalizeTaxpayerTin(_deployment.TaxpayerTin),
                 displayName ?? _deployment.FallbackTradingName,
                 cancellationToken)
             .ConfigureAwait(false);

@@ -12,8 +12,6 @@ namespace PointOfSale.App.Services;
 /// </summary>
 public static class LocalFiscalIdentitySeeder
 {
-    public const string SandboxDefaultTaxpayerTin = "1234567890";
-
     public static async Task SeedAsync(
         IConfigurationRepository config,
         string terminalId,
@@ -26,8 +24,8 @@ public static class LocalFiscalIdentitySeeder
         var resolvedSite = PosConfigurationService.NormalizeConfiguredValue(siteId)
             ?? PosConfigurationService.NormalizeConfiguredValue(branchId)
             ?? "SITE-LOCAL";
-        var resolvedTin = PosConfigurationService.NormalizeConfiguredValue(taxpayerTin)
-            ?? SandboxDefaultTaxpayerTin;
+        // Never seed the historical sandbox placeholder — receipts must show a real registered TIN.
+        var resolvedTin = PosConfigurationService.NormalizeTaxpayerTin(taxpayerTin);
         var resolvedBranch = PosConfigurationService.NormalizeConfiguredValue(branchId) ?? "LOCAL";
         var resolvedName = string.IsNullOrWhiteSpace(tradingName)
             ? "Albert Retail Terminal"
@@ -45,15 +43,18 @@ public static class LocalFiscalIdentitySeeder
                 cancellationToken)
             .ConfigureAwait(false);
 
-        await config.UpsertJsonAsync(
-                DeploymentConfigurationKeys.TaxpayerTin,
-                JsonSerializer.Serialize(new { tin = resolvedTin }, MraJson.SerializerOptions),
-                cancellationToken)
-            .ConfigureAwait(false);
+        if (resolvedTin is not null)
+        {
+            await config.UpsertJsonAsync(
+                    DeploymentConfigurationKeys.TaxpayerTin,
+                    JsonSerializer.Serialize(new { tin = resolvedTin }, MraJson.SerializerOptions),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         var existingTaxpayer = await config.GetJsonAsync(MraConfigurationKeys.TaxpayerConfiguration, cancellationToken)
             .ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(existingTaxpayer))
+        if (string.IsNullOrWhiteSpace(existingTaxpayer) && resolvedTin is not null)
         {
             var taxpayer = new TaxpayerConfigurationDto
             {
@@ -68,6 +69,27 @@ public static class LocalFiscalIdentitySeeder
                     JsonSerializer.Serialize(taxpayer, MraJson.SerializerOptions),
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+        else if (!string.IsNullOrWhiteSpace(existingTaxpayer) && resolvedTin is not null)
+        {
+            // Replace placeholder TIN left by older sandbox seeds so receipts pick up the registered value.
+            try
+            {
+                var existing = JsonSerializer.Deserialize<TaxpayerConfigurationDto>(existingTaxpayer, MraJson.SerializerOptions);
+                if (existing is not null && PosConfigurationService.IsPlaceholderTaxpayerTin(existing.Tin))
+                {
+                    existing.Tin = resolvedTin;
+                    await config.UpsertJsonAsync(
+                            MraConfigurationKeys.TaxpayerConfiguration,
+                            JsonSerializer.Serialize(existing, MraJson.SerializerOptions),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+            catch (JsonException)
+            {
+                // Leave malformed cache alone; operator can repair via Terminal Provisioning.
+            }
         }
 
         var existingTerminal = await config.GetJsonAsync(MraConfigurationKeys.TerminalConfiguration, cancellationToken)

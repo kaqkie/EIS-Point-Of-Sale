@@ -108,14 +108,35 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
             Deployment: new PointOfSale.App.Options.TerminalDeploymentOptions
             {
                 BranchId = "{BRANCH-ID}",
-                SiteId = "{SITE-ID}"
+                SiteId = "{SITE-ID}",
+                TaxpayerTin = "2007123456"
             },
             DeploymentSiteId: "City Center",
-            DeploymentTaxpayerTin: "1234567890",
+            DeploymentTaxpayerTin: null,
             DeploymentBranchId: "Lilongwe");
 
-        Assert.Equal("1234567890", ctx.SellerTin);
+        Assert.Equal("2007123456", ctx.SellerTin);
         Assert.Equal("City Center", ctx.SiteId);
         Assert.Equal("Lilongwe", ctx.BranchId);
+    }
+
+    [Fact]
+    public void PosRuntimeContext_IgnoresSandboxPlaceholderTin()
+    {
+        var ctx = new PosRuntimeContext(
+            Global: null,
+            Terminal: null,
+            Taxpayer: new PointOfSale.Mra.Contracts.Configuration.TaxpayerConfigurationDto
+            {
+                Tin = "1234567890"
+            },
+            Deployment: new PointOfSale.App.Options.TerminalDeploymentOptions
+            {
+                TaxpayerTin = "2007123456"
+            },
+            DeploymentTaxpayerTin: "1234567890");
+
+        Assert.Equal("2007123456", ctx.SellerTin);
+        Assert.True(PosConfigurationService.IsPlaceholderTaxpayerTin("1234567890"));
     }
 }

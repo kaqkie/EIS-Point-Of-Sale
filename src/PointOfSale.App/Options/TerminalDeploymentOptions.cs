@@ -15,6 +15,12 @@ public sealed class TerminalDeploymentOptions
     public string SiteId { get; set; } = string.Empty;
 
     /// <summary>
+    /// Registered MRA taxpayer TIN printed on legal receipts and submitted on sales.
+    /// Must be the live registered TIN — never the sandbox placeholder <c>1234567890</c>.
+    /// </summary>
+    public string TaxpayerTin { get; set; } = string.Empty;
+
+    /// <summary>
     /// One-time terminal activation code (TAC) supplied at deploy time.
     /// Cleared from config after successful activation; never store long-term in plain text.
     /// </summary>

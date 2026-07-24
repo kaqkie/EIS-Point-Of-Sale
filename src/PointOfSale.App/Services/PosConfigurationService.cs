@@ -17,6 +17,9 @@ public interface IPosConfigurationService
 
 public sealed class PosConfigurationService : IPosConfigurationService
 {
+    /// <summary>Historical sandbox seed — never treat as a real registered TIN on receipts.</summary>
+    public const string SandboxPlaceholderTaxpayerTin = "1234567890";
+
     private readonly IConfigurationRepository _configurationRepository;
     private readonly TerminalDeploymentOptions _deployment;
 
@@ -133,6 +136,25 @@ public sealed class PosConfigurationService : IPosConfigurationService
         return value!.Trim();
     }
 
+    /// <summary>
+    /// Returns a usable taxpayer TIN, skipping unresolved templates and the sandbox placeholder.
+    /// </summary>
+    public static string? NormalizeTaxpayerTin(string? value)
+    {
+        var normalized = NormalizeConfiguredValue(value);
+        if (normalized is null || IsPlaceholderTaxpayerTin(normalized))
+        {
+            return null;
+        }
+
+        return normalized;
+    }
+
+    /// <summary>True for the historical sandbox seed TIN that must not print on legal receipts.</summary>
+    public static bool IsPlaceholderTaxpayerTin(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Trim().Equals(SandboxPlaceholderTaxpayerTin, StringComparison.Ordinal);
+
     /// <summary>True when the value is present and not an unresolved template placeholder.</summary>
     public static bool IsConfiguredValue(string? value) =>
         !string.IsNullOrWhiteSpace(value)
@@ -154,9 +176,15 @@ public sealed record PosRuntimeContext(
         ?? Deployment?.FallbackTradingName
         ?? "Albert Retail Terminal";
 
+    /// <summary>
+    /// Seller TIN for checkout + legal receipts — prefers live MRA taxpayer config, then SQL
+    /// deployment override, then <see cref="TerminalDeploymentOptions.TaxpayerTin"/>.
+    /// Never returns the sandbox placeholder <c>1234567890</c>.
+    /// </summary>
     public string SellerTin =>
-        PosConfigurationService.NormalizeConfiguredValue(Taxpayer?.Tin)
-        ?? PosConfigurationService.NormalizeConfiguredValue(DeploymentTaxpayerTin)
+        PosConfigurationService.NormalizeTaxpayerTin(Taxpayer?.Tin)
+        ?? PosConfigurationService.NormalizeTaxpayerTin(DeploymentTaxpayerTin)
+        ?? PosConfigurationService.NormalizeTaxpayerTin(Deployment?.TaxpayerTin)
         ?? string.Empty;
 
     public string SiteId =>

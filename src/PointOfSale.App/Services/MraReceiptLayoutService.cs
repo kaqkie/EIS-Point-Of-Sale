@@ -25,6 +25,21 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
     public static string StatutoryVatPercentLabel =>
         $"{PosTaxCalculator.MalawiStandardVatRatePercent:0.0}%";
 
+    /// <summary>
+    /// Formats the seller TIN from active store/terminal configuration.
+    /// Never prints the historical sandbox placeholder <c>1234567890</c>.
+    /// </summary>
+    public static string FormatSellerTin(string? sellerTin)
+    {
+        if (PosConfigurationService.IsPlaceholderTaxpayerTin(sellerTin)
+            || string.IsNullOrWhiteSpace(sellerTin))
+        {
+            return "NOT CONFIGURED";
+        }
+
+        return sellerTin.Trim();
+    }
+
     public MraReceiptLayoutViewModel Build(ReceiptPrintRequest request, int charactersPerLine = 42)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -80,7 +95,7 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             header.Add(Center(Truncate($"Email: {request.ContactEmail.Trim()}", charactersPerLine), charactersPerLine));
         }
 
-        header.Add(Center(Truncate($"TIN: {request.SellerTin}", charactersPerLine), charactersPerLine));
+        header.Add(Center(Truncate($"TIN: {FormatSellerTin(request.SellerTin)}", charactersPerLine), charactersPerLine));
         header.Add(Center(VatRegisteredBanner, charactersPerLine));
         header.Add(Separator('-', charactersPerLine));
 

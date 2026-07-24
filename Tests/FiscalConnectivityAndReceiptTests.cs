@@ -76,7 +76,7 @@ public sealed class FiscalConnectivityAndReceiptTests
             new ReceiptPrintRequest
             {
                 TradingName = "Albert Retail",
-                SellerTin = "1234567890",
+                SellerTin = "2007123456",
                 AddressLines = ["City Center"],
                 ContactPhone = "+265 1 234 567",
                 ContactEmail = "shop@albertretail.mw",
@@ -127,6 +127,7 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains("MALAWI REVENUE AUTHORITY", text, StringComparison.Ordinal);
         Assert.Contains("RECEIPT NUMBER: ART-LAYOUT-1", text, StringComparison.Ordinal);
         Assert.Contains("Buyer's TIN: 9876543210", text, StringComparison.Ordinal);
+        Assert.Contains("TIN: 2007123456", text, StringComparison.Ordinal);
         Assert.Contains("Date: 2026-07-24", text, StringComparison.Ordinal);
         Assert.Contains("Time: 09:00:00", text, StringComparison.Ordinal);
         Assert.Contains("TAXABLE A-17.5%", text, StringComparison.Ordinal);
@@ -146,13 +147,21 @@ public sealed class FiscalConnectivityAndReceiptTests
     }
 
     [Fact]
+    public void FormatSellerTin_RejectsSandboxPlaceholder()
+    {
+        Assert.Equal("NOT CONFIGURED", MraReceiptLayoutService.FormatSellerTin("1234567890"));
+        Assert.Equal("NOT CONFIGURED", MraReceiptLayoutService.FormatSellerTin(" "));
+        Assert.Equal("2007123456", MraReceiptLayoutService.FormatSellerTin("2007123456"));
+    }
+
+    [Fact]
     public void MraReceiptLayout_OfflinePending_OmitsQr()
     {
         var layout = new MraReceiptLayoutService().Build(
             new ReceiptPrintRequest
             {
                 TradingName = "Albert Retail",
-                SellerTin = "1234567890",
+                SellerTin = "2007123456",
                 AddressLines = ["City Center"],
                 InvoiceNumber = "ART-LAYOUT-2",
                 InvoiceDateTime = DateTime.UtcNow,

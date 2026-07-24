@@ -1,35 +1,54 @@
 /*
-    Repair fiscal identity for already-activated sandbox terminal ART-SBX-B61182AD.
-    Seeds TIN + Site so checkout clears "Terminal configuration incomplete".
+    Repair fiscal identity for already-activated terminal.
+    Set @TaxpayerTin to the registered MRA TIN before running.
+    Never leave the sandbox placeholder 1234567890 on legal receipts.
 */
 SET NOCOUNT ON;
 
+DECLARE @TaxpayerTin NVARCHAR(32) = N''; -- <-- set registered MRA TIN here
+DECLARE @SiteId NVARCHAR(128) = N'City Center';
+DECLARE @BranchId NVARCHAR(128) = N'Lilongwe';
+DECLARE @TradingName NVARCHAR(256) = N'Till 7';
+DECLARE @TerminalId NVARCHAR(64) = N'ART-SBX-B61182AD';
+
+IF (LEN(LTRIM(RTRIM(@TaxpayerTin))) = 0 OR @TaxpayerTin = N'1234567890')
+BEGIN
+    RAISERROR('Set @TaxpayerTin to the registered MRA taxpayer TIN before running this script.', 16, 1);
+    RETURN;
+END;
+
+DECLARE @TinJson NVARCHAR(MAX) = N'{"tin":"' + STRING_ESCAPE(@TaxpayerTin, 'json') + N'"}';
+
 MERGE dbo.Configurations AS t
-USING (SELECT N'deployment.taxpayer.tin' AS ConfigKey, N'{"tin":"1234567890"}' AS ConfigJson) AS s
+USING (SELECT N'deployment.taxpayer.tin' AS ConfigKey, @TinJson AS ConfigJson) AS s
 ON t.ConfigKey = s.ConfigKey
 WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
 WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
 MERGE dbo.Configurations AS t
-USING (SELECT N'deployment.siteId' AS ConfigKey, N'City Center' AS ConfigJson) AS s
+USING (SELECT N'deployment.siteId' AS ConfigKey, @SiteId AS ConfigJson) AS s
 ON t.ConfigKey = s.ConfigKey
 WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
 WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
 MERGE dbo.Configurations AS t
-USING (SELECT N'deployment.branchId' AS ConfigKey, N'Lilongwe' AS ConfigJson) AS s
+USING (SELECT N'deployment.branchId' AS ConfigKey, @BranchId AS ConfigJson) AS s
 ON t.ConfigKey = s.ConfigKey
 WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
 WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
-DECLARE @Taxpayer NVARCHAR(MAX) = N'{"versionNo":1,"tin":"1234567890","isVATRegistered":true,"taxOfficeCode":"SBX","activatedTaxRateIds":["A"]}';
+DECLARE @Taxpayer NVARCHAR(MAX) = N'{"versionNo":1,"tin":"' + STRING_ESCAPE(@TaxpayerTin, 'json') + N'","isVATRegistered":true,"taxOfficeCode":"SBX","activatedTaxRateIds":["A"]}';
 MERGE dbo.Configurations AS t
 USING (SELECT N'mra.configuration.taxpayer' AS ConfigKey, @Taxpayer AS ConfigJson) AS s
 ON t.ConfigKey = s.ConfigKey
 WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
 WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
-DECLARE @Terminal NVARCHAR(MAX) = N'{"versionNo":1,"terminalLabel":"ART-SBX-B61182AD","isActiveTerminal":true,"tradingName":"Till 7","terminalSite":{"siteId":"City Center","siteName":"City Center"},"offlineLimit":{"maxTransactionAgeInHours":72,"maxCummulativeAmount":5000000}}';
+DECLARE @Terminal NVARCHAR(MAX) = N'{"versionNo":1,"terminalLabel":"' + STRING_ESCAPE(@TerminalId, 'json')
+    + N'","isActiveTerminal":true,"tradingName":"' + STRING_ESCAPE(@TradingName, 'json')
+    + N'","terminalSite":{"siteId":"' + STRING_ESCAPE(@SiteId, 'json')
+    + N'","siteName":"' + STRING_ESCAPE(@SiteId, 'json')
+    + N'"},"offlineLimit":{"maxTransactionAgeInHours":72,"maxCummulativeAmount":5000000}}';
 MERGE dbo.Configurations AS t
 USING (SELECT N'mra.configuration.terminal' AS ConfigKey, @Terminal AS ConfigJson) AS s
 ON t.ConfigKey = s.ConfigKey
