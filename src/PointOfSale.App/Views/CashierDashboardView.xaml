@@ -161,9 +161,9 @@
                                        FontSize="12"
                                        FontWeight="SemiBold"
                                        HorizontalAlignment="Right" />
-                            <TextBlock Text="{Binding Checkout.CartGrandTotal, StringFormat={}{0:N2}}"
+                            <TextBlock Text="{Binding Checkout.CartGrandTotalDigital}"
                                        Foreground="White"
-                                       FontSize="40"
+                                       FontSize="44"
                                        FontWeight="Bold"
                                        FontFamily="{StaticResource Art.Font.Mono}"
                                        HorizontalAlignment="Right"

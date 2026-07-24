@@ -14,6 +14,7 @@ namespace PointOfSale.Infrastructure.Http;
 /// </summary>
 public static class MraHttpClientFactory
 {
+    /// <summary>Floor for HttpClient.Timeout — prevents premature offline fallbacks on slow sandbox links.</summary>
     public const int MinimumTimeoutSeconds = 30;
 
     public static TimeSpan ResolveTimeout(MraApiOptions options)
@@ -21,62 +22,69 @@ public static class MraHttpClientFactory
         var seconds = options.HttpTimeoutSeconds > 0
             ? options.HttpTimeoutSeconds
             : (int)Math.Ceiling(options.HttpTimeout.TotalSeconds);
-        return TimeSpan.FromSeconds(Math.Max(MinimumTimeoutSeconds, seconds <= 0 ? MinimumTimeoutSeconds : seconds));
+        if (seconds <= 0)
+        {
+            seconds = MinimumTimeoutSeconds;
+        }
+
+        return TimeSpan.FromSeconds(Math.Max(MinimumTimeoutSeconds, seconds));
     }
 
-    public static SocketsHttpHandler CreateHandler(MraApiOptions options)
+    /// <summary>
+    /// Creates the primary handler. Sandbox (or AllowInvalidServerCertificates) uses
+    /// <see cref="HttpClientHandler.ServerCertificateCustomValidationCallback"/> = always true.
+    /// </summary>
+    public static HttpMessageHandler CreateHandler(MraApiOptions options)
     {
-        var timeout = ResolveTimeout(options);
-        var handler = new SocketsHttpHandler
+        if (options.ShouldRelaxServerCertificateValidation())
         {
-            // Allow enough time for TLS + slow MRA sandbox links before treating as offline.
+            // Explicit HttpClientHandler path requested for sandbox cert bypass.
+            return new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = static (_, _, _, _) => true,
+                SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
+            };
+        }
+
+        var timeout = ResolveTimeout(options);
+        return new SocketsHttpHandler
+        {
             ConnectTimeout = TimeSpan.FromSeconds(Math.Clamp(timeout.TotalSeconds, MinimumTimeoutSeconds, 60)),
             PooledConnectionLifetime = TimeSpan.FromMinutes(2),
             SslOptions = new SslClientAuthenticationOptions
             {
-                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
+                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                RemoteCertificateValidationCallback = StrictCertificateValidation
             }
         };
-
-        // Sandbox / explicit opt-in: accept enterprise or incompletely chained certs so sync can proceed.
-        // Production keeps strict validation unless AllowInvalidServerCertificates is forced on.
-        if (options.ShouldRelaxServerCertificateValidation())
-        {
-            handler.SslOptions.RemoteCertificateValidationCallback = RelaxedCertificateValidation;
-        }
-
-        return handler;
     }
 
     public static void ConfigureClient(HttpClient client, MraApiOptions options, string? effectiveBaseUrl = null)
     {
-        var timeout = ResolveTimeout(options);
-        client.Timeout = timeout;
+        // Always enforce ≥30s timeout (spec: TimeSpan.FromSeconds(30) floor).
+        client.Timeout = ResolveTimeout(options);
 
         var baseUrl = MraApiOptions.NormalizeBaseUrl(effectiveBaseUrl ?? options.ResolveBaseUrl());
         if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
         {
-            client.BaseAddress = baseUri;
+            // Only safe before the first request — callers must not mutate BaseAddress later.
+            try
+            {
+                client.BaseAddress = baseUri;
+            }
+            catch (InvalidOperationException)
+            {
+                // HttpClient already started — absolute RequestUri on each message is used instead.
+            }
         }
     }
 
-    private static bool RelaxedCertificateValidation(
+    private static bool StrictCertificateValidation(
         object sender,
         X509Certificate? certificate,
         X509Chain? chain,
-        SslPolicyErrors sslPolicyErrors)
-    {
-        // Still require a certificate to be presented.
-        if (certificate is null)
-        {
-            return false;
-        }
-
-        // Sandbox / lab gateways: accept name mismatch and incomplete chains.
-        // Any other policy error is also accepted here because ShouldRelaxServerCertificateValidation
-        // is only enabled for Sandbox (or explicit AllowInvalidServerCertificates).
-        return true;
-    }
+        SslPolicyErrors sslPolicyErrors) =>
+        certificate is not null && sslPolicyErrors == SslPolicyErrors.None;
 }
 
 public static class MraApiOptionsConfiguration
@@ -104,6 +112,13 @@ public static class MraApiOptionsConfiguration
             if (!string.IsNullOrWhiteSpace(options.BaseUrl))
             {
                 options.BaseUrl = MraApiOptions.NormalizeBaseUrl(options.BaseUrl);
+            }
+
+            // Sandbox default: always relax TLS validation unless explicitly forced off.
+            if (options.AllowInvalidServerCertificates is null
+                && !options.Environment.Equals("Production", StringComparison.OrdinalIgnoreCase))
+            {
+                options.AllowInvalidServerCertificates = true;
             }
         });
     }

@@ -47,6 +47,13 @@ public sealed class ComplianceAuditLoggingTests
         Assert.Equal(
             "https://dev-eis-api.mra.mw/api/v1/sales/submit-sales-transaction",
             MraApiOptions.CombineEndpoint("https://dev-eis-api.mra.mw/api/v1/", "/sales/submit-sales-transaction").ToString());
+        // Host-only sandbox root must expand to /api/v1/.
+        Assert.Equal(
+            MraApiOptions.DefaultSandboxBaseUrl,
+            MraApiOptions.NormalizeBaseUrl("https://dev-eis-api.mra.mw/"));
+        Assert.Equal(
+            "https://dev-eis-api.mra.mw/api/v1/sales/submit-sales-transaction",
+            MraApiOptions.CombineEndpoint("https://dev-eis-api.mra.mw/", "sales/submit-sales-transaction").ToString());
     }
 
     [Fact]

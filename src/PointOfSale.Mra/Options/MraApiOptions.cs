@@ -10,8 +10,14 @@ public sealed class MraApiOptions
 {
     public const string SectionName = "MraEis";
 
+    /// <summary>Official sandbox EIS host root (NormalizeBaseUrl appends /api/v1/).</summary>
+    public const string DefaultSandboxHost = "https://dev-eis-api.mra.mw/";
+
     /// <summary>Official sandbox EIS API (reachable).</summary>
     public const string DefaultSandboxBaseUrl = "https://dev-eis-api.mra.mw/api/v1/";
+
+    /// <summary>Live EIS API host root.</summary>
+    public const string DefaultProductionHost = "https://eis-api.mra.mw/";
 
     /// <summary>
     /// Live EIS API host. Prefer eis-api.mra.mw — legacy apis.mra.mw often fails DNS resolution.
@@ -93,14 +99,41 @@ public sealed class MraApiOptions
             return DefaultSandboxBaseUrl;
         }
 
-        var trimmed = url.Trim();
+        var trimmed = url.Trim().TrimEnd('/') + "/";
         if (IsLegacyUnreachableHost(trimmed))
         {
             // Rewrite known-bad historical production host to the reachable EIS API.
             return DefaultProductionBaseUrl;
         }
 
-        return trimmed.TrimEnd('/') + "/";
+        // Accept host-only sandbox / production roots and map them onto /api/v1/.
+        if (trimmed.Equals(DefaultSandboxHost, StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("https://dev-eis-api.mra.mw/", StringComparison.OrdinalIgnoreCase))
+        {
+            return DefaultSandboxBaseUrl;
+        }
+
+        if (trimmed.Equals(DefaultProductionHost, StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("https://eis-api.mra.mw/", StringComparison.OrdinalIgnoreCase))
+        {
+            return DefaultProductionBaseUrl;
+        }
+
+        // If the URL is the host without /api/v1 but under the known MRA API domains, append it.
+        if (!trimmed.Contains("/api/v1", StringComparison.OrdinalIgnoreCase))
+        {
+            if (trimmed.Contains("dev-eis-api.mra.mw", StringComparison.OrdinalIgnoreCase))
+            {
+                return DefaultSandboxBaseUrl;
+            }
+
+            if (trimmed.Contains("eis-api.mra.mw", StringComparison.OrdinalIgnoreCase))
+            {
+                return DefaultProductionBaseUrl;
+            }
+        }
+
+        return trimmed;
     }
 
     public static string NormalizeRelativePath(string? relativePath)

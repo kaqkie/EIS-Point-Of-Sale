@@ -155,6 +155,10 @@ public partial class CheckoutViewModel : ObservableObject
     /// <summary>Change owed to the customer: Amount Tendered − Grand Total (never negative).</summary>
     public decimal ChangeDue => Math.Max(0m, AmountTendered - CartGrandTotal);
 
+    /// <summary>Digital POS display style (e.g. 27,30) for the grand total panel.</summary>
+    public string CartGrandTotalDigital =>
+        CartGrandTotal.ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+
     /// <summary>Cash still needed when tender is below the grand total.</summary>
     public decimal TenderShortfall => Math.Max(0m, CartGrandTotal - AmountTendered);
 
@@ -297,6 +301,7 @@ public partial class CheckoutViewModel : ObservableObject
     private void NotifyTenderDerived()
     {
         OnPropertyChanged(nameof(ChangeDue));
+        OnPropertyChanged(nameof(CartGrandTotalDigital));
         OnPropertyChanged(nameof(TenderShortfall));
         OnPropertyChanged(nameof(HasSufficientTender));
         OnPropertyChanged(nameof(HasInsufficientTender));

@@ -280,7 +280,14 @@ public sealed class MraApiClient
         baseUrl = MraApiOptions.NormalizeBaseUrl(baseUrl);
         if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
         {
-            _httpClient.BaseAddress = baseUri;
+            try
+            {
+                _httpClient.BaseAddress = baseUri;
+            }
+            catch (InvalidOperationException)
+            {
+                // Already sent a request — absolute RequestUri per call is enough.
+            }
         }
 
         var timeout = _options.HttpTimeout < TimeSpan.FromSeconds(30)
@@ -314,12 +321,9 @@ public sealed class MraApiClient
 
         var relativePath = request.RequestUri?.ToString() ?? string.Empty;
         request.RequestUri = MraApiOptions.CombineEndpoint(baseUrl, relativePath);
-
-        // Keep BaseAddress aligned with the effective environment for subsequent relative calls.
-        if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
-        {
-            _httpClient.BaseAddress = baseUri;
-        }
+        // Do NOT mutate HttpClient.BaseAddress after the first request — it throws
+        // InvalidOperationException ("Properties can only be modified before sending the first request").
+        // Absolute RequestUri on each message is sufficient.
     }
 }
 

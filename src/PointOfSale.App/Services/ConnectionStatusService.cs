@@ -44,7 +44,11 @@ public sealed class ConnectionStatusService : IConnectionStatusService
         var timeout = ResolveProbeTimeout(_options.HttpTimeout);
         // Reuse EIS HttpClient factory (TLS 1.2/1.3 + optional sandbox cert leniency).
         var handler = MraHttpClientFactory.CreateHandler(_options);
-        handler.ConnectTimeout = timeout;
+        if (handler is SocketsHttpHandler sockets)
+        {
+            sockets.ConnectTimeout = timeout;
+        }
+
         _httpClient = new HttpClient(handler, disposeHandler: true)
         {
             Timeout = timeout
