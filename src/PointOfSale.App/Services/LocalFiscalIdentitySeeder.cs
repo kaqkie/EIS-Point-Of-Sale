@@ -24,8 +24,8 @@ public static class LocalFiscalIdentitySeeder
         var resolvedSite = PosConfigurationService.NormalizeConfiguredValue(siteId)
             ?? PosConfigurationService.NormalizeConfiguredValue(branchId)
             ?? "SITE-LOCAL";
-        // Never seed the historical sandbox placeholder — receipts must show a real registered TIN.
-        var resolvedTin = PosConfigurationService.NormalizeTaxpayerTin(taxpayerTin);
+        // Prefer configured TIN; in sandbox allow the developer seed so trial selling can proceed.
+        var resolvedTin = PosConfigurationService.NormalizeTaxpayerTin(taxpayerTin, allowSandboxDeveloperTin: true);
         var resolvedBranch = PosConfigurationService.NormalizeConfiguredValue(branchId) ?? "LOCAL";
         var resolvedName = string.IsNullOrWhiteSpace(tradingName)
             ? "Albert Retail Terminal"

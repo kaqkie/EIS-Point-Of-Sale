@@ -147,10 +147,10 @@ public sealed class FiscalConnectivityAndReceiptTests
     }
 
     [Fact]
-    public void FormatSellerTin_RejectsSandboxPlaceholder()
+    public void FormatSellerTin_HandlesEmptyAndConfiguredValues()
     {
-        Assert.Equal("NOT CONFIGURED", MraReceiptLayoutService.FormatSellerTin("1234567890"));
         Assert.Equal("NOT CONFIGURED", MraReceiptLayoutService.FormatSellerTin(" "));
+        Assert.Equal("1234567890", MraReceiptLayoutService.FormatSellerTin("1234567890"));
         Assert.Equal("2007123456", MraReceiptLayoutService.FormatSellerTin("2007123456"));
     }
 

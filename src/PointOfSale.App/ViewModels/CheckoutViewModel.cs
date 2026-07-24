@@ -718,11 +718,11 @@ public partial class CheckoutViewModel : ObservableObject
             await _productionSecretGuard.EnsureReadyForLiveSalesAsync().ConfigureAwait(true);
 
             var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
-            if (string.IsNullOrWhiteSpace(context.SellerTin) || string.IsNullOrWhiteSpace(context.SiteId))
+            if (!context.HasRequiredSalesIdentity)
             {
                 ShowOperatorDialog(new OperatorMessage(
                     "Terminal configuration incomplete",
-                    "Run onboarding, sync MRA configs, and set Branch/Site IDs in appsettings.Production.json before selling.",
+                    PosConfigurationService.BuildIncompleteConfigurationMessage(context.HostEnvironmentName),
                     OperatorMessageSeverity.Error,
                     SuggestOfflineFallback: false));
                 StatusMessage = "Terminal configuration incomplete.";
@@ -897,6 +897,17 @@ public partial class CheckoutViewModel : ObservableObject
         try
         {
             var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+            if (!context.HasRequiredSalesIdentity)
+            {
+                ShowOperatorDialog(new OperatorMessage(
+                    "Terminal configuration incomplete",
+                    PosConfigurationService.BuildIncompleteConfigurationMessage(context.HostEnvironmentName),
+                    OperatorMessageSeverity.Error,
+                    SuggestOfflineFallback: false));
+                StatusMessage = "Terminal configuration incomplete.";
+                return;
+            }
+
             var invoiceNumber = $"ART-{DateTime.Now:yyyyMMddHHmmss}";
             var lineItems = CartItems.Select((x, index) => x.ToInvoiceLine(index + 1)).ToList();
             var request = new SubmitSalesTransactionRequest

@@ -113,15 +113,17 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
             },
             DeploymentSiteId: "City Center",
             DeploymentTaxpayerTin: null,
-            DeploymentBranchId: "Lilongwe");
+            DeploymentBranchId: "Lilongwe",
+            AllowSandboxDeveloperTin: true);
 
         Assert.Equal("2007123456", ctx.SellerTin);
         Assert.Equal("City Center", ctx.SiteId);
         Assert.Equal("Lilongwe", ctx.BranchId);
+        Assert.True(ctx.HasRequiredSalesIdentity);
     }
 
     [Fact]
-    public void PosRuntimeContext_IgnoresSandboxPlaceholderTin()
+    public void PosRuntimeContext_Production_IgnoresSandboxPlaceholderTin()
     {
         var ctx = new PosRuntimeContext(
             Global: null,
@@ -134,9 +136,38 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
             {
                 TaxpayerTin = "2007123456"
             },
-            DeploymentTaxpayerTin: "1234567890");
+            DeploymentTaxpayerTin: "1234567890",
+            AllowSandboxDeveloperTin: false);
 
         Assert.Equal("2007123456", ctx.SellerTin);
         Assert.True(PosConfigurationService.IsPlaceholderTaxpayerTin("1234567890"));
+    }
+
+    [Fact]
+    public void PosRuntimeContext_SandboxTrial_AcceptsDeveloperTinFromAppsettings()
+    {
+        var ctx = new PosRuntimeContext(
+            Global: null,
+            Terminal: null,
+            Taxpayer: null,
+            Deployment: new PointOfSale.App.Options.TerminalDeploymentOptions
+            {
+                BranchId = "Lilongwe",
+                SiteId = "City Center",
+                TaxpayerTin = "1234567890"
+            },
+            AllowSandboxDeveloperTin: true,
+            HostEnvironmentName: "Sandbox");
+
+        Assert.Equal("1234567890", ctx.SellerTin);
+        Assert.True(ctx.HasRequiredSalesIdentity);
+        Assert.Contains(
+            "appsettings.json",
+            PosConfigurationService.BuildIncompleteConfigurationMessage(ctx.HostEnvironmentName),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "appsettings.Production.json",
+            PosConfigurationService.BuildIncompleteConfigurationMessage(ctx.HostEnvironmentName),
+            StringComparison.OrdinalIgnoreCase);
     }
 }
