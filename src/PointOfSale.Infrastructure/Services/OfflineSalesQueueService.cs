@@ -89,8 +89,8 @@ public sealed class OfflineSalesQueueService
         SubmitSalesTransactionRequest payload;
         try
         {
-            payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(next.PayloadJson, MraJson.SerializerOptions)
-                ?? throw new InvalidOperationException($"Queue item {next.Id} payload is invalid.");
+            payload = await LoadAndNormalizePayloadAsync(next.Id, next.PayloadJson, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -142,8 +142,8 @@ public sealed class OfflineSalesQueueService
         SubmitSalesTransactionRequest payload;
         try
         {
-            payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions)
-                ?? throw new InvalidOperationException($"Queue item {queueId} payload is invalid.");
+            payload = await LoadAndNormalizePayloadAsync(queueId, item.PayloadJson, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -248,15 +248,23 @@ public sealed class OfflineSalesQueueService
 
             return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, submit.Remark);
         }
-        catch (MraApiException ex) when (ex.HttpStatusCode == 400)
+        catch (MraApiException ex) when (ex.LooksLikeValidationOrClientError())
         {
-            await _queueRepository.MarkQuarantinedAsync(queueId, TruncateError(ex.Message), cancellationToken)
+            // HTTP 400 and sandbox 500s that embed validation details — quarantine instead of retry storm.
+            var detail = TruncateError(ex.Message);
+            await _queueRepository.MarkQuarantinedAsync(queueId, detail, cancellationToken)
                 .ConfigureAwait(false);
-            _logger.LogWarning("Quarantined queue id {QueueId} after HTTP 400: {Error}", queueId, ex.Message);
-            return SaleQueueResult.Quarantined(queueId, payload.InvoiceHeader.InvoiceNumber, ex.Message);
+            _logger.LogWarning(
+                "Quarantined queue id {QueueId} after MRA HTTP {Status}: {Error}. ResponseBody={ResponseBody}",
+                queueId,
+                ex.HttpStatusCode,
+                ex.Message,
+                TruncateError(ex.ResponseBody ?? string.Empty));
+            return SaleQueueResult.Quarantined(queueId, payload.InvoiceHeader.InvoiceNumber, detail);
         }
         catch (Exception ex) when (IsTransientFailure(ex))
         {
+            var error = FormatQueueError(ex);
             await ScheduleRetryAsync(
                     new OfflineInvoiceQueueItem
                     {
@@ -266,15 +274,16 @@ public sealed class OfflineSalesQueueService
                         Status = OfflineQueueStatuses.Syncing,
                         RetryCount = currentRetryCount
                     },
-                    ex.Message,
+                    error,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, ex.Message);
+            return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, error);
         }
         catch (Exception ex)
         {
             // Never leave the item stuck in SYNCING — return to PENDING (or quarantine after max retries).
             _logger.LogError(ex, "Unexpected MRA sync failure for queue id {QueueId}; scheduling retry.", queueId);
+            var error = FormatQueueError(ex);
             await ScheduleRetryAsync(
                     new OfflineInvoiceQueueItem
                     {
@@ -284,11 +293,114 @@ public sealed class OfflineSalesQueueService
                         Status = OfflineQueueStatuses.Syncing,
                         RetryCount = currentRetryCount
                     },
-                    ex.Message,
+                    error,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, ex.Message);
+            return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, error);
         }
+    }
+
+    /// <summary>
+    /// Deserializes the queued JSON, normalizes to the current DTO shape, and persists corrections
+    /// so Force Sync / Retry resubmit the cleaned payload.
+    /// </summary>
+    private async Task<SubmitSalesTransactionRequest> LoadAndNormalizePayloadAsync(
+        int queueId,
+        string payloadJson,
+        CancellationToken cancellationToken)
+    {
+        var deserialized = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(payloadJson, MraJson.SerializerOptions)
+            ?? throw new InvalidOperationException($"Queue item {queueId} payload is invalid.");
+
+        var normalized = NormalizeQueuedPayloadForResubmit(deserialized);
+        var normalizedJson = JsonSerializer.Serialize(normalized, MraJson.SerializerOptions);
+        if (!string.Equals(payloadJson.Trim(), normalizedJson, StringComparison.Ordinal))
+        {
+            await _queueRepository.UpdatePayloadJsonAsync(queueId, normalizedJson, cancellationToken)
+                .ConfigureAwait(false);
+            _logger.LogInformation(
+                "Normalized queue payload for item {QueueId} before MRA resubmit (length {Before} -> {After}).",
+                queueId,
+                payloadJson.Length,
+                normalizedJson.Length);
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Round-trips through the current serializer and cleans empty optional strings / line ids
+    /// so Force Sync and Retry send a stable payload structure.
+    /// </summary>
+    public static SubmitSalesTransactionRequest NormalizeQueuedPayloadForResubmit(SubmitSalesTransactionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var roundTripJson = JsonSerializer.Serialize(request, MraJson.SerializerOptions);
+        var normalized = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(roundTripJson, MraJson.SerializerOptions)
+            ?? request;
+
+        var sourceHeader = normalized.InvoiceHeader;
+        var header = new InvoiceHeaderDto
+        {
+            InvoiceNumber = sourceHeader.InvoiceNumber.Trim(),
+            InvoiceDateTime = sourceHeader.InvoiceDateTime,
+            SellerTin = sourceHeader.SellerTin.Trim(),
+            BuyerTin = NullIfWhiteSpace(sourceHeader.BuyerTin),
+            BuyerName = NullIfWhiteSpace(sourceHeader.BuyerName),
+            BuyerAuthorizationCode = NullIfWhiteSpace(sourceHeader.BuyerAuthorizationCode),
+            SiteId = sourceHeader.SiteId.Trim(),
+            GlobalConfigVersion = sourceHeader.GlobalConfigVersion,
+            TaxpayerConfigVersion = sourceHeader.TaxpayerConfigVersion,
+            TerminalConfigVersion = sourceHeader.TerminalConfigVersion,
+            IsReliefSupply = sourceHeader.IsReliefSupply,
+            Vat5CertificateDetails = sourceHeader.Vat5CertificateDetails,
+            PaymentMethod = sourceHeader.PaymentMethod.Trim()
+        };
+
+        var lines = normalized.InvoiceLineItems
+            .Select((line, index) => new InvoiceLineItemDto
+            {
+                Id = index + 1,
+                ProductCode = line.ProductCode.Trim(),
+                Description = line.Description.Trim(),
+                UnitPrice = line.UnitPrice,
+                Quantity = line.Quantity,
+                Discount = line.Discount,
+                Total = line.Total,
+                TotalVat = line.TotalVat,
+                TaxRateId = line.TaxRateId.Trim(),
+                IsProduct = line.IsProduct
+            })
+            .ToList();
+
+        var summary = normalized.InvoiceSummary with
+        {
+            OfflineSignature = NullIfWhiteSpace(normalized.InvoiceSummary.OfflineSignature),
+            TaxBreakDown = normalized.InvoiceSummary.TaxBreakDown
+                .Select(t => new TaxBreakDownDto
+                {
+                    RateId = t.RateId.Trim(),
+                    TaxableAmount = t.TaxableAmount,
+                    TaxAmount = t.TaxAmount
+                })
+                .ToList(),
+            LevyBreakDown = normalized.InvoiceSummary.LevyBreakDown?
+                .Select(l => new LevyBreakDownDto
+                {
+                    LevyTypeId = l.LevyTypeId.Trim(),
+                    LevyRate = l.LevyRate,
+                    LevyAmount = l.LevyAmount
+                })
+                .ToList()
+        };
+
+        return normalized with
+        {
+            InvoiceHeader = header,
+            InvoiceLineItems = lines,
+            InvoiceSummary = summary
+        };
     }
 
     private async Task<SubmitSalesTransactionRequest> PreparePayloadAsync(
@@ -349,9 +461,15 @@ public sealed class OfflineSalesQueueService
             return true;
         }
 
-        if (ex is MraApiException { HttpStatusCode: 0 or >= 500 or 408 or 429 })
+        // Pure infrastructure 5xx / transport with no validation body — retry with backoff.
+        if (ex is MraApiException mra)
         {
-            return true;
+            if (mra.LooksLikeValidationOrClientError())
+            {
+                return false;
+            }
+
+            return mra.HttpStatusCode is 0 or >= 500 or 408 or 429;
         }
 
         return ex.InnerException is HttpRequestException or TaskCanceledException or TimeoutException;
@@ -360,8 +478,21 @@ public sealed class OfflineSalesQueueService
     private static bool IsPermanentBusinessFailure(SalesResult<SubmitSalesTransactionResponseData> submit) =>
         submit.Errors?.Any(e => e.ErrorCode is >= 40000 and < 50000) == true;
 
+    private static string FormatQueueError(Exception ex)
+    {
+        if (ex is MraApiException mra)
+        {
+            return TruncateError(mra.Message);
+        }
+
+        return TruncateError(ex.Message);
+    }
+
     private static string TruncateError(string message) =>
         message.Length <= 4000 ? message : message[..4000];
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private Task LogComplianceAsync(
         string category,

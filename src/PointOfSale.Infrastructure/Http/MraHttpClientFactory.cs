@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
@@ -11,6 +12,7 @@ namespace PointOfSale.Infrastructure.Http;
 
 /// <summary>
 /// Shared HttpClient wiring for MRA EIS — base address, TLS 1.2/1.3, timeouts, optional sandbox cert leniency.
+/// All client property mutation (BaseAddress / Timeout / Accept) happens here once via IHttpClientFactory.
 /// </summary>
 public static class MraHttpClientFactory
 {
@@ -59,6 +61,10 @@ public static class MraHttpClientFactory
         };
     }
 
+    /// <summary>
+    /// One-time HttpClient property configuration for IHttpClientFactory.ConfigureHttpClient.
+    /// Must not be called again after the client has started sending requests.
+    /// </summary>
     public static void ConfigureClient(HttpClient client, MraApiOptions options, string? effectiveBaseUrl = null)
     {
         // Always enforce ≥30s timeout (spec: TimeSpan.FromSeconds(30) floor).
@@ -67,15 +73,20 @@ public static class MraHttpClientFactory
         var baseUrl = MraApiOptions.NormalizeBaseUrl(effectiveBaseUrl ?? options.ResolveBaseUrl());
         if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
         {
-            // Only safe before the first request — callers must not mutate BaseAddress later.
-            try
-            {
-                client.BaseAddress = baseUri;
-            }
-            catch (InvalidOperationException)
-            {
-                // HttpClient already started — absolute RequestUri on each message is used instead.
-            }
+            client.BaseAddress = baseUri;
+        }
+
+        // Set Accept once during factory init — never from typed-client constructors after send.
+        if (!client.DefaultRequestHeaders.Accept.Any(h =>
+                h.MediaType?.Equals("application/json", StringComparison.OrdinalIgnoreCase) == true))
+        {
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        }
+
+        if (!client.DefaultRequestHeaders.Accept.Any(h =>
+                h.MediaType?.Equals("text/plain", StringComparison.OrdinalIgnoreCase) == true))
+        {
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
         }
     }
 

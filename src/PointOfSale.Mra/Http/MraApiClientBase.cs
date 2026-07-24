@@ -13,7 +13,6 @@ namespace PointOfSale.Mra.Http;
 public abstract class MraApiClientBase
 {
     private readonly HttpClient _httpClient;
-    private readonly MraApiOptions _options;
     private readonly ILogger _logger;
 
     protected MraApiClientBase(
@@ -22,15 +21,8 @@ public abstract class MraApiClientBase
         ILogger logger)
     {
         _httpClient = httpClient;
-        _options = options.Value;
+        _ = options.Value; // configured via IHttpClientFactory — do not mutate HttpClient here
         _logger = logger;
-
-        if (_httpClient.BaseAddress is null && Uri.TryCreate(_options.BaseUrl, UriKind.Absolute, out var baseUri))
-        {
-            _httpClient.BaseAddress = baseUri;
-        }
-
-        _httpClient.Timeout = _options.HttpTimeout;
     }
 
     protected async Task<EisApiResponse<TResponse>> GetAsync<TResponse>(
@@ -135,7 +127,12 @@ public abstract class MraApiClientBase
         if (!response.IsSuccessStatusCode)
         {
             throw new MraApiException(
-                $"HTTP error calling MRA EIS: {response.ReasonPhrase}",
+                MraApiException.FormatHttpError(
+                    (int)response.StatusCode,
+                    response.ReasonPhrase,
+                    content,
+                    parsed.Remark,
+                    parsed.Errors),
                 (int)response.StatusCode,
                 content);
         }
@@ -171,4 +168,201 @@ public sealed class MraApiException : Exception
 
     public int HttpStatusCode { get; }
     public string? ResponseBody { get; }
+
+    /// <summary>
+    /// Builds an operator/queue-facing message that includes EIS validation details from the response body
+    /// (sandbox often returns HTTP 500 with a JSON <c>errors</c> / <c>remark</c> payload).
+    /// </summary>
+    public static string FormatHttpError(
+        int statusCode,
+        string? reasonPhrase,
+        string? responseBody,
+        string? remark = null,
+        IReadOnlyList<EisApiError>? errors = null)
+    {
+        var summary = $"MRA EIS HTTP {statusCode}: {reasonPhrase ?? "error"}";
+        var detail = BuildBodyDetail(responseBody, remark, errors);
+        return string.IsNullOrWhiteSpace(detail) ? summary : $"{summary} — {detail}";
+    }
+
+    /// <summary>
+    /// True when the HTTP failure looks like a permanent payload/validation rejection
+    /// (including sandbox 500s that embed field validation in the body).
+    /// </summary>
+    public bool LooksLikeValidationOrClientError()
+    {
+        if (HttpStatusCode is >= 400 and < 500 and not 408 and not 429)
+        {
+            return true;
+        }
+
+        if (HttpStatusCode is < 500)
+        {
+            return false;
+        }
+
+        return HasValidationSignals(ResponseBody);
+    }
+
+    public static bool HasValidationSignals(string? responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("errors", out var errors) &&
+                errors.ValueKind == JsonValueKind.Array &&
+                errors.GetArrayLength() > 0)
+            {
+                return true;
+            }
+
+            if (root.TryGetProperty("remark", out var remark) &&
+                remark.ValueKind == JsonValueKind.String &&
+                LooksLikeValidationText(remark.GetString()))
+            {
+                return true;
+            }
+
+            if (root.TryGetProperty("title", out var title) &&
+                LooksLikeValidationText(title.GetString()))
+            {
+                return true;
+            }
+
+            if (root.TryGetProperty("detail", out var detail) &&
+                LooksLikeValidationText(detail.GetString()))
+            {
+                return true;
+            }
+        }
+        catch (JsonException)
+        {
+            // Fall through to raw-text heuristics.
+        }
+
+        return LooksLikeValidationText(responseBody);
+    }
+
+    private static string? BuildBodyDetail(
+        string? responseBody,
+        string? remark,
+        IReadOnlyList<EisApiError>? errors)
+    {
+        if (errors is { Count: > 0 })
+        {
+            var parts = errors
+                .Select(e =>
+                {
+                    var field = string.IsNullOrWhiteSpace(e.FieldName) ? null : e.FieldName.Trim();
+                    var msg = string.IsNullOrWhiteSpace(e.ErrorMessage) ? $"code {e.ErrorCode}" : e.ErrorMessage.Trim();
+                    return field is null ? msg : $"{field}: {msg}";
+                })
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Take(8);
+            var joined = string.Join("; ", parts);
+            if (!string.IsNullOrWhiteSpace(joined))
+            {
+                return string.IsNullOrWhiteSpace(remark) ? joined : $"{remark.Trim()} | {joined}";
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(remark))
+        {
+            return remark.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+            string? parsedRemark = null;
+            if (root.TryGetProperty("remark", out var r) && r.ValueKind == JsonValueKind.String)
+            {
+                parsedRemark = NullIfWhiteSpace(r.GetString());
+            }
+
+            if (root.TryGetProperty("errors", out var errs) && errs.ValueKind == JsonValueKind.Array)
+            {
+                var pieces = new List<string>();
+                foreach (var err in errs.EnumerateArray().Take(8))
+                {
+                    var field = err.TryGetProperty("fieldName", out var f) ? f.GetString() : null;
+                    var msg = err.TryGetProperty("errorMessage", out var m) ? m.GetString() : err.ToString();
+                    if (string.IsNullOrWhiteSpace(msg))
+                    {
+                        continue;
+                    }
+
+                    pieces.Add(string.IsNullOrWhiteSpace(field) ? msg.Trim() : $"{field.Trim()}: {msg.Trim()}");
+                }
+
+                if (pieces.Count > 0)
+                {
+                    var joined = string.Join("; ", pieces);
+                    return string.IsNullOrWhiteSpace(parsedRemark) ? joined : $"{parsedRemark} | {joined}";
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(parsedRemark))
+            {
+                return parsedRemark;
+            }
+
+            if (root.TryGetProperty("detail", out var d) && d.ValueKind == JsonValueKind.String)
+            {
+                var text = NullIfWhiteSpace(d.GetString());
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    return text;
+                }
+            }
+
+            if (root.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String)
+            {
+                var text = NullIfWhiteSpace(t.GetString());
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    return text;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Use truncated raw body below.
+        }
+
+        var trimmed = responseBody.Trim().Replace('\r', ' ').Replace('\n', ' ');
+        return trimmed.Length <= 500 ? trimmed : trimmed[..500] + "…";
+    }
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static bool LooksLikeValidationText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        return text.Contains("validat", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("invalid", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("required", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("fieldName", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("errorCode", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("must be", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("does not match", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("bad request", StringComparison.OrdinalIgnoreCase);
+    }
 }

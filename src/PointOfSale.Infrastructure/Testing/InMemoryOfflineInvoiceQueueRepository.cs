@@ -148,6 +148,16 @@ public class InMemoryOfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposit
         CancellationToken cancellationToken = default) =>
         MarkPendingRetryAsync(id, retryCount, nextRetryTimeUtc, errorMessage, cancellationToken);
 
+    public Task UpdatePayloadJsonAsync(int id, string payloadJson, CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            var item = _items.First(x => x.Id == id);
+            item.PayloadJson = payloadJson;
+            return Task.CompletedTask;
+        }
+    }
+
     public Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default)
     {
         lock (_gate)

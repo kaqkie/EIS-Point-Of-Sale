@@ -31,6 +31,9 @@ public interface IOfflineInvoiceQueueRepository
 
     Task ResetSyncingToPendingAsync(int id, int retryCount, DateTime nextRetryTimeUtc, string errorMessage, CancellationToken cancellationToken = default);
 
+    /// <summary>Persists a corrected/normalized payload before Force Sync / Retry resubmit.</summary>
+    Task UpdatePayloadJsonAsync(int id, string payloadJson, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<OfflineInvoiceQueueItem>> GetRecentItemsAsync(int take, CancellationToken cancellationToken = default);
@@ -261,6 +264,24 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
         string errorMessage,
         CancellationToken cancellationToken = default) =>
         await MarkPendingRetryAsync(id, retryCount, nextRetryTimeUtc, errorMessage, cancellationToken).ConfigureAwait(false);
+
+    public async Task UpdatePayloadJsonAsync(int id, string payloadJson, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE dbo.OfflineInvoiceQueue
+            SET PayloadJson = @PayloadJson
+            WHERE Id = @Id;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                sql,
+                new { Id = id, PayloadJson = payloadJson },
+                cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
 
     public async Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default)
     {

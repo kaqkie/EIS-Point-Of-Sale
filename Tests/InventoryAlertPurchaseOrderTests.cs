@@ -184,6 +184,9 @@ public sealed class InventoryAlertPurchaseOrderTests
             string errorMessage,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task UpdatePayloadJsonAsync(int id, string payloadJson, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
         public Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
 

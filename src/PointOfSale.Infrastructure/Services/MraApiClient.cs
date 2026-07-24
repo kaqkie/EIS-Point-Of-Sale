@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -13,6 +12,8 @@ namespace PointOfSale.Infrastructure.Services;
 
 /// <summary>
 /// MRA EIS HTTP client — Authorization JWT and optional x-signature (HMAC-SHA512, Base64).
+/// HttpClient lifetime/base address/timeout/Accept headers are owned by <c>IHttpClientFactory</c>
+/// (<see cref="Http.MraHttpClientFactory"/>); this type must not mutate client properties.
 /// </summary>
 public sealed class MraApiClient
 {
@@ -34,12 +35,9 @@ public sealed class MraApiClient
         _logger = logger;
         _auditLoggingService = auditLoggingService;
         _runtimeState = runtimeState;
-
-        ApplyBaseUrlOnce();
-
-        _httpClient.Timeout = _options.HttpTimeout;
-        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+        // Do NOT set BaseAddress, Timeout, or DefaultRequestHeaders here.
+        // IHttpClientFactory configures those once in ConfigureHttpClient; mutating a
+        // started/reused HttpClient throws InvalidOperationException.
     }
 
     public async Task<EisApiResponse<TResponse>> PostAsync<TRequest, TResponse>(
@@ -143,6 +141,11 @@ public sealed class MraApiClient
                 response.IsSuccessStatusCode ? null : content,
                 cancellationToken).ConfigureAwait(false);
 
+            if (!response.IsSuccessStatusCode)
+            {
+                LogFailedExchange(request, auditRequestBody, response.StatusCode, content);
+            }
+
             if (string.IsNullOrWhiteSpace(content))
             {
                 throw new MraApiException(
@@ -158,6 +161,16 @@ public sealed class MraApiClient
             }
             catch (JsonException ex)
             {
+                // Non-JSON 500/HTML bodies are common on the sandbox gateway — keep raw body on the exception.
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new MraApiException(
+                        MraApiException.FormatHttpError((int)response.StatusCode, response.ReasonPhrase, content),
+                        (int)response.StatusCode,
+                        content,
+                        ex);
+                }
+
                 throw new MraApiException(
                     "Invalid MRA EIS response JSON.",
                     (int)response.StatusCode,
@@ -176,7 +189,7 @@ public sealed class MraApiClient
             if (!response.IsSuccessStatusCode)
             {
                 throw new MraApiException(
-                    $"MRA EIS HTTP {(int)response.StatusCode}: {response.ReasonPhrase}",
+                    MraApiException.FormatHttpError((int)response.StatusCode, response.ReasonPhrase, content, parsed.Remark, parsed.Errors),
                     (int)response.StatusCode,
                     content);
             }
@@ -202,6 +215,31 @@ public sealed class MraApiClient
 
             throw new MraApiException(detail, httpStatusCode: 0, responseBody: null, inner: ex);
         }
+    }
+
+    private void LogFailedExchange(
+        HttpRequestMessage request,
+        string? requestBody,
+        System.Net.HttpStatusCode statusCode,
+        string? responseBody)
+    {
+        _logger.LogWarning(
+            "MRA EIS HTTP {Status} for {Method} {Uri}. RequestPayload={RequestPayload}. ResponseBody={ResponseBody}",
+            (int)statusCode,
+            request.Method,
+            request.RequestUri,
+            TruncateForLog(requestBody),
+            TruncateForLog(responseBody));
+    }
+
+    private static string TruncateForLog(string? value, int max = 4000)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "(empty)";
+        }
+
+        return value.Length <= max ? value : value[..max] + "…(truncated)";
     }
 
     private static string FormatTransportError(Exception ex, Uri? requestUri)
@@ -274,28 +312,9 @@ public sealed class MraApiClient
             : $"{relativePath}?{qs}";
     }
 
-    private void ApplyBaseUrlOnce()
-    {
-        var baseUrl = _runtimeState?.GetEffectiveBaseUrl(_options) ?? _options.ResolveBaseUrl();
-        baseUrl = MraApiOptions.NormalizeBaseUrl(baseUrl);
-        if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
-        {
-            try
-            {
-                _httpClient.BaseAddress = baseUri;
-            }
-            catch (InvalidOperationException)
-            {
-                // Already sent a request — absolute RequestUri per call is enough.
-            }
-        }
-
-        var timeout = _options.HttpTimeout < TimeSpan.FromSeconds(30)
-            ? TimeSpan.FromSeconds(30)
-            : _options.HttpTimeout;
-        _httpClient.Timeout = timeout;
-    }
-
+    /// <summary>
+    /// Builds an absolute RequestUri per call. Never mutates <see cref="HttpClient.BaseAddress"/>.
+    /// </summary>
     private void EnsureAbsoluteRequestUri(HttpRequestMessage request)
     {
         var baseUrl = _runtimeState?.GetEffectiveBaseUrl(_options) ?? _options.ResolveBaseUrl();
@@ -321,9 +340,6 @@ public sealed class MraApiClient
 
         var relativePath = request.RequestUri?.ToString() ?? string.Empty;
         request.RequestUri = MraApiOptions.CombineEndpoint(baseUrl, relativePath);
-        // Do NOT mutate HttpClient.BaseAddress after the first request — it throws
-        // InvalidOperationException ("Properties can only be modified before sending the first request").
-        // Absolute RequestUri on each message is sufficient.
     }
 }
 
