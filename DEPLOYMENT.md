@@ -108,7 +108,7 @@ Set **`ART_ENV`** (or `DOTNET_ENVIRONMENT`) before launch:
 | Value | MRA API |
 | --- | --- |
 | `Sandbox` (default) | `https://dev-eis-api.mra.mw/api/v1/` |
-| `Production` | `https://apis.mra.mw/api/v1/` |
+| `Production` | `https://eis-api.mra.mw/api/v1/` |
 
 ```powershell
 $env:ART_ENV = "Production"

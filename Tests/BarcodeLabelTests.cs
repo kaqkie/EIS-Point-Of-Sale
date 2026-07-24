@@ -13,7 +13,7 @@ public sealed class BarcodeLabelTests
         new BarcodeGenerationService(Options.Create(new LabelPrintingOptions
         {
             ShowVatInclusivePrice = true,
-            MraVerificationBaseUrl = "https://eis.mra.mw/verify",
+            MraVerificationBaseUrl = "https://dev-eis-portal.mra.mw/verify",
             PreviewBarcodeHeightPx = 64,
             PreviewBarcodeWidthPx = 240
         }));
@@ -89,7 +89,7 @@ public sealed class BarcodeLabelTests
         var url = service.BuildMraVerificationUrl("ART-20260722-001", "SIG123");
         Assert.Contains("invoice=ART-20260722-001", url);
         Assert.Contains("sig=SIG123", url);
-        Assert.StartsWith("https://eis.mra.mw/verify", url);
+        Assert.StartsWith("https://dev-eis-portal.mra.mw/verify", url);
     }
 
     [Fact]

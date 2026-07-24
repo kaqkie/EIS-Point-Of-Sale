@@ -342,12 +342,20 @@ public sealed class OfflineSalesQueueService
         return DateTime.UtcNow.AddSeconds(delaySeconds);
     }
 
-    private static bool IsTransientFailure(Exception ex) =>
-        ex is HttpRequestException
-            or TaskCanceledException
-            or TimeoutException
-            or IOException
-            or MraApiException { HttpStatusCode: >= 500 or 408 or 429 };
+    private static bool IsTransientFailure(Exception ex)
+    {
+        if (ex is HttpRequestException or TaskCanceledException or TimeoutException or IOException)
+        {
+            return true;
+        }
+
+        if (ex is MraApiException { HttpStatusCode: 0 or >= 500 or 408 or 429 })
+        {
+            return true;
+        }
+
+        return ex.InnerException is HttpRequestException or TaskCanceledException or TimeoutException;
+    }
 
     private static bool IsPermanentBusinessFailure(SalesResult<SubmitSalesTransactionResponseData> submit) =>
         submit.Errors?.Any(e => e.ErrorCode is >= 40000 and < 50000) == true;

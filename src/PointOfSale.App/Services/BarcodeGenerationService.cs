@@ -77,9 +77,9 @@ public sealed class BarcodeGenerationService : IBarcodeGenerationService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(invoiceNumber);
         var baseUrl = (_options.MraVerificationBaseUrl ?? string.Empty).TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(baseUrl))
+        if (string.IsNullOrWhiteSpace(baseUrl) || baseUrl.Contains("eis.mra.mw", StringComparison.OrdinalIgnoreCase))
         {
-            baseUrl = "https://eis.mra.mw/verify";
+            baseUrl = "https://dev-eis-portal.mra.mw/verify";
         }
 
         var url = $"{baseUrl}?invoice={Uri.EscapeDataString(invoiceNumber.Trim())}";

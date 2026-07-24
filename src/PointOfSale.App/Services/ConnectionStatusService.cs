@@ -1,11 +1,11 @@
 using System.Net.Http;
 using System.Net.NetworkInformation;
-using System.Net.Security;
 using System.Security.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PointOfSale.Core.Constants;
+using PointOfSale.Infrastructure.Http;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Mra.Options;
 
@@ -42,16 +42,9 @@ public sealed class ConnectionStatusService : IConnectionStatusService
         _logger = logger;
 
         var timeout = ResolveProbeTimeout(_options.HttpTimeout);
-        var handler = new SocketsHttpHandler
-        {
-            ConnectTimeout = timeout,
-            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
-            SslOptions = new SslClientAuthenticationOptions
-            {
-                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
-            }
-        };
-
+        // Reuse EIS HttpClient factory (TLS 1.2/1.3 + optional sandbox cert leniency).
+        var handler = MraHttpClientFactory.CreateHandler(_options);
+        handler.ConnectTimeout = timeout;
         _httpClient = new HttpClient(handler, disposeHandler: true)
         {
             Timeout = timeout

@@ -17,7 +17,7 @@ public sealed class LabelPrintingOptions
     /// Base URL for MRA fiscal verification QR payloads.
     /// Invoice id is appended as a query parameter when generating fiscal QR labels.
     /// </summary>
-    public string MraVerificationBaseUrl { get; set; } = "https://eis.mra.mw/verify";
+    public string MraVerificationBaseUrl { get; set; } = "https://dev-eis-portal.mra.mw/verify";
 
     /// <summary>Include "incl. 17.5% VAT" on shelf-edge price lines.</summary>
     public bool ShowVatInclusivePrice { get; set; } = true;

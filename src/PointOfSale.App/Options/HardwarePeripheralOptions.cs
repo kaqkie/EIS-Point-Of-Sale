@@ -35,5 +35,5 @@ public sealed class HardwarePeripheralOptions
     public bool PreferHighDensityMraQr { get; set; } = true;
 
     /// <summary>Sample URL printed on hardware test pages.</summary>
-    public string TestVerificationUrl { get; set; } = "https://eis.mra.mw/verify";
+    public string TestVerificationUrl { get; set; } = "https://dev-eis-portal.mra.mw/verify";
 }

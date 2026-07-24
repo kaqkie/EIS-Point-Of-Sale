@@ -117,7 +117,7 @@ public sealed class MraApiClient
         CancellationToken cancellationToken)
     {
         EnsureAbsoluteRequestUri(request);
-        _logger.LogDebug("MRA EIS {Method} {Uri}", request.Method, request.RequestUri);
+        _logger.LogInformation("MRA EIS {Method} {Uri}", request.Method, request.RequestUri);
 
         var path = ResolveAuditPath(request.RequestUri);
         var started = Environment.TickCount64;
@@ -182,6 +182,9 @@ public sealed class MraApiClient
         catch (Exception ex) when (ex is not MraApiException)
         {
             var durationMs = (int)Math.Min(int.MaxValue, Environment.TickCount64 - started);
+            var detail = FormatTransportError(ex, request.RequestUri);
+            _logger.LogError(ex, "MRA EIS transport failure for {Uri}: {Detail}", request.RequestUri, detail);
+
             await AuditAsync(
                 request.Method.Method,
                 path,
@@ -190,10 +193,23 @@ public sealed class MraApiClient
                 auditRequestBody,
                 responseBody: null,
                 isSuccess: false,
-                errorMessage: ex.Message,
+                errorMessage: detail,
                 cancellationToken).ConfigureAwait(false);
-            throw;
+
+            throw new MraApiException(detail, httpStatusCode: 0, responseBody: null, inner: ex);
         }
+    }
+
+    private static string FormatTransportError(Exception ex, Uri? requestUri)
+    {
+        var root = ex;
+        while (root.InnerException is not null)
+        {
+            root = root.InnerException;
+        }
+
+        var target = requestUri?.ToString() ?? "(unknown uri)";
+        return $"MRA EIS request failed for {target}: {root.GetType().Name}: {root.Message}";
     }
 
     private Task AuditAsync(
@@ -256,28 +272,50 @@ public sealed class MraApiClient
 
     private void ApplyBaseUrlOnce()
     {
-        if (_httpClient.BaseAddress is not null)
-        {
-            return;
-        }
-
         var baseUrl = _runtimeState?.GetEffectiveBaseUrl(_options) ?? _options.ResolveBaseUrl();
+        baseUrl = MraApiOptions.NormalizeBaseUrl(baseUrl);
         if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
         {
             _httpClient.BaseAddress = baseUri;
         }
+
+        var timeout = _options.HttpTimeout < TimeSpan.FromSeconds(45)
+            ? TimeSpan.FromSeconds(45)
+            : _options.HttpTimeout;
+        _httpClient.Timeout = timeout;
     }
 
     private void EnsureAbsoluteRequestUri(HttpRequestMessage request)
     {
-        if (request.RequestUri is { IsAbsoluteUri: true })
+        var baseUrl = _runtimeState?.GetEffectiveBaseUrl(_options) ?? _options.ResolveBaseUrl();
+        baseUrl = MraApiOptions.NormalizeBaseUrl(baseUrl);
+
+        if (request.RequestUri is { IsAbsoluteUri: true } absolute)
         {
+            // Rewrite legacy unreachable absolute URIs that may have been baked into callers.
+            if (MraApiOptions.IsLegacyUnreachableHost(absolute.ToString()))
+            {
+                var relative = absolute.AbsolutePath.TrimStart('/') + absolute.Query;
+                // Drop a duplicated api/v1 prefix if the absolute URI already contained it.
+                if (relative.StartsWith("api/v1/", StringComparison.OrdinalIgnoreCase))
+                {
+                    relative = relative["api/v1/".Length..];
+                }
+
+                request.RequestUri = MraApiOptions.CombineEndpoint(baseUrl, relative);
+            }
+
             return;
         }
 
-        var baseUrl = _runtimeState?.GetEffectiveBaseUrl(_options) ?? _options.ResolveBaseUrl();
-        var relative = request.RequestUri?.ToString() ?? string.Empty;
-        request.RequestUri = new Uri(new Uri(baseUrl), relative);
+        var relativePath = request.RequestUri?.ToString() ?? string.Empty;
+        request.RequestUri = MraApiOptions.CombineEndpoint(baseUrl, relativePath);
+
+        // Keep BaseAddress aligned with the effective environment for subsequent relative calls.
+        if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
+        {
+            _httpClient.BaseAddress = baseUri;
+        }
     }
 }
 

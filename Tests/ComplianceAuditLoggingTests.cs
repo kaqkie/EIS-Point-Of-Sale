@@ -25,12 +25,28 @@ public sealed class ComplianceAuditLoggingTests
         var options = new MraApiOptions
         {
             Environment = "Sandbox",
+            // Legacy unreachable host must be rewritten to eis-api.mra.mw
             ProductionBaseUrl = "https://apis.mra.mw/api/v1/",
-            SandboxBaseUrl = "https://dev-eis-api.mra.mw/api/v1/"
+            SandboxBaseUrl = "https://dev-eis-api.mra.mw/api/v1/",
+            BaseUrl = "https://apis.mra.mw/api/v1/"
         };
 
         Assert.True(state.IsLiveProductionActive(options));
-        Assert.Contains("apis.mra.mw", state.GetEffectiveBaseUrl(options), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("eis-api.mra.mw", state.GetEffectiveBaseUrl(options), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("apis.mra.mw", state.GetEffectiveBaseUrl(options), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void MraApiOptions_RewritesLegacyUnreachableHosts()
+    {
+        Assert.True(MraApiOptions.IsLegacyUnreachableHost("https://apis.mra.mw/api/v1/"));
+        Assert.Contains(
+            "eis-api.mra.mw",
+            MraApiOptions.NormalizeBaseUrl("https://apis.mra.mw/api/v1/"),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(
+            "https://dev-eis-api.mra.mw/api/v1/sales/submit-sales-transaction",
+            MraApiOptions.CombineEndpoint("https://dev-eis-api.mra.mw/api/v1/", "/sales/submit-sales-transaction").ToString());
     }
 
     [Fact]

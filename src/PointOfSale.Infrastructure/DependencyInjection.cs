@@ -1,14 +1,15 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using PointOfSale.Core.Compliance;
 using PointOfSale.Infrastructure.Data;
+using PointOfSale.Infrastructure.Http;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Security;
 using PointOfSale.Infrastructure.Options;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Infrastructure.Workers;
-
 using PointOfSale.Mra.Options;
 
 namespace PointOfSale.Infrastructure;
@@ -20,28 +21,7 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.Configure<MraApiOptions>(configuration.GetSection(MraApiOptions.SectionName));
-        services.PostConfigure<MraApiOptions>(options =>
-        {
-            var timeoutSeconds = configuration.GetValue<int?>("MraEis:HttpTimeoutSeconds")
-                ?? (options.HttpTimeoutSeconds > 0 ? options.HttpTimeoutSeconds : null);
-            if (timeoutSeconds is > 0)
-            {
-                // Floor at 30s so slow EIS handshakes do not false-trigger offline queueing.
-                options.HttpTimeout = TimeSpan.FromSeconds(Math.Max(30, timeoutSeconds.Value));
-                options.HttpTimeoutSeconds = (int)options.HttpTimeout.TotalSeconds;
-            }
-            else if (options.HttpTimeout < TimeSpan.FromSeconds(30))
-            {
-                options.HttpTimeout = TimeSpan.FromSeconds(30);
-                options.HttpTimeoutSeconds = 30;
-            }
-
-            if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            {
-                options.BaseUrl = options.ResolveBaseUrl();
-            }
-        });
+        MraApiOptionsConfiguration.Apply(services, configuration);
 
         services.Configure<OfflineSyncOptions>(configuration.GetSection(OfflineSyncOptions.SectionName));
         services.Configure<PosOperationsOptions>(configuration.GetSection(PosOperationsOptions.SectionName));
@@ -76,24 +56,19 @@ public static class DependencyInjection
         services.AddScoped<IMultiTerminalSyncRepository, MultiTerminalSyncRepository>();
 
         services.AddHttpClient<MraApiClient>()
-            .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+            .ConfigurePrimaryHttpMessageHandler(sp =>
             {
-                ConnectTimeout = TimeSpan.FromSeconds(30),
-                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
-                SslOptions = new System.Net.Security.SslClientAuthenticationOptions
-                {
-                    EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12
-                        | System.Security.Authentication.SslProtocols.Tls13
-                }
+                var opts = sp.GetRequiredService<IOptions<MraApiOptions>>().Value;
+                return MraHttpClientFactory.CreateHandler(opts);
             })
             .ConfigureHttpClient((sp, client) =>
             {
-                var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MraApiOptions>>().Value;
-                var timeout = opts.HttpTimeout < TimeSpan.FromSeconds(30)
-                    ? TimeSpan.FromSeconds(30)
-                    : opts.HttpTimeout;
-                client.Timeout = timeout;
+                var opts = sp.GetRequiredService<IOptions<MraApiOptions>>().Value;
+                var runtime = sp.GetService<MraRuntimeEnvironmentState>();
+                var baseUrl = runtime?.GetEffectiveBaseUrl(opts) ?? opts.ResolveBaseUrl();
+                MraHttpClientFactory.ConfigureClient(client, opts, baseUrl);
             });
+
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();

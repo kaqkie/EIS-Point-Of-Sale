@@ -1,4 +1,5 @@
 using PointOfSale.Mra.Contracts.Sales;
+using PointOfSale.Mra.Options;
 
 namespace PointOfSale.App.Services;
 
@@ -9,7 +10,6 @@ namespace PointOfSale.App.Services;
 public static class FiscalReceiptEnricher
 {
     public const string OfflinePendingPlaceholder = "OFFLINE-QUEUED-PENDING-MRA-SYNC";
-    public const string DefaultVerificationBaseUrl = "https://eis.mra.mw/verify";
 
     public static bool IsOfflinePlaceholder(string? fiscalToken) =>
         string.IsNullOrWhiteSpace(fiscalToken)
@@ -39,24 +39,28 @@ public static class FiscalReceiptEnricher
             };
         }
 
+        var baseUrl = ResolveVerificationBase(verificationBaseUrl);
+
         if (string.IsNullOrWhiteSpace(verificationUrl) && !string.IsNullOrWhiteSpace(signature))
         {
-            var baseUrl = string.IsNullOrWhiteSpace(verificationBaseUrl)
-                ? DefaultVerificationBaseUrl
-                : verificationBaseUrl.Trim().TrimEnd('/');
             verificationUrl =
                 $"{baseUrl}?invoice={Uri.EscapeDataString(invoiceNumber.Trim())}" +
                 $"&sig={Uri.EscapeDataString(signature.Trim())}";
         }
         else if (!string.IsNullOrWhiteSpace(verificationUrl)
-                 && verificationUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) == false
+                 && !verificationUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                  && !IsOfflinePlaceholder(verificationUrl))
         {
-            // Some gateways return a relative verify path or bare token — promote to absolute URL.
-            var baseUrl = string.IsNullOrWhiteSpace(verificationBaseUrl)
-                ? DefaultVerificationBaseUrl
-                : verificationBaseUrl.Trim().TrimEnd('/');
             verificationUrl = $"{baseUrl}/{verificationUrl.TrimStart('/')}";
+        }
+        else if (!string.IsNullOrWhiteSpace(verificationUrl)
+                 && MraApiOptions.IsLegacyUnreachableHost(verificationUrl)
+                 && !string.IsNullOrWhiteSpace(signature))
+        {
+            // Rewrite legacy eis.mra.mw verify links to the reachable portal host.
+            verificationUrl =
+                $"{baseUrl}?invoice={Uri.EscapeDataString(invoiceNumber.Trim())}" +
+                $"&sig={Uri.EscapeDataString(signature.Trim())}";
         }
 
         return new SubmitSalesTransactionResponseData
@@ -67,5 +71,16 @@ public static class FiscalReceiptEnricher
             VerificationUrl = verificationUrl,
             ShouldDownloadLatestConfig = response.ShouldDownloadLatestConfig
         };
+    }
+
+    private static string ResolveVerificationBase(string? verificationBaseUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(verificationBaseUrl)
+            && !MraApiOptions.IsLegacyUnreachableHost(verificationBaseUrl))
+        {
+            return verificationBaseUrl.Trim().TrimEnd('/');
+        }
+
+        return MraApiOptions.DefaultSandboxVerificationBaseUrl;
     }
 }

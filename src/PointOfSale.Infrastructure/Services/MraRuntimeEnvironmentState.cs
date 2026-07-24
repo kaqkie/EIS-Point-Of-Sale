@@ -24,17 +24,34 @@ public sealed class MraRuntimeEnvironmentState
 
     public string GetEffectiveBaseUrl(MraApiOptions options)
     {
-        var clone = new MraApiOptions
+        var environment = GetEffectiveEnvironment(options);
+
+        // When a runtime handshake overrides environment, prefer that environment's endpoint
+        // over a sticky BaseUrl that may still point at a legacy unreachable host.
+        if (!string.IsNullOrWhiteSpace(EnvironmentOverride)
+            || string.IsNullOrWhiteSpace(options.BaseUrl)
+            || MraApiOptions.IsLegacyUnreachableHost(options.BaseUrl))
         {
-            Environment = GetEffectiveEnvironment(options),
-            SandboxBaseUrl = options.SandboxBaseUrl,
-            ProductionBaseUrl = options.ProductionBaseUrl,
-            BaseUrl = options.BaseUrl,
-            ProductId = options.ProductId,
-            ProductVersion = options.ProductVersion,
-            HttpTimeout = options.HttpTimeout
-        };
-        return clone.ResolveBaseUrl();
+            return environment.Equals("Production", StringComparison.OrdinalIgnoreCase)
+                ? MraApiOptions.NormalizeBaseUrl(options.ProductionBaseUrl)
+                : MraApiOptions.NormalizeBaseUrl(options.SandboxBaseUrl);
+        }
+
+        return MraApiOptions.NormalizeBaseUrl(options.BaseUrl);
+    }
+
+    public string GetEffectiveVerificationBaseUrl(MraApiOptions options)
+    {
+        var environment = GetEffectiveEnvironment(options);
+        if (!string.IsNullOrWhiteSpace(options.VerificationBaseUrl)
+            && !MraApiOptions.IsLegacyUnreachableHost(options.VerificationBaseUrl))
+        {
+            return options.VerificationBaseUrl.Trim().TrimEnd('/');
+        }
+
+        return environment.Equals("Production", StringComparison.OrdinalIgnoreCase)
+            ? MraApiOptions.DefaultProductionVerificationBaseUrl
+            : MraApiOptions.DefaultSandboxVerificationBaseUrl;
     }
 
     public void ApplyHandshake(string environment, DateTime handshakeUtc, DateTime? certificateNotAfterUtc)

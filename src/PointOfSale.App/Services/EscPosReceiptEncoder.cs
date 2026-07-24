@@ -207,7 +207,7 @@ public static class EscPosReceiptEncoder
         WriteLine(buffer, "High-density MRA QR");
         Write(buffer, BuildHighDensityQrCode(
             string.IsNullOrWhiteSpace(verificationSampleUrl)
-                ? "https://eis.mra.mw/verify"
+                ? "https://dev-eis-portal.mra.mw/verify"
                 : verificationSampleUrl));
         WriteLine(buffer, string.Empty);
         Write(buffer, AlignCenter());

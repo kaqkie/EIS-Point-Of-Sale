@@ -1,7 +1,9 @@
 using System.Windows;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Contracts.Sales;
+using PointOfSale.Mra.Options;
 
 namespace PointOfSale.App.Services;
 
@@ -9,15 +11,18 @@ public sealed class OfflineInvoiceSyncReceiptHandler : IOfflineInvoiceSyncComple
 {
     private readonly IReceiptPrintingService _receiptPrintingService;
     private readonly IPosConfigurationService _posConfigurationService;
+    private readonly MraApiOptions _mraOptions;
     private readonly ILogger<OfflineInvoiceSyncReceiptHandler> _logger;
 
     public OfflineInvoiceSyncReceiptHandler(
         IReceiptPrintingService receiptPrintingService,
         IPosConfigurationService posConfigurationService,
+        IOptions<MraApiOptions> mraOptions,
         ILogger<OfflineInvoiceSyncReceiptHandler> logger)
     {
         _receiptPrintingService = receiptPrintingService;
         _posConfigurationService = posConfigurationService;
+        _mraOptions = mraOptions.Value;
         _logger = logger;
     }
 
@@ -26,7 +31,13 @@ public sealed class OfflineInvoiceSyncReceiptHandler : IOfflineInvoiceSyncComple
         SubmitSalesTransactionResponseData fiscalResponse,
         CancellationToken cancellationToken = default)
     {
-        if (!QueueReceiptPrintHelper.HasPrintableFiscalData(fiscalResponse))
+        var verifyBase = _mraOptions.ResolveVerificationBaseUrl();
+        var enriched = FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+            fiscalResponse,
+            payload.InvoiceHeader.InvoiceNumber,
+            verifyBase);
+
+        if (!QueueReceiptPrintHelper.HasPrintableFiscalData(enriched))
         {
             _logger.LogWarning(
                 "Skipping auto-print for invoice {InvoiceNumber}: missing fiscal signature and verification URL.",
@@ -35,7 +46,7 @@ public sealed class OfflineInvoiceSyncReceiptHandler : IOfflineInvoiceSyncComple
         }
 
         var context = await _posConfigurationService.GetRuntimeContextAsync(cancellationToken).ConfigureAwait(false);
-        var printRequest = QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscalResponse);
+        var printRequest = QueueReceiptPrintHelper.CreatePrintRequest(context, payload, enriched, verifyBase);
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -43,7 +54,7 @@ public sealed class OfflineInvoiceSyncReceiptHandler : IOfflineInvoiceSyncComple
             {
                 _receiptPrintingService.PrintAsync(printRequest, CancellationToken.None).GetAwaiter().GetResult();
                 _logger.LogInformation(
-                    "Auto-printed receipt for synced invoice {InvoiceNumber}.",
+                    "Auto-printed fiscal receipt with MRA QR for synced invoice {InvoiceNumber}.",
                     payload.InvoiceHeader.InvoiceNumber);
             }
             catch (Exception ex)
@@ -74,13 +85,15 @@ public static class QueueReceiptPrintHelper
     public static ReceiptPrintRequest CreatePrintRequest(
         PosRuntimeContext context,
         SubmitSalesTransactionRequest payload,
-        SubmitSalesTransactionResponseData? fiscalResponse)
+        SubmitSalesTransactionResponseData? fiscalResponse,
+        string? verificationBaseUrl = null)
     {
         var enriched = fiscalResponse is null
             ? null
             : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
                 fiscalResponse,
-                payload.InvoiceHeader.InvoiceNumber);
+                payload.InvoiceHeader.InvoiceNumber,
+                verificationBaseUrl);
 
         return new ReceiptPrintRequest
         {

@@ -27,6 +27,7 @@ public sealed class FiscalConnectivityAndReceiptTests
 
         Assert.Equal("FSIG-LIVE-001", enriched.ResolveFiscalSignature());
         Assert.False(string.IsNullOrWhiteSpace(enriched.VerificationUrl));
+        Assert.Contains("dev-eis-portal.mra.mw/verify", enriched.VerificationUrl, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("invoice=ART-1", enriched.VerificationUrl, StringComparison.Ordinal);
         Assert.Contains("sig=FSIG-LIVE-001", enriched.VerificationUrl, StringComparison.Ordinal);
         Assert.False(FiscalReceiptEnricher.IsOfflinePlaceholder(enriched.ResolveFiscalSignature()));
