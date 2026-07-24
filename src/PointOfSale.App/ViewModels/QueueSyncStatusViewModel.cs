@@ -194,12 +194,11 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 
         try
         {
-            // Select the row so toolbar + status stay consistent with the clicked entity.
             SelectedQueueItem = item;
-            var ok = await _queueRepository.RetryQuarantinedAsync(item.Id).ConfigureAwait(true);
-            StatusMessage = ok
-                ? $"Queue item {item.Id} ({item.InvoiceNumber}) returned to PENDING."
-                : $"Unable to retry item {item.Id}.";
+            // ForceSyncQueueItemAsync already moves Quarantined → Pending then submits to MRA.
+            var result = await _offlineSalesQueueService.ForceSyncQueueItemAsync(item.Id).ConfigureAwait(true);
+            StatusMessage = FormatSyncResult(item.Id, item.InvoiceNumber, result, prefix: "Retry");
+            await DrainFifoQueueAsync().ConfigureAwait(true);
             await RefreshAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -232,14 +231,8 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         {
             SelectedQueueItem = item;
             var result = await _offlineSalesQueueService.ForceSyncQueueItemAsync(item.Id).ConfigureAwait(true);
-            StatusMessage = result switch
-            {
-                null => $"Queue item {item.Id} not found.",
-                { SubmittedOnline: true } =>
-                    $"Force sync succeeded for invoice {result.InvoiceNumber}. Receipt auto-print runs when fiscal data is present.",
-                { IsQuarantined: true } => $"Force sync quarantined item {item.Id}: {result.Remark}",
-                _ => result.Remark ?? $"Force sync did not complete for item {item.Id}."
-            };
+            StatusMessage = FormatSyncResult(item.Id, item.InvoiceNumber, result, prefix: "Force sync");
+            await DrainFifoQueueAsync().ConfigureAwait(true);
             await RefreshAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -250,6 +243,33 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         {
             EndBusy();
         }
+    }
+
+    /// <summary>
+    /// Continues processing eligible PENDING items in FIFO order (auto-print on each success).
+    /// </summary>
+    private async Task DrainFifoQueueAsync(int maxItems = 25)
+    {
+        for (var i = 0; i < maxItems; i++)
+        {
+            var processed = await _offlineSalesQueueService.ProcessNextFifoAsync().ConfigureAwait(true);
+            if (!processed)
+            {
+                break;
+            }
+        }
+    }
+
+    private static string FormatSyncResult(int queueId, string invoiceNumber, SaleQueueResult? result, string prefix)
+    {
+        return result switch
+        {
+            null => $"{prefix}: queue item {queueId} not found.",
+            { SubmittedOnline: true } =>
+                $"{prefix} succeeded for invoice {result.InvoiceNumber}. Fiscal receipt/QR prints when MRA returns a signature.",
+            { IsQuarantined: true } => $"{prefix} quarantined item {queueId}: {result.Remark}",
+            _ => result.Remark ?? $"{prefix} did not complete for item {queueId} ({invoiceNumber})."
+        };
     }
 
     [RelayCommand(CanExecute = nameof(CanExecutePrintReceipt))]

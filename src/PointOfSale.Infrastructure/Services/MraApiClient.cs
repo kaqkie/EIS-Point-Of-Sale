@@ -42,20 +42,23 @@ public sealed class MraApiClient
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
     }
 
-    public Task<EisApiResponse<TResponse>> PostAsync<TRequest, TResponse>(
+    public async Task<EisApiResponse<TResponse>> PostAsync<TRequest, TResponse>(
         string relativePath,
         TRequest body,
         MraRequestContext? context = null,
         CancellationToken cancellationToken = default)
     {
         var json = JsonSerializer.Serialize(body, MraJson.SerializerOptions);
+        // Must await before disposing the request — returning SendAsync without await
+        // disposed StringContent mid-flight ("Cannot access a disposed object").
         using var request = new HttpRequestMessage(HttpMethod.Post, relativePath)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
 
         ApplyContext(request, context, signaturePlainText: context?.SignaturePlainText ?? json, jsonBody: json);
-        return SendAsync<TResponse>(request, auditRequestBody: json, cancellationToken);
+        return await SendAsync<TResponse>(request, auditRequestBody: json, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public Task<EisApiResponse<TResponse>> GetAsync<TResponse>(
@@ -64,7 +67,7 @@ public sealed class MraApiClient
         CancellationToken cancellationToken = default) =>
         GetAsync<TResponse>(relativePath, query: null, context, cancellationToken);
 
-    public Task<EisApiResponse<TResponse>> GetAsync<TResponse>(
+    public async Task<EisApiResponse<TResponse>> GetAsync<TResponse>(
         string relativePath,
         IReadOnlyDictionary<string, string>? query,
         MraRequestContext? context = null,
@@ -76,7 +79,8 @@ public sealed class MraApiClient
         var auditBody = query is null || query.Count == 0
             ? null
             : JsonSerializer.Serialize(query, MraJson.SerializerOptions);
-        return SendAsync<TResponse>(request, auditRequestBody: auditBody, cancellationToken);
+        return await SendAsync<TResponse>(request, auditRequestBody: auditBody, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -279,8 +283,8 @@ public sealed class MraApiClient
             _httpClient.BaseAddress = baseUri;
         }
 
-        var timeout = _options.HttpTimeout < TimeSpan.FromSeconds(45)
-            ? TimeSpan.FromSeconds(45)
+        var timeout = _options.HttpTimeout < TimeSpan.FromSeconds(30)
+            ? TimeSpan.FromSeconds(30)
             : _options.HttpTimeout;
         _httpClient.Timeout = timeout;
     }

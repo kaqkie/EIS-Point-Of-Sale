@@ -53,50 +53,29 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
             ColumnWidth = Math.Max(72, pageWidth - 16)
         };
 
-        foreach (var text in layout.HeaderLines)
+        foreach (var text in layout.OrderedTextLines)
         {
-            document.Blocks.Add(Mono(text));
-        }
+            if (string.Equals(text, MraReceiptLayoutService.QrPlaceholderMarker, StringComparison.Ordinal))
+            {
+                if (fiscal.IncludeQrCode && fiscal.QrCodeImage is not null)
+                {
+                    document.Blocks.Add(CreateQrBlock(fiscal.QrCodeImage));
+                }
 
-        foreach (var text in layout.MetaLines)
-        {
-            document.Blocks.Add(Mono(text));
-        }
+                continue;
+            }
 
-        foreach (var item in layout.LineItems)
-        {
-            document.Blocks.Add(Mono(item.Description));
-            document.Blocks.Add(Mono(item.QuantityPriceLine));
-            document.Blocks.Add(Mono(item.VatBreakdownLine));
-        }
-
-        foreach (var text in layout.TaxBreakdownLines)
-        {
-            document.Blocks.Add(Mono(text));
-        }
-
-        foreach (var text in layout.TotalsLines)
-        {
-            document.Blocks.Add(
-                text.StartsWith("TOTAL", StringComparison.Ordinal)
-                    ? HeadingInline(text)
-                    : Mono(text));
-        }
-
-        document.Blocks.Add(Heading(fiscal.Title.Trim('*').Trim()));
-        foreach (var text in fiscal.BodyLines)
-        {
-            document.Blocks.Add(Mono(text));
-        }
-
-        if (fiscal.IncludeQrCode && fiscal.QrCodeImage is not null)
-        {
-            document.Blocks.Add(CreateQrBlock(fiscal.QrCodeImage));
-        }
-
-        foreach (var text in layout.FooterLines)
-        {
-            document.Blocks.Add(Mono(text));
+            if (text.Contains("START OF LEGAL RECEIPT", StringComparison.Ordinal)
+                || text.Contains("END OF LEGAL RECEIPT", StringComparison.Ordinal)
+                || text.Contains("VAT REGISTERED", StringComparison.Ordinal)
+                || text.StartsWith("TOTAL", StringComparison.Ordinal))
+            {
+                document.Blocks.Add(HeadingInline(text.Trim()));
+            }
+            else
+            {
+                document.Blocks.Add(Mono(text));
+            }
         }
 
         return new ReceiptPrintResult(
@@ -218,6 +197,18 @@ public sealed class ReceiptPrintRequest
     public decimal TotalVat { get; init; }
 
     public SubmitSalesTransactionResponseData? FiscalResponse { get; init; }
+
+    /// <summary>Buyer TIN for MRA legal receipt metadata (N/A when walk-in).</summary>
+    public string? BuyerTin { get; init; }
+
+    /// <summary>Buyer name for MRA legal receipt metadata.</summary>
+    public string? BuyerName { get; init; }
+
+    /// <summary>Vendor contact phone printed in the legal receipt header.</summary>
+    public string? ContactPhone { get; init; }
+
+    /// <summary>Vendor contact email printed in the legal receipt header.</summary>
+    public string? ContactEmail { get; init; }
 
     public decimal ResolveSubtotalNet() =>
         SubtotalNet > 0m

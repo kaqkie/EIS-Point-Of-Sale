@@ -63,18 +63,21 @@
                     Padding="10,8"
                     Margin="0,0,8,0"
                     FontWeight="SemiBold"
+                    FocusVisualStyle="{x:Null}"
                     ToolTip="Print the selected queue invoice receipt" />
-            <Button Content="Retry (Quarantined → Pending)"
+            <Button Content="Retry"
                     Command="{Binding RetryQuarantinedCommand}"
                     CommandParameter="{Binding SelectedQueueItem}"
                     Padding="10,8"
                     Margin="0,0,8,0"
-                    ToolTip="Move the selected quarantined item back to PENDING" />
+                    FocusVisualStyle="{x:Null}"
+                    ToolTip="Return quarantined item to PENDING and submit to MRA immediately" />
             <Button Content="Force Sync"
                     Command="{Binding ForceSyncCommand}"
                     CommandParameter="{Binding SelectedQueueItem}"
                     Padding="10,8"
                     FontWeight="SemiBold"
+                    FocusVisualStyle="{x:Null}"
                     ToolTip="Immediately submit the selected pending/quarantined item to MRA" />
         </StackPanel>
 
@@ -99,26 +102,28 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate DataType="{x:Type vm:QueueItemViewModel}">
                             <StackPanel Orientation="Horizontal">
-                                <!--
-                                  Bind via DataGrid ancestor (visual tree). ElementName often fails inside
-                                  DataTemplate name scopes; RelativeSource AncestorType=UserControl is also unreliable.
-                                -->
                                 <Button Content="Print Receipt"
-                                        Command="{Binding DataContext.PrintReceiptCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.PrintReceiptCommand, ElementName=QueueSyncRoot}"
                                         CommandParameter="{Binding}"
                                         Margin="0,0,4,0"
                                         Padding="6,2"
+                                        FocusVisualStyle="{x:Null}"
+                                        IsEnabled="{Binding CanPrintReceipt}"
                                         ToolTip="Print this invoice receipt" />
                                 <Button Content="Retry"
-                                        Command="{Binding DataContext.RetryQuarantinedCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.RetryQuarantinedCommand, ElementName=QueueSyncRoot}"
                                         CommandParameter="{Binding}"
                                         Margin="0,0,4,0"
                                         Padding="6,2"
-                                        ToolTip="Return quarantined item to PENDING" />
+                                        FocusVisualStyle="{x:Null}"
+                                        IsEnabled="{Binding CanRetry}"
+                                        ToolTip="Retry quarantined item now (submit to MRA)" />
                                 <Button Content="Force Sync"
-                                        Command="{Binding DataContext.ForceSyncCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.ForceSyncCommand, ElementName=QueueSyncRoot}"
                                         CommandParameter="{Binding}"
                                         Padding="6,2"
+                                        FocusVisualStyle="{x:Null}"
+                                        IsEnabled="{Binding CanForceSync}"
                                         ToolTip="Force immediate MRA sync for this item" />
                             </StackPanel>
                         </DataTemplate>

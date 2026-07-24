@@ -13,11 +13,15 @@ public interface IMraReceiptLayoutService
 }
 
 /// <summary>
-/// Builds the organized MRA thermal receipt layout: column-aligned totals,
-/// item-level VAT 17.5% breakdowns, fiscal status blocks, and QRCoder verification QR.
+/// Builds the official MRA EIS legal receipt layout (thermal / FlowDocument / ESC-POS).
 /// </summary>
 public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
 {
+    public const string LegalReceiptStartBanner = "*** START OF LEGAL RECEIPT ***";
+    public const string LegalReceiptEndBanner = "*** END OF LEGAL RECEIPT ***";
+    public const string QrPlaceholderMarker = "[MRA FISCAL QR]";
+    public const string VatRegisteredBanner = "**VAT REGISTERED**";
+
     public static string StatutoryVatPercentLabel =>
         $"{PosTaxCalculator.MalawiStandardVatRatePercent:0.0}%";
 
@@ -46,88 +50,127 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             (qrMatrix, qrImage) = RenderQrCoderMatrix(verificationUrl);
         }
 
+        var localTime = request.InvoiceDateTime.Kind == DateTimeKind.Utc
+            ? request.InvoiceDateTime.ToLocalTime()
+            : request.InvoiceDateTime;
+
+        // ---- Header (START + MRA portal + vendor identity) ----
         var header = new List<string>
         {
-            Separator('=', charactersPerLine),
+            Center(LegalReceiptStartBanner, charactersPerLine),
+            Center("MALAWI REVENUE AUTHORITY", charactersPerLine),
+            Center("Electronic Invoicing System (EIS)", charactersPerLine),
+            Center("MRA Portal — eis-portal.mra.mw", charactersPerLine),
+            Separator('-', charactersPerLine),
             Center(Truncate(request.TradingName, charactersPerLine), charactersPerLine)
         };
+
         foreach (var address in request.AddressLines.Where(a => !string.IsNullOrWhiteSpace(a)))
         {
             header.Add(Center(Truncate(address.Trim(), charactersPerLine), charactersPerLine));
         }
 
+        if (!string.IsNullOrWhiteSpace(request.ContactPhone))
+        {
+            header.Add(Center(Truncate($"Tel: {request.ContactPhone.Trim()}", charactersPerLine), charactersPerLine));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ContactEmail))
+        {
+            header.Add(Center(Truncate($"Email: {request.ContactEmail.Trim()}", charactersPerLine), charactersPerLine));
+        }
+
         header.Add(Center(Truncate($"TIN: {request.SellerTin}", charactersPerLine), charactersPerLine));
+        header.Add(Center(VatRegisteredBanner, charactersPerLine));
         header.Add(Separator('-', charactersPerLine));
 
+        // ---- Buyer + receipt metadata ----
+        var buyerTin = string.IsNullOrWhiteSpace(request.BuyerTin) ? "N/A" : request.BuyerTin.Trim();
+        var buyerName = string.IsNullOrWhiteSpace(request.BuyerName) ? "WALK-IN CUSTOMER" : request.BuyerName.Trim();
         var meta = new List<string>
         {
-            Truncate($"Invoice: {request.InvoiceNumber}", charactersPerLine),
-            Truncate($"Date: {request.InvoiceDateTime:yyyy-MM-dd HH:mm}", charactersPerLine),
+            Truncate($"Buyer's TIN: {buyerTin}", charactersPerLine),
+            Truncate($"Buyer's Name: {buyerName}", charactersPerLine),
+            Truncate($"RECEIPT NUMBER: {request.InvoiceNumber}", charactersPerLine),
+            Truncate($"Date: {localTime:yyyy-MM-dd}", charactersPerLine),
+            Truncate($"Time: {localTime:HH:mm:ss}", charactersPerLine),
             Separator('-', charactersPerLine),
-            Columns("ITEM", "AMOUNT", charactersPerLine)
+            Columns("QTY DESCRIPTION", "TOTAL TAX", charactersPerLine)
         };
 
+        // ---- Line items: qty + description | total + tax code ----
         var lineItems = new List<MraReceiptLineItemViewModel>();
         foreach (var item in request.LineItems)
         {
-            var qtyPrice = $"{item.Quantity:N2} x {item.UnitPrice:N2}";
-            var amount = $"{item.Total:N2}";
-            var qtyPriceLine = Columns(qtyPrice, amount, charactersPerLine);
-            var vatLine = Columns(
-                $"  VAT {StatutoryVatPercentLabel}",
-                $"{item.TotalVat:N2}",
+            var taxCode = string.IsNullOrWhiteSpace(item.TaxRateId) ? "A" : item.TaxRateId.Trim().ToUpperInvariant();
+            var left = $"{item.Quantity:N2} {item.Description}";
+            var right = $"{item.Total:N2} {taxCode}";
+            var qtyPriceLine = Columns(left, right, charactersPerLine);
+            // Keep a secondary line for unit detail (optional clarity on narrow paper).
+            var detailLine = Columns(
+                $"  @ {item.UnitPrice:N2}",
+                taxCode,
                 charactersPerLine);
 
             lineItems.Add(new MraReceiptLineItemViewModel
             {
                 Description = Truncate(item.Description, charactersPerLine),
                 QuantityPriceLine = qtyPriceLine,
-                VatBreakdownLine = vatLine,
+                VatBreakdownLine = detailLine,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 LineTotal = item.Total,
                 LineVat = item.TotalVat,
-                TaxRateId = item.TaxRateId
+                TaxRateId = taxCode
             });
         }
 
+        // ---- Tax breakdown: TAXABLE A-17.5% / VAT A=17.5% ----
         var taxLines = new List<string> { Separator('-', charactersPerLine) };
-        foreach (var tax in request.TaxBreakdown)
+        if (request.TaxBreakdown.Count == 0)
         {
-            var rateLabel = FormatTaxRateLabel(tax.RateId);
-            taxLines.Add(Truncate($"Tax {tax.RateId} ({rateLabel})", charactersPerLine));
-            taxLines.Add(Columns("  Taxable", $"{tax.TaxableAmount:N2}", charactersPerLine));
-            taxLines.Add(Columns($"  VAT {StatutoryVatPercentLabel}", $"{tax.TaxAmount:N2}", charactersPerLine));
-        }
-
-        var totals = new List<string>
-        {
-            Separator('-', charactersPerLine),
-            Columns("Subtotal", $"{request.ResolveSubtotalNet():N2}", charactersPerLine),
-            Columns($"VAT {StatutoryVatPercentLabel}", $"{request.ResolveTotalVat():N2}", charactersPerLine),
-            Columns("TOTAL", $"{request.InvoiceTotal:N2}", charactersPerLine),
-            Columns("Tendered", $"{request.AmountTendered:N2}", charactersPerLine),
-            Columns("Change", $"{request.ChangeDue:N2}", charactersPerLine),
-            Separator('=', charactersPerLine)
-        };
-
-        var fiscalBody = new List<string>();
-        if (isOfflinePending)
-        {
-            fiscalBody.Add("OFFLINE — queued for sync");
-            foreach (var chunk in Chunk(string.IsNullOrWhiteSpace(fiscalSignature)
-                         ? FiscalReceiptEnricher.OfflinePendingPlaceholder
-                         : fiscalSignature,
-                     charactersPerLine))
-            {
-                fiscalBody.Add(chunk);
-            }
-
-            fiscalBody.Add("(QR prints after MRA sync)");
+            taxLines.Add(Columns($"TAXABLE A-{StatutoryVatPercentLabel}", $"{request.ResolveSubtotalNet():N2}", charactersPerLine));
+            taxLines.Add(Columns($"VAT A={StatutoryVatPercentLabel}", $"{request.ResolveTotalVat():N2}", charactersPerLine));
         }
         else
         {
-            fiscalBody.Add("SYNCED — fiscal signature");
+            foreach (var tax in request.TaxBreakdown)
+            {
+                var rateId = string.IsNullOrWhiteSpace(tax.RateId) ? "A" : tax.RateId.Trim().ToUpperInvariant();
+                var rateLabel = FormatStatutoryRateLabel(rateId);
+                taxLines.Add(Columns($"TAXABLE {rateId}-{rateLabel}", $"{tax.TaxableAmount:N2}", charactersPerLine));
+                taxLines.Add(Columns($"VAT {rateId}={rateLabel}", $"{tax.TaxAmount:N2}", charactersPerLine));
+            }
+        }
+
+        // ---- Summary totals ----
+        var totals = new List<string>
+        {
+            Separator('-', charactersPerLine),
+            Columns("TOTAL VAT", $"{request.ResolveTotalVat():N2}", charactersPerLine),
+            Columns("TOTAL", $"{request.InvoiceTotal:N2}", charactersPerLine),
+            Columns("AMOUNT", $"{request.AmountTendered:N2}", charactersPerLine),
+            Columns("CHANGE", $"{request.ChangeDue:N2}", charactersPerLine),
+            Separator('-', charactersPerLine)
+        };
+
+        // ---- Fiscal block (signature / offline) — QR is rendered after this, before END ----
+        var fiscalBody = new List<string>();
+        if (isOfflinePending)
+        {
+            fiscalBody.Add(Center("MRA EIS: OFFLINE — queued for sync", charactersPerLine));
+            foreach (var chunk in Chunk(
+                         string.IsNullOrWhiteSpace(fiscalSignature)
+                             ? FiscalReceiptEnricher.OfflinePendingPlaceholder
+                             : fiscalSignature,
+                         charactersPerLine))
+            {
+                fiscalBody.Add(chunk);
+            }
+        }
+        else
+        {
+            fiscalBody.Add(Center("MRA EIS FISCAL SIGNATURE", charactersPerLine));
             foreach (var chunk in Chunk(fiscalSignature, charactersPerLine))
             {
                 fiscalBody.Add(chunk);
@@ -135,22 +178,17 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
 
             if (!string.IsNullOrWhiteSpace(verificationUrl))
             {
-                fiscalBody.Add("Verify:");
+                fiscalBody.Add(Center("Verification URL", charactersPerLine));
                 foreach (var chunk in Chunk(verificationUrl, charactersPerLine))
                 {
                     fiscalBody.Add(chunk);
-                }
-
-                if (includeQr)
-                {
-                    fiscalBody.Add("Scan MRA verification QR");
                 }
             }
         }
 
         var fiscalStatus = new MraFiscalStatusBlockViewModel
         {
-            Title = "*** MRA EIS FISCAL STATUS ***",
+            Title = "MRA EIS FISCAL",
             BodyLines = fiscalBody,
             IsOfflinePending = isOfflinePending,
             IncludeQrCode = includeQr,
@@ -160,26 +198,27 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             QrCodeImage = qrImage
         };
 
-        var footer = new List<string>
+        // Footer ends with legal banner; QR placeholder sits immediately above it.
+        var footer = new List<string>();
+        if (includeQr)
         {
-            Separator('-', charactersPerLine),
-            Center("Thank you", charactersPerLine),
-            Center("Albert Retail Terminal", charactersPerLine)
-        };
+            footer.Add(Center("Scan to verify on MRA Portal", charactersPerLine));
+            footer.Add(QrPlaceholderMarker);
+        }
+
+        footer.Add(Center(LegalReceiptEndBanner, charactersPerLine));
 
         var ordered = new List<string>();
         ordered.AddRange(header);
         ordered.AddRange(meta);
         foreach (var line in lineItems)
         {
-            ordered.Add(line.Description);
             ordered.Add(line.QuantityPriceLine);
             ordered.Add(line.VatBreakdownLine);
         }
 
         ordered.AddRange(taxLines);
         ordered.AddRange(totals);
-        ordered.Add(Center(fiscalStatus.Title, charactersPerLine));
         ordered.AddRange(fiscalStatus.BodyLines);
         ordered.AddRange(footer);
 
@@ -199,7 +238,6 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
 
     /// <summary>
     /// Renders an official MRA verification QR via QRCoder (module matrix + WPF bitmap).
-    /// Returns nulls when the URL is empty (offline queue / missing fiscal payload).
     /// </summary>
     public static (bool[,]? Matrix, BitmapSource? Image) RenderQrCoderMatrix(
         string? verificationUrl,
@@ -242,12 +280,11 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         return matrix;
     }
 
-    private static string FormatTaxRateLabel(string? rateId) =>
+    /// <summary>Rate A always prints as 17.5%; other rate ids keep their code label.</summary>
+    private static string FormatStatutoryRateLabel(string rateId) =>
         string.Equals(rateId, "A", StringComparison.OrdinalIgnoreCase)
             ? StatutoryVatPercentLabel
-            : rateId?.Trim() is { Length: > 0 } id
-                ? id
-                : StatutoryVatPercentLabel;
+            : StatutoryVatPercentLabel;
 
     internal static string Separator(char ch, int width) => new(ch, Math.Min(width, 64));
 

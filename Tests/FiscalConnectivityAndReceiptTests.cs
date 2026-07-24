@@ -15,6 +15,16 @@ public sealed class FiscalConnectivityAndReceiptTests
     }
 
     [Fact]
+    public void MraHttpClient_Timeout_IsFlooredAt30Seconds()
+    {
+        Assert.Equal(30, PointOfSale.Infrastructure.Http.MraHttpClientFactory.MinimumTimeoutSeconds);
+        var shortOpts = new PointOfSale.Mra.Options.MraApiOptions { HttpTimeoutSeconds = 5 };
+        Assert.Equal(TimeSpan.FromSeconds(30), PointOfSale.Infrastructure.Http.MraHttpClientFactory.ResolveTimeout(shortOpts));
+        var longOpts = new PointOfSale.Mra.Options.MraApiOptions { HttpTimeoutSeconds = 90 };
+        Assert.Equal(TimeSpan.FromSeconds(90), PointOfSale.Infrastructure.Http.MraHttpClientFactory.ResolveTimeout(longOpts));
+    }
+
+    [Fact]
     public void Enricher_BuildsVerificationUrl_WhenMraOmitsIt()
     {
         var enriched = FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
@@ -68,6 +78,10 @@ public sealed class FiscalConnectivityAndReceiptTests
                 TradingName = "Albert Retail",
                 SellerTin = "1234567890",
                 AddressLines = ["City Center"],
+                ContactPhone = "+265 1 234 567",
+                ContactEmail = "shop@albertretail.mw",
+                BuyerTin = "9876543210",
+                BuyerName = "Test Buyer",
                 InvoiceNumber = "ART-LAYOUT-1",
                 InvoiceDateTime = new DateTime(2026, 7, 24, 9, 0, 0),
                 LineItems =
@@ -106,14 +120,29 @@ public sealed class FiscalConnectivityAndReceiptTests
             },
             charactersPerLine: 42);
 
-        Assert.Contains("VAT 17.5%", string.Join('\n', layout.OrderedTextLines), StringComparison.Ordinal);
-        Assert.Contains("VAT 17.5%", layout.LineItems[0].VatBreakdownLine, StringComparison.Ordinal);
-        Assert.Contains(layout.TotalsLines, l => l.StartsWith("VAT 17.5%", StringComparison.Ordinal));
+        var text = string.Join('\n', layout.OrderedTextLines);
+        Assert.Contains(MraReceiptLayoutService.LegalReceiptStartBanner, text, StringComparison.Ordinal);
+        Assert.Contains(MraReceiptLayoutService.LegalReceiptEndBanner, text, StringComparison.Ordinal);
+        Assert.Contains(MraReceiptLayoutService.VatRegisteredBanner, text, StringComparison.Ordinal);
+        Assert.Contains("MALAWI REVENUE AUTHORITY", text, StringComparison.Ordinal);
+        Assert.Contains("RECEIPT NUMBER: ART-LAYOUT-1", text, StringComparison.Ordinal);
+        Assert.Contains("Buyer's TIN: 9876543210", text, StringComparison.Ordinal);
+        Assert.Contains("Date: 2026-07-24", text, StringComparison.Ordinal);
+        Assert.Contains("Time: 09:00:00", text, StringComparison.Ordinal);
+        Assert.Contains("TAXABLE A-17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("VAT A=17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("TOTAL VAT", text, StringComparison.Ordinal);
+        Assert.Contains("AMOUNT", text, StringComparison.Ordinal);
+        Assert.Contains("CHANGE", text, StringComparison.Ordinal);
+        Assert.Contains(" A", layout.LineItems[0].QuantityPriceLine, StringComparison.Ordinal);
         Assert.False(layout.FiscalStatus.IsOfflinePending);
         Assert.True(layout.FiscalStatus.IncludeQrCode);
         Assert.NotNull(layout.FiscalStatus.QrModuleMatrix);
         Assert.NotNull(layout.FiscalStatus.QrCodeImage);
-        Assert.Contains(layout.FiscalStatus.BodyLines, l => l.Contains("SYNCED", StringComparison.Ordinal));
+        // QR placeholder sits immediately above the END banner.
+        var qrIndex = layout.OrderedTextLines.ToList().IndexOf(MraReceiptLayoutService.QrPlaceholderMarker);
+        var endIndex = layout.OrderedTextLines.ToList().FindIndex(l => l.Contains("END OF LEGAL RECEIPT", StringComparison.Ordinal));
+        Assert.True(qrIndex >= 0 && endIndex > qrIndex);
     }
 
     [Fact]
@@ -154,10 +183,14 @@ public sealed class FiscalConnectivityAndReceiptTests
                 }
             });
 
+        var text = string.Join('\n', layout.OrderedTextLines);
         Assert.True(layout.FiscalStatus.IsOfflinePending);
         Assert.False(layout.FiscalStatus.IncludeQrCode);
         Assert.Null(layout.FiscalStatus.QrCodeImage);
-        Assert.Contains(layout.FiscalStatus.BodyLines, l => l.Contains("OFFLINE", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(layout.OrderedTextLines, l => l.Contains("VAT 17.5%", StringComparison.Ordinal));
+        Assert.DoesNotContain(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
+        Assert.Contains(MraReceiptLayoutService.LegalReceiptStartBanner, text, StringComparison.Ordinal);
+        Assert.Contains(MraReceiptLayoutService.LegalReceiptEndBanner, text, StringComparison.Ordinal);
+        Assert.Contains("VAT A=17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("OFFLINE", text, StringComparison.OrdinalIgnoreCase);
     }
 }

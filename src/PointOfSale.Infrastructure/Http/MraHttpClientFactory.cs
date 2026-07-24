@@ -14,14 +14,14 @@ namespace PointOfSale.Infrastructure.Http;
 /// </summary>
 public static class MraHttpClientFactory
 {
-    public const int MinimumTimeoutSeconds = 45;
+    public const int MinimumTimeoutSeconds = 30;
 
     public static TimeSpan ResolveTimeout(MraApiOptions options)
     {
         var seconds = options.HttpTimeoutSeconds > 0
             ? options.HttpTimeoutSeconds
             : (int)Math.Ceiling(options.HttpTimeout.TotalSeconds);
-        return TimeSpan.FromSeconds(Math.Max(MinimumTimeoutSeconds, seconds));
+        return TimeSpan.FromSeconds(Math.Max(MinimumTimeoutSeconds, seconds <= 0 ? MinimumTimeoutSeconds : seconds));
     }
 
     public static SocketsHttpHandler CreateHandler(MraApiOptions options)
@@ -29,7 +29,8 @@ public static class MraHttpClientFactory
         var timeout = ResolveTimeout(options);
         var handler = new SocketsHttpHandler
         {
-            ConnectTimeout = TimeSpan.FromSeconds(Math.Min(30, timeout.TotalSeconds)),
+            // Allow enough time for TLS + slow MRA sandbox links before treating as offline.
+            ConnectTimeout = TimeSpan.FromSeconds(Math.Clamp(timeout.TotalSeconds, MinimumTimeoutSeconds, 60)),
             PooledConnectionLifetime = TimeSpan.FromMinutes(2),
             SslOptions = new SslClientAuthenticationOptions
             {
@@ -71,11 +72,10 @@ public static class MraHttpClientFactory
             return false;
         }
 
-        // Allow NameMismatch / RemoteCertificateChainErrors common on MRA lab gateways.
-        return sslPolicyErrors is SslPolicyErrors.None
-            or SslPolicyErrors.RemoteCertificateNameMismatch
-            or SslPolicyErrors.RemoteCertificateChainErrors
-            or (SslPolicyErrors.RemoteCertificateNameMismatch | SslPolicyErrors.RemoteCertificateChainErrors);
+        // Sandbox / lab gateways: accept name mismatch and incomplete chains.
+        // Any other policy error is also accepted here because ShouldRelaxServerCertificateValidation
+        // is only enabled for Sandbox (or explicit AllowInvalidServerCertificates).
+        return true;
     }
 }
 

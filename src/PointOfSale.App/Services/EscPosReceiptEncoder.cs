@@ -38,10 +38,9 @@ public static class EscPosReceiptEncoder
         {
             if (fiscal.IncludeQrCode
                 && !string.IsNullOrWhiteSpace(fiscal.VerificationUrl)
-                && string.Equals(line, "Scan MRA verification QR", StringComparison.Ordinal))
+                && string.Equals(line, MraReceiptLayoutService.QrPlaceholderMarker, StringComparison.Ordinal))
             {
                 Write(buffer, AlignCenter());
-                WriteLine(buffer, "Scan to verify");
                 Write(buffer, highDensityMraQr
                     ? BuildHighDensityQrCode(fiscal.VerificationUrl)
                     : BuildQrCode(fiscal.VerificationUrl));
