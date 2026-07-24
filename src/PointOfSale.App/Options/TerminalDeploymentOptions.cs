@@ -15,8 +15,8 @@ public sealed class TerminalDeploymentOptions
     public string SiteId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Registered MRA taxpayer TIN printed on legal receipts and submitted on sales.
-    /// Must be the live registered TIN — never the sandbox placeholder <c>1234567890</c>.
+    /// Registered MRA taxpayer TIN (Production) or sandbox developer TIN (trial).
+    /// Sandbox/trial may use <c>1234567890</c>; Production must use the live registered TIN.
     /// </summary>
     public string TaxpayerTin { get; set; } = string.Empty;
 

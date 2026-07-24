@@ -27,12 +27,11 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
 
     /// <summary>
     /// Formats the seller TIN from active store/terminal configuration.
-    /// Never prints the historical sandbox placeholder <c>1234567890</c>.
+    /// Empty values print as NOT CONFIGURED (checkout should already block those).
     /// </summary>
     public static string FormatSellerTin(string? sellerTin)
     {
-        if (PosConfigurationService.IsPlaceholderTaxpayerTin(sellerTin)
-            || string.IsNullOrWhiteSpace(sellerTin))
+        if (string.IsNullOrWhiteSpace(sellerTin))
         {
             return "NOT CONFIGURED";
         }
