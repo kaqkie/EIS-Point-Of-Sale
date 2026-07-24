@@ -96,6 +96,12 @@ public partial class CheckoutViewModel : ObservableObject
     [ObservableProperty]
     private string _amountTenderedText = "0.00";
 
+    /// <summary>True while the on-screen numeric keypad is editing tender (avoids N2 reformat fighting keystrokes).</summary>
+    private bool _keypadEditing;
+
+    [ObservableProperty]
+    private CartLineViewModel? _selectedCartLine;
+
     [ObservableProperty]
     private bool _isCashRegisterMode;
 
@@ -207,6 +213,12 @@ public partial class CheckoutViewModel : ObservableObject
 
     partial void OnAmountTenderedChanged(decimal value)
     {
+        if (_keypadEditing)
+        {
+            NotifyTenderDerived();
+            return;
+        }
+
         var formatted = value.ToString("N2", CultureInfo.CurrentCulture);
         if (!string.Equals(AmountTenderedText, formatted, StringComparison.Ordinal))
         {
@@ -375,6 +387,7 @@ public partial class CheckoutViewModel : ObservableObject
             return;
         }
 
+        _keypadEditing = false;
         AmountTendered = CartGrandTotal;
         AmountTenderedText = CartGrandTotal.ToString("N2", CultureInfo.CurrentCulture);
         StatusMessage = $"Exact tender set to {CartGrandTotal:N2}. Change due: {ChangeDue:N2}.";
@@ -394,11 +407,137 @@ public partial class CheckoutViewModel : ObservableObject
             return;
         }
 
+        _keypadEditing = false;
         AmountTendered = PosTaxCalculator.RoundMoney(AmountTendered + add);
         AmountTenderedText = AmountTendered.ToString("N2", CultureInfo.CurrentCulture);
         StatusMessage = HasInsufficientTender
             ? $"Tendered {AmountTendered:N2} — short by {TenderShortfall:N2}."
             : $"Tendered {AmountTendered:N2} — change due {ChangeDue:N2}.";
+    }
+
+    [RelayCommand]
+    private void KeypadPress(string? key)
+    {
+        if (string.IsNullOrEmpty(key))
+        {
+            return;
+        }
+
+        PaymentMethod = "Cash";
+        _keypadEditing = true;
+
+        var buffer = AmountTenderedText?.Trim() ?? string.Empty;
+        if (buffer is "0.00" or "0,00" or "0" or "0.0" or "0,0")
+        {
+            buffer = string.Empty;
+        }
+
+        if (key is "." or ",")
+        {
+            var sep = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+            if (buffer.Contains('.', StringComparison.Ordinal) || buffer.Contains(',', StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            AmountTenderedText = string.IsNullOrEmpty(buffer) ? "0" + sep : buffer + sep;
+            return;
+        }
+
+        if (key.Length == 1 && char.IsDigit(key[0]))
+        {
+            var sep = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+            var sepIndex = buffer.IndexOf(sep, StringComparison.Ordinal);
+            if (sepIndex >= 0 && buffer.Length - sepIndex > 2)
+            {
+                return; // max 2 decimal places
+            }
+
+            AmountTenderedText = buffer + key;
+        }
+    }
+
+    [RelayCommand]
+    private void KeypadBackspace()
+    {
+        PaymentMethod = "Cash";
+        _keypadEditing = true;
+        var buffer = AmountTenderedText ?? string.Empty;
+        if (buffer.Length <= 1)
+        {
+            AmountTenderedText = "0";
+            return;
+        }
+
+        AmountTenderedText = buffer[..^1];
+    }
+
+    [RelayCommand]
+    private void KeypadClear()
+    {
+        PaymentMethod = "Cash";
+        _keypadEditing = true;
+        AmountTenderedText = "0";
+        AmountTendered = 0m;
+        StatusMessage = "Cash tender cleared — enter amount on keypad.";
+    }
+
+    [RelayCommand]
+    private void KeypadConfirmTender()
+    {
+        PaymentMethod = "Cash";
+        _keypadEditing = false;
+        AmountTenderedText = AmountTendered.ToString("N2", CultureInfo.CurrentCulture);
+        if (CartGrandTotal <= 0m)
+        {
+            StatusMessage = "Add items before tendering cash.";
+            return;
+        }
+
+        StatusMessage = HasInsufficientTender
+            ? $"Tendered {AmountTendered:N2} — short by {TenderShortfall:N2}. Enter more cash or Exact (F5)."
+            : $"Tender OK — {AmountTendered:N2} received. Change due: {ChangeDue:N2}. Press Paid to complete.";
+    }
+
+    [RelayCommand]
+    private void SelectPaymentMethod(string? method)
+    {
+        var normalized = method?.Trim() switch
+        {
+            "Credit" or "Other Card" or "Card" => "Card",
+            "Gift Card" => "MobileMoney",
+            "MobileMoney" => "MobileMoney",
+            _ => "Cash"
+        };
+
+        PaymentMethod = normalized;
+        _keypadEditing = false;
+
+        if (IsCashPayment)
+        {
+            StatusMessage = "Cash selected — type amount on the keypad, then OK / Tender.";
+            return;
+        }
+
+        if (CartGrandTotal > 0m)
+        {
+            AmountTendered = CartGrandTotal;
+            AmountTenderedText = CartGrandTotal.ToString("N2", CultureInfo.CurrentCulture);
+        }
+
+        StatusMessage = $"{normalized} selected — tender set to exact total {CartGrandTotal:N2}.";
+    }
+
+    [RelayCommand]
+    private async Task VoidSelectedCartLineAsync()
+    {
+        if (SelectedCartLine is null)
+        {
+            StatusMessage = "Select a cart line to void.";
+            return;
+        }
+
+        await RemoveCartLineAsync(SelectedCartLine).ConfigureAwait(true);
     }
 
     [RelayCommand]
@@ -720,7 +859,9 @@ public partial class CheckoutViewModel : ObservableObject
             LoyaltyDiscountMwk = 0;
             PromoDiscountTotal = 0;
             RecalculateTotals();
+            _keypadEditing = false;
             AmountTendered = 0;
+            AmountTenderedText = "0.00";
             await RefreshQueueBadgeAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -801,7 +942,9 @@ public partial class CheckoutViewModel : ObservableObject
             StatusMessage = $"{queued.Body} Receipt sent to printer.";
             CartItems.Clear();
             RecalculateTotals();
+            _keypadEditing = false;
             AmountTendered = 0;
+            AmountTenderedText = "0.00";
             await RefreshQueueBadgeAsync().ConfigureAwait(true);
         }
         catch (Exception ex)

@@ -322,8 +322,11 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(IsAdminShell))]
+    [RelayCommand(CanExecute = nameof(CanNavigateAdminHome))]
     private void NavigateAdminHome() => _navigationService.NavigateTo<AdminDashboardViewModel>();
+
+    private bool CanNavigateAdminHome() =>
+        IsAdminShell || CanAnalytics;
 
     [RelayCommand]
     private void ToggleDrawer()

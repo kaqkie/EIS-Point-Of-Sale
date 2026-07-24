@@ -1,13 +1,14 @@
 <UserControl x:Class="PointOfSale.App.Views.CashierDashboardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Focusable="True">
     <Grid Background="{StaticResource Art.Brush.Surface}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Style="{StaticResource Art.Card}" Margin="0,0,0,12" Padding="18,14">
+        <Border Grid.Row="0" Style="{StaticResource Art.Card}" Margin="0,0,0,10" Padding="16,12">
             <DockPanel>
                 <StackPanel>
                     <TextBlock Text="Cashier workspace" Style="{StaticResource Art.Text.Title}"
@@ -28,35 +29,258 @@
                                    Foreground="{StaticResource Art.Brush.AccentHover}"
                                    FontWeight="SemiBold" />
                     </Border>
-                    <!-- Cash Register: prominent return to full workspace -->
                     <Button Content="Back to Full Workspace"
                             Style="{StaticResource Art.Button.Secondary}"
                             Command="{Binding ReturnToFullWorkspaceCommand}"
                             Margin="0,0,8,0"
                             MinWidth="190"
                             FontWeight="SemiBold"
+                            FocusVisualStyle="{x:Null}"
                             Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                    <!-- Full workspace: enter cash register -->
                     <Button Content="Switch to Cash Register"
                             Style="{StaticResource Art.Button.Primary}"
                             Command="{Binding ToggleCashRegisterModeCommand}"
                             Margin="0,0,8,0"
                             MinWidth="170"
+                            FocusVisualStyle="{x:Null}"
                             Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <Button Content="Queue"
                             Style="{StaticResource Art.Button.Ghost}"
                             Command="{Binding OpenQueueCommand}"
                             Margin="0,0,8,0"
+                            FocusVisualStyle="{x:Null}"
                             Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                    <Button Content="Kick drawer" Style="{StaticResource Art.Button.Success}" Command="{Binding KickDrawerCommand}" />
+                    <Button Content="Kick drawer" Style="{StaticResource Art.Button.Success}" Command="{Binding KickDrawerCommand}" FocusVisualStyle="{x:Null}" />
                 </StackPanel>
             </DockPanel>
         </Border>
 
-        <!-- Cash Register: checkout only -->
-        <ContentControl Grid.Row="1"
-                        Content="{Binding Checkout}"
-                        Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+        <!-- ===== Cash Register terminal layout ===== -->
+        <Grid Grid.Row="1"
+              Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="360" />
+                    <ColumnDefinition Width="320" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Top-Left: inventory search + cart grid -->
+                <Border Grid.Column="0"
+                        Background="White"
+                        BorderBrush="{StaticResource Art.Brush.Border}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="12"
+                        Margin="0,0,10,10">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock Text="Find item" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"
+                                       Foreground="{StaticResource Art.Brush.TextSecondary}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding Checkout.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource Art.TextBox}"
+                                         FontSize="16"
+                                         MinHeight="44"
+                                         Margin="0,0,8,0" />
+                                <Button Grid.Column="1"
+                                        Content="Add"
+                                        Style="{StaticResource Art.Pos.PayCash}"
+                                        Command="{Binding Checkout.AddSelectedToCartCommand}"
+                                        MinWidth="88"
+                                        MinHeight="44"
+                                        Margin="0" />
+                            </Grid>
+                            <ListBox ItemsSource="{Binding Checkout.FilteredProducts}"
+                                     SelectedItem="{Binding Checkout.SelectedProduct}"
+                                     Height="96"
+                                     Margin="0,8,0,0"
+                                     BorderBrush="{StaticResource Art.Brush.Border}"
+                                     BorderThickness="1"
+                                     FontSize="14"
+                                     MouseDoubleClick="ProductQuickPick_OnMouseDoubleClick"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}{0} — {1}  ({2:N2})">
+                                                    <Binding Path="ProductCode" />
+                                                    <Binding Path="Name" />
+                                                    <Binding Path="UnitPrice" />
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+
+                        <DataGrid ItemsSource="{Binding Checkout.CartItems}"
+                                  SelectedItem="{Binding Checkout.SelectedCartLine}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  SelectionMode="Single"
+                                  FontSize="15"
+                                  BorderBrush="{StaticResource Art.Brush.Border}"
+                                  BorderThickness="1"
+                                  GridLinesVisibility="Horizontal"
+                                  AlternatingRowBackground="#F8FAFC"
+                                  RowHeight="40"
+                                  ColumnHeaderHeight="36">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" />
+                                <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=N2}" Width="70" />
+                                <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" Width="90" />
+                                <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="100" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <!-- Top-Right: total display + numeric keypad -->
+                <DockPanel Grid.Column="1" Margin="0,0,0,10">
+                    <Border DockPanel.Dock="Top"
+                            Background="#0F172A"
+                            CornerRadius="10"
+                            Padding="16,14"
+                            Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="GRAND TOTAL"
+                                       Foreground="#94A3B8"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Right" />
+                            <TextBlock Text="{Binding Checkout.CartGrandTotal, StringFormat={}{0:N2}}"
+                                       Foreground="White"
+                                       FontSize="40"
+                                       FontWeight="Bold"
+                                       FontFamily="{StaticResource Art.Font.Mono}"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,2,0,10" />
+                            <Separator Background="#334155" Margin="0,0,0,10" />
+                            <DockPanel>
+                                <TextBlock Text="Tendered" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Checkout.AmountTenderedText}"
+                                           Foreground="#FBBF24"
+                                           FontSize="22"
+                                           FontWeight="Bold"
+                                           FontFamily="{StaticResource Art.Font.Mono}"
+                                           HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <DockPanel Margin="0,6,0,0">
+                                <TextBlock Text="Change due" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
+                                <Grid HorizontalAlignment="Right">
+                                    <TextBlock Text="{Binding Checkout.ChangeDue, StringFormat={}{0:N2}}"
+                                               Foreground="#4ADE80"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               FontFamily="{StaticResource Art.Font.Mono}"
+                                               HorizontalAlignment="Right"
+                                               Visibility="{Binding Checkout.HasSufficientTender, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    <TextBlock Text="{Binding Checkout.TenderShortfall, StringFormat='Short {0:N2}'}"
+                                               Foreground="#F87171"
+                                               FontSize="18"
+                                               FontWeight="Bold"
+                                               FontFamily="{StaticResource Art.Font.Mono}"
+                                               HorizontalAlignment="Right"
+                                               Visibility="{Binding Checkout.HasInsufficientTender, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </Grid>
+                            </DockPanel>
+                            <TextBlock Text="{Binding Checkout.TenderStatusMessage}"
+                                       Foreground="#CBD5E1"
+                                       FontSize="12"
+                                       Margin="0,10,0,0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="White"
+                            BorderBrush="{StaticResource Art.Brush.Border}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="8">
+                        <UniformGrid Columns="3" Rows="5">
+                            <Button Content="7" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="7" />
+                            <Button Content="8" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="8" />
+                            <Button Content="9" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="9" />
+                            <Button Content="4" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="4" />
+                            <Button Content="5" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="5" />
+                            <Button Content="6" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="6" />
+                            <Button Content="1" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="1" />
+                            <Button Content="2" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="2" />
+                            <Button Content="3" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="3" />
+                            <Button Content="." Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="." />
+                            <Button Content="0" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="0" />
+                            <Button Content="⌫" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadBackspaceCommand}" ToolTip="Backspace" />
+                            <Button Content="C" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadClearCommand}" ToolTip="Clear tender" />
+                            <Button Content="Exact" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.TenderExactAmountCommand}" FontSize="14" />
+                            <Button Content="OK" Style="{StaticResource Art.Pos.KeypadOk}" Command="{Binding Checkout.KeypadConfirmTenderCommand}" ToolTip="Confirm cash tender" />
+                        </UniformGrid>
+                    </Border>
+                </DockPanel>
+            </Grid>
+
+            <!-- Bottom: payment + workflow + navigation -->
+            <Border Grid.Row="1"
+                    Background="White"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <UniformGrid Grid.Row="0" Columns="6">
+                        <Button Content="Cash" Style="{StaticResource Art.Pos.PayCash}"
+                                Command="{Binding Checkout.SelectPaymentMethodCommand}" CommandParameter="Cash" />
+                        <Button Content="Credit" Style="{StaticResource Art.Pos.PayCredit}"
+                                Command="{Binding Checkout.SelectPaymentMethodCommand}" CommandParameter="Credit" />
+                        <Button Content="Other Card" Style="{StaticResource Art.Pos.PayOther}"
+                                Command="{Binding Checkout.SelectPaymentMethodCommand}" CommandParameter="Other Card" />
+                        <Button Content="Gift Card" Style="{StaticResource Art.Pos.ActionGift}"
+                                Command="{Binding Checkout.SelectPaymentMethodCommand}" CommandParameter="Gift Card" />
+                        <Button Content="Print" Style="{StaticResource Art.Pos.ActionPrint}"
+                                Command="{Binding Checkout.ReprintLastReceiptCommand}" />
+                        <Button Content="Paid" Style="{StaticResource Art.Pos.ActionPaid}"
+                                Command="{Binding Checkout.CompleteSaleCommand}"
+                                ToolTip="Complete sale (F12)" />
+                    </UniformGrid>
+
+                    <UniformGrid Grid.Row="1" Columns="6" Margin="0,4,0,0">
+                        <Button Content="Void" Style="{StaticResource Art.Pos.ActionVoid}"
+                                Command="{Binding Checkout.VoidSelectedCartLineCommand}"
+                                ToolTip="Void selected cart line" />
+                        <Button Content="Refund" Style="{StaticResource Art.Pos.ActionRefund}"
+                                Command="{Binding RequestRefundOverrideCommand}"
+                                ToolTip="Supervisor-authorized refund" />
+                        <Button Content="Queue" Style="{StaticResource Art.Pos.ActionNav}"
+                                Command="{Binding OpenQueueCommand}" />
+                        <Button Content="Full Workspace" Style="{StaticResource Art.Pos.ActionNav}"
+                                Command="{Binding ReturnToFullWorkspaceCommand}" />
+                        <Button Content="Back Office" Style="{StaticResource Art.Pos.ActionNav}"
+                                Command="{Binding OpenBackOfficeCommand}"
+                                ToolTip="Open Admin management console" />
+                        <Button Content="Main Menu" Style="{StaticResource Art.Pos.ActionNav}"
+                                Command="{Binding OpenBackOfficeCommand}"
+                                ToolTip="Open Admin / Back Office" />
+                    </UniformGrid>
+                </Grid>
+            </Border>
+        </Grid>
 
         <!-- Full workspace tabs -->
         <TabControl Grid.Row="1"
@@ -86,7 +310,7 @@
                                     <TextBox Text="{Binding SplitCashAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
                                     <TextBlock Text="Split card / digital" Style="{StaticResource Art.Text.Caption}" />
                                     <TextBox Text="{Binding SplitCardAmount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
-                                    <Button Content="Apply split tender" Style="{StaticResource Art.Button.Primary}" Command="{Binding ApplySplitTenderCommand}" />
+                                    <Button Content="Apply split tender" Style="{StaticResource Art.Button.Primary}" Command="{Binding ApplySplitTenderCommand}" FocusVisualStyle="{x:Null}" />
                                 </StackPanel>
                             </Border>
 
@@ -102,7 +326,8 @@
                                     <TextBox Text="{Binding RefundReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
                                     <Button Content="Request supervisor override"
                                             Style="{StaticResource Art.Button.Danger}"
-                                            Command="{Binding RequestRefundOverrideCommand}" />
+                                            Command="{Binding RequestRefundOverrideCommand}"
+                                            FocusVisualStyle="{x:Null}" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -121,12 +346,12 @@
                                            Margin="0,6,0,12" />
                                 <TextBlock Text="Opening float (MWK)" Style="{StaticResource Art.Text.Caption}" />
                                 <TextBox Text="{Binding OpeningFloat}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
-                                <Button Content="Open shift" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenShiftCommand}" Margin="0,0,0,10" />
+                                <Button Content="Open shift" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenShiftCommand}" Margin="0,0,0,10" FocusVisualStyle="{x:Null}" />
                                 <TextBlock Text="Closing cash counted" Style="{StaticResource Art.Text.Caption}" />
                                 <TextBox Text="{Binding ClosingCashCounted}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" />
                                 <TextBlock Text="Notes" Style="{StaticResource Art.Text.Caption}" />
                                 <TextBox Text="{Binding ShiftNotes}" Style="{StaticResource Art.TextBox}" Margin="0,4,0,8" AcceptsReturn="True" Height="64" TextWrapping="Wrap" />
-                                <Button Content="Close shift + Z-report" Style="{StaticResource Art.Button.Success}" Command="{Binding CloseShiftCommand}" />
+                                <Button Content="Close shift + Z-report" Style="{StaticResource Art.Button.Success}" Command="{Binding CloseShiftCommand}" FocusVisualStyle="{x:Null}" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource Art.Card}" Margin="8,0,0,8">
@@ -137,7 +362,8 @@
                                             Content="Preview"
                                             Style="{StaticResource Art.Button.Secondary}"
                                             Command="{Binding PreviewZReportCommand}"
-                                            HorizontalAlignment="Right" />
+                                            HorizontalAlignment="Right"
+                                            FocusVisualStyle="{x:Null}" />
                                 </DockPanel>
                                 <TextBox Text="{Binding ZReportPreview}"
                                          IsReadOnly="True"
@@ -149,7 +375,8 @@
                                 <Button Content="Refresh shift status"
                                         Style="{StaticResource Art.Button.Ghost}"
                                         Command="{Binding RefreshShiftCommand}"
-                                        Margin="0,12,0,0" />
+                                        Margin="0,12,0,0"
+                                        FocusVisualStyle="{x:Null}" />
                             </StackPanel>
                         </Border>
                     </UniformGrid>

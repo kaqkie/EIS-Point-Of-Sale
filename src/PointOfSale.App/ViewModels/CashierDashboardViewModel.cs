@@ -349,4 +349,24 @@ public partial class CashierDashboardViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenQueue() => _navigation.NavigateTo<QueueSyncStatusViewModel>();
+
+    /// <summary>Routes to the Admin management console (Back Office / Main Menu).</summary>
+    [RelayCommand]
+    private void OpenBackOffice()
+    {
+        var role = _auth.CurrentOperator?.Role;
+        if (OperatorWorkspace.IsAdminConsoleRole(role)
+            || _auth.HasPermission(OperatorPermissions.AccessAdminAnalytics))
+        {
+            _navigation.NavigateTo<AdminDashboardViewModel>();
+            StatusMessage = "Opened Admin / Back Office.";
+            return;
+        }
+
+        StatusMessage = "Back Office requires Store Manager or Administrator access.";
+    }
+
+    public bool CanOpenBackOffice =>
+        OperatorWorkspace.IsAdminConsoleRole(_auth.CurrentOperator?.Role)
+        || _auth.HasPermission(OperatorPermissions.AccessAdminAnalytics);
 }
