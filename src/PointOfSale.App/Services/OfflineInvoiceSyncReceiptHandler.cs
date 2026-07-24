@@ -48,20 +48,43 @@ public sealed class OfflineInvoiceSyncReceiptHandler : IOfflineInvoiceSyncComple
         var context = await _posConfigurationService.GetRuntimeContextAsync(cancellationToken).ConfigureAwait(false);
         var printRequest = QueueReceiptPrintHelper.CreatePrintRequest(context, payload, enriched, verifyBase);
 
-        await Application.Current.Dispatcher.InvokeAsync(() =>
+        // Never block the UI thread with GetResult — marshal async print via dispatcher when needed.
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null)
         {
-            try
-            {
-                _receiptPrintingService.PrintAsync(printRequest, CancellationToken.None).GetAwaiter().GetResult();
-                _logger.LogInformation(
-                    "Auto-printed fiscal receipt with MRA QR for synced invoice {InvoiceNumber}.",
-                    payload.InvoiceHeader.InvoiceNumber);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Auto-print failed for invoice {InvoiceNumber}.", payload.InvoiceHeader.InvoiceNumber);
-            }
-        }).Task.ConfigureAwait(false);
+            await PrintSafelyAsync(printRequest, payload.InvoiceHeader.InvoiceNumber, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        if (dispatcher.CheckAccess())
+        {
+            await PrintSafelyAsync(printRequest, payload.InvoiceHeader.InvoiceNumber, cancellationToken)
+                .ConfigureAwait(true);
+            return;
+        }
+
+        var op = dispatcher.InvokeAsync(
+            () => PrintSafelyAsync(printRequest, payload.InvoiceHeader.InvoiceNumber, cancellationToken));
+        await op.Task.Unwrap().ConfigureAwait(false);
+    }
+
+    private async Task PrintSafelyAsync(
+        ReceiptPrintRequest printRequest,
+        string invoiceNumber,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _receiptPrintingService.PrintAsync(printRequest, cancellationToken).ConfigureAwait(true);
+            _logger.LogInformation(
+                "Auto-printed fiscal receipt with MRA QR for synced invoice {InvoiceNumber}.",
+                invoiceNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Auto-print failed for invoice {InvoiceNumber}.", invoiceNumber);
+        }
     }
 }
 

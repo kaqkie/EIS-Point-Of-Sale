@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using PointOfSale.App.Services;
 using PointOfSale.Core.Entities;
 using PointOfSale.Core.Pricing;
@@ -28,6 +30,7 @@ public partial class CheckoutViewModel : ObservableObject
     private readonly IAuthenticationAuthorizationService _auth;
     private readonly ISupervisorAuthorizationService _supervisorAuthorization;
     private readonly ISupervisorOverrideDialogService _supervisorDialog;
+    private readonly ILogger<CheckoutViewModel> _logger;
 
     private ReceiptPrintRequest? _lastPrintableReceipt;
 
@@ -44,7 +47,8 @@ public partial class CheckoutViewModel : ObservableObject
         ILoyaltyProgramService loyaltyProgramService,
         IAuthenticationAuthorizationService auth,
         ISupervisorAuthorizationService supervisorAuthorization,
-        ISupervisorOverrideDialogService supervisorDialog)
+        ISupervisorOverrideDialogService supervisorDialog,
+        ILogger<CheckoutViewModel> logger)
     {
         _inventoryRepository = inventoryRepository;
         _offlineSalesQueueService = offlineSalesQueueService;
@@ -59,6 +63,7 @@ public partial class CheckoutViewModel : ObservableObject
         _auth = auth;
         _supervisorAuthorization = supervisorAuthorization;
         _supervisorDialog = supervisorDialog;
+        _logger = logger;
         CartItems = new ObservableCollection<CartLineViewModel>();
         TaxLines = new ObservableCollection<TaxLineViewModel>();
         ActivePromotions = new ObservableCollection<string>();
@@ -508,7 +513,15 @@ public partial class CheckoutViewModel : ObservableObject
     /// <summary>Public entry for payment-method selection (commands + code-behind click fallbacks).</summary>
     public void ApplyPaymentMethodSelection(string? method)
     {
-        SelectPaymentMethod(method);
+        try
+        {
+            SelectPaymentMethod(method);
+        }
+        catch (Exception ex)
+        {
+            LogCheckoutFailure("SelectPaymentMethod", ex);
+            StatusMessage = "Could not apply payment method. Try Cash again or contact a supervisor.";
+        }
     }
 
     /// <summary>Maps register button labels to persisted MRA payment method values.</summary>
@@ -576,7 +589,20 @@ public partial class CheckoutViewModel : ObservableObject
 
     /// <summary>Alias for Paid / F12 — completes the sale with the selected payment method.</summary>
     [RelayCommand(CanExecute = nameof(CanCompleteSale))]
-    private Task ProcessPaymentAsync() => CompleteSaleAsync();
+    private async Task ProcessPaymentAsync()
+    {
+        try
+        {
+            await CompleteSaleAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            LogCheckoutFailure("ProcessPayment", ex);
+            var message = CashierOperatorMessages.FromException(ex, _connectionStatusService.IsMraReachable);
+            ShowOperatorDialog(message);
+            StatusMessage = message.Title;
+        }
+    }
 
     /// <summary>Raised when Cash (or keypad) should receive keyboard/touch focus for tender entry.</summary>
     public event EventHandler? TenderInputFocusRequested;
@@ -920,6 +946,7 @@ public partial class CheckoutViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            LogCheckoutFailure("CompleteSale", ex);
             var message = CashierOperatorMessages.FromException(ex, _connectionStatusService.IsMraReachable);
             if (message.SuggestOfflineFallback && CartItems.Count > 0)
             {
@@ -1134,6 +1161,12 @@ public partial class CheckoutViewModel : ObservableObject
         _lastPrintableReceipt = printRequest;
         OnPropertyChanged(nameof(CanReprintLastReceipt));
         await _receiptPrintingService.PrintAsync(printRequest).ConfigureAwait(true);
+    }
+
+    private void LogCheckoutFailure(string operation, Exception ex)
+    {
+        Debug.WriteLine($"[CheckoutViewModel.{operation}] {ex}");
+        _logger.LogError(ex, "Checkout {Operation} failed.", operation);
     }
 
     private static bool ConfirmOfflineFallback(OperatorMessage? preface = null)

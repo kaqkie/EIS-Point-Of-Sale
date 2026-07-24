@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using PointOfSale.App.Services;
 using PointOfSale.Core.Entities;
 using PointOfSale.Core.Pricing;
@@ -18,6 +20,7 @@ public partial class CashierDashboardViewModel : ObservableObject
     private readonly INavigationService _navigation;
     private readonly ISupervisorAuthorizationService _supervisorAuthorization;
     private readonly ISupervisorOverrideDialogService _supervisorDialog;
+    private readonly ILogger<CashierDashboardViewModel> _logger;
 
     public CashierDashboardViewModel(
         CheckoutViewModel checkout,
@@ -26,7 +29,8 @@ public partial class CashierDashboardViewModel : ObservableObject
         IHardwarePeripheralService hardware,
         INavigationService navigation,
         ISupervisorAuthorizationService supervisorAuthorization,
-        ISupervisorOverrideDialogService supervisorDialog)
+        ISupervisorOverrideDialogService supervisorDialog,
+        ILogger<CashierDashboardViewModel> logger)
     {
         Checkout = checkout;
         _shifts = shifts;
@@ -35,6 +39,7 @@ public partial class CashierDashboardViewModel : ObservableObject
         _navigation = navigation;
         _supervisorAuthorization = supervisorAuthorization;
         _supervisorDialog = supervisorDialog;
+        _logger = logger;
         SelectedWorkspaceTab = 0;
         PaymentMethodOptions = new[] { "Cash", "Card", "MobileMoney", "Split" };
         // Both Admin and Cashier land on the unified touch terminal by default.
@@ -135,23 +140,41 @@ public partial class CashierDashboardViewModel : ObservableObject
     [RelayCommand]
     private void SelectPaymentMethod(string? method)
     {
-        Checkout.ApplyPaymentMethodSelection(method);
-        StatusMessage = Checkout.StatusMessage;
+        try
+        {
+            Checkout.ApplyPaymentMethodSelection(method);
+            StatusMessage = Checkout.StatusMessage;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[CashierDashboard.SelectPaymentMethod] {ex}");
+            _logger.LogError(ex, "Payment method selection failed.");
+            StatusMessage = "Payment method could not be applied. Try again.";
+        }
     }
 
     [RelayCommand]
     private async Task ProcessPaymentAsync()
     {
-        if (Checkout.ProcessPaymentCommand.CanExecute(null))
+        try
         {
-            await Checkout.ProcessPaymentCommand.ExecuteAsync(null).ConfigureAwait(true);
-        }
-        else if (Checkout.CompleteSaleCommand.CanExecute(null))
-        {
-            await Checkout.CompleteSaleCommand.ExecuteAsync(null).ConfigureAwait(true);
-        }
+            if (Checkout.ProcessPaymentCommand.CanExecute(null))
+            {
+                await Checkout.ProcessPaymentCommand.ExecuteAsync(null).ConfigureAwait(true);
+            }
+            else if (Checkout.CompleteSaleCommand.CanExecute(null))
+            {
+                await Checkout.CompleteSaleCommand.ExecuteAsync(null).ConfigureAwait(true);
+            }
 
-        StatusMessage = Checkout.StatusMessage;
+            StatusMessage = Checkout.StatusMessage;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[CashierDashboard.ProcessPayment] {ex}");
+            _logger.LogError(ex, "Process payment failed on cashier dashboard.");
+            StatusMessage = "Sale could not be completed. The cart was kept — check the queue or try again.";
+        }
     }
 
     [RelayCommand]

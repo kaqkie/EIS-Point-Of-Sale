@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PointOfSale.Infrastructure.Http;
@@ -24,6 +25,11 @@ public sealed class MraApiClient
     private readonly IAuditLoggingService? _auditLoggingService;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
 
+    /// <summary>
+    /// Production DI constructor. Marked so MS.DI does not also try the parameterless
+    /// <see cref="HttpClient"/> activator (ambiguous constructors crash the sales UI).
+    /// </summary>
+    [ActivatorUtilitiesConstructor]
     public MraApiClient(
         IHttpClientFactory httpClientFactory,
         IOptions<MraApiOptions> options,
@@ -39,17 +45,16 @@ public sealed class MraApiClient
     }
 
     /// <summary>
-    /// Test/harness constructor — wraps a single <see cref="HttpClient"/> without mutating it.
+    /// Test/harness factory — wraps a single <see cref="HttpClient"/> without mutating it.
+    /// Prefer this over a second public constructor so DI activation stays unambiguous.
     /// </summary>
-    public MraApiClient(
+    public static MraApiClient CreateForTests(
         HttpClient httpClient,
         IOptions<MraApiOptions> options,
         ILogger<MraApiClient> logger,
         IAuditLoggingService? auditLoggingService = null,
-        MraRuntimeEnvironmentState? runtimeState = null)
-        : this(new FixedHttpClientFactory(httpClient), options, logger, auditLoggingService, runtimeState)
-    {
-    }
+        MraRuntimeEnvironmentState? runtimeState = null) =>
+        new(new FixedHttpClientFactory(httpClient), options, logger, auditLoggingService, runtimeState);
 
     public async Task<EisApiResponse<TResponse>> PostAsync<TRequest, TResponse>(
         string relativePath,

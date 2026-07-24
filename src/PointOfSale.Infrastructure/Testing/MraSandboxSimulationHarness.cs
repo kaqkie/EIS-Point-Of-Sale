@@ -328,7 +328,7 @@ public sealed class SandboxIntegrationHarness : IDisposable
             HttpTimeout = httpTimeout ?? TimeSpan.FromSeconds(30)
         });
 
-        ApiClient = new MraApiClient(httpClient, mraOptions, NullLogger<MraApiClient>.Instance);
+        ApiClient = MraApiClient.CreateForTests(httpClient, mraOptions, NullLogger<MraApiClient>.Instance);
         var config = new SandboxConfigurationRepository();
         Stock = new StockManagementService(
             ApiClient,

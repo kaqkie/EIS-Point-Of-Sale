@@ -27,7 +27,7 @@ public sealed class MraIntegrationHarness : IDisposable
             HttpTimeout = httpTimeout ?? TimeSpan.FromSeconds(30)
         });
 
-        ApiClient = new MraApiClient(httpClient, mraOptions, NullLogger<MraApiClient>.Instance);
+        ApiClient = MraApiClient.CreateForTests(httpClient, mraOptions, NullLogger<MraApiClient>.Instance);
         StockService = new StockManagementService(
             ApiClient,
             AuthProvider,

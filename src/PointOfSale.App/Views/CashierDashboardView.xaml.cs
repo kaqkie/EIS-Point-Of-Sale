@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -55,24 +56,35 @@ public partial class CashierDashboardView
     /// </summary>
     private void PaymentMethodButton_OnClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || ViewModel is null)
+        try
         {
-            return;
-        }
+            if (sender is not Button button || ViewModel is null)
+            {
+                return;
+            }
 
-        if (button.Command is not null)
+            if (button.Command is not null)
+            {
+                // Command binding resolved — ButtonBase already invoked it before Click.
+                return;
+            }
+
+            if (button.CommandParameter is not string method)
+            {
+                return;
+            }
+
+            ViewModel.SelectPaymentMethodCommand.Execute(method);
+            e.Handled = true;
+        }
+        catch (Exception ex)
         {
-            // Command binding resolved — ButtonBase already invoked it before Click.
-            return;
+            Debug.WriteLine($"[CashierDashboardView.PaymentMethodButton_OnClick] {ex}");
+            if (ViewModel is not null)
+            {
+                ViewModel.StatusMessage = "Payment method click failed — try again.";
+            }
         }
-
-        if (button.CommandParameter is not string method)
-        {
-            return;
-        }
-
-        ViewModel.SelectPaymentMethodCommand.Execute(method);
-        e.Handled = true;
     }
 
     private void ProductQuickPick_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)

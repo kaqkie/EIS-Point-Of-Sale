@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -77,6 +78,7 @@ public sealed class GlobalExceptionHandler
 
     private void LogCritical(string source, Exception exception)
     {
+        Debug.WriteLine($"[{source}] {exception}");
         _logger.LogCritical(exception, "{Source}: unhandled exception.", source);
         try
         {
@@ -145,7 +147,14 @@ public sealed class GlobalExceptionHandler
 
             if (current is InvalidOperationException &&
                 (current.Message.Contains("Dispatcher", StringComparison.OrdinalIgnoreCase) ||
-                 current.Message.Contains("calling thread", StringComparison.OrdinalIgnoreCase)))
+                 current.Message.Contains("calling thread", StringComparison.OrdinalIgnoreCase) ||
+                 current.Message.Contains("constructors are ambiguous", StringComparison.OrdinalIgnoreCase) ||
+                 current.Message.Contains("CollectionView", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            if (current is ObjectDisposedException)
             {
                 return true;
             }

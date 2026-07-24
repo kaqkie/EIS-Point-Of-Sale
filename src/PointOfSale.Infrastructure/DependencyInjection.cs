@@ -67,7 +67,13 @@ public static class DependencyInjection
                 MraHttpClientFactory.ConfigureClient(client, opts);
             });
 
-        services.AddTransient<MraApiClient>();
+        // Explicit factory avoids ambiguous ctor activation (HttpClient is creatable via Activator).
+        services.AddTransient(sp => new MraApiClient(
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<IOptions<MraApiOptions>>(),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MraApiClient>>(),
+            sp.GetService<IAuditLoggingService>(),
+            sp.GetService<MraRuntimeEnvironmentState>()));
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();
