@@ -228,6 +228,24 @@ public sealed class SalesInvoiceSnapshotDto
     public string? FiscalCode { get; set; }
 }
 
+/// <summary>
+/// Full invoice returned by <c>POST sales/last-submitted-online-transaction</c> and offline variant.
+/// </summary>
+public sealed class LastSubmittedInvoiceDto
+{
+    [JsonPropertyName("invoiceHeader")]
+    public InvoiceHeaderDto? InvoiceHeader { get; set; }
+
+    [JsonPropertyName("invoiceLineItems")]
+    public IReadOnlyList<InvoiceLineItemDto>? InvoiceLineItems { get; set; }
+
+    [JsonPropertyName("invoiceSummary")]
+    public InvoiceSummaryDto? InvoiceSummary { get; set; }
+
+    [JsonPropertyName("dateSubmitted")]
+    public DateTime? DateSubmitted { get; set; }
+}
+
 public sealed class VoidReceiptDto
 {
     [JsonPropertyName("invoiceNumber")]

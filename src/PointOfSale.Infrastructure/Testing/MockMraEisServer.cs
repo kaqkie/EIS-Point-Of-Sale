@@ -31,6 +31,8 @@ public class MockMraEisServer : IDisposable
 
     public HttpMessageHandler HttpHandler => _handler;
 
+    public IReadOnlyList<RecordedMraEisRequest> AllRequests => _handler.Requests;
+
     public IReadOnlyList<RecordedMraEisRequest> SalesRequests =>
         _handler.Requests
             .Where(x => x.Path.Contains("submit-sales-transaction", StringComparison.OrdinalIgnoreCase))
@@ -232,6 +234,40 @@ public class MockMraEisServer : IDisposable
         if (path.Contains("submit-sales-transaction", StringComparison.OrdinalIgnoreCase))
         {
             return await InvokeSalesResponderAsync(body, request).ConfigureAwait(false);
+        }
+
+        if (path.Contains("last-submitted-online-transaction", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("last-submitted-offline-transaction", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateJsonResponse(HttpStatusCode.OK, new
+            {
+                statusCode = 1,
+                remark = "Last submitted invoice",
+                data = new
+                {
+                    invoiceHeader = new
+                    {
+                        invoiceNumber = "BM6l7-B-B-B",
+                        invoiceDateTime = DateTime.UtcNow,
+                        sellerTIN = "20162939",
+                        siteId = "SITE-01",
+                        globalConfigVersion = 1,
+                        taxpayerConfigVersion = 1,
+                        terminalConfigVersion = 1,
+                        isReliefSupply = false,
+                        paymentMethod = "Cash"
+                    },
+                    invoiceLineItems = Array.Empty<object>(),
+                    invoiceSummary = new
+                    {
+                        taxBreakDown = Array.Empty<object>(),
+                        totalVAT = 0m,
+                        invoiceTotal = 0m,
+                        amountTendered = 0m
+                    },
+                    dateSubmitted = DateTime.UtcNow
+                }
+            });
         }
 
         if (path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))

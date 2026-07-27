@@ -65,6 +65,25 @@ public sealed class MraIntegrationTests
     }
 
     [Fact]
+    public async Task GetLastSubmittedOnline_UsesJwtOnlyWithoutXSignature()
+    {
+        using var mock = new MockMraServer();
+        using var harness = new MraIntegrationHarness(mock);
+
+        var result = await harness.SalesService.GetLastSubmittedOnlineTransactionAsync();
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+        Assert.Equal("20162939", result.Data!.InvoiceHeader?.SellerTin);
+
+        var logged = mock.AllRequests.Last(r =>
+            r.Path.Contains("last-submitted-online-transaction", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("{}", logged.Body);
+        Assert.False(logged.Headers.ContainsKey(HmacSignatureService.SignatureHeaderName));
+        Assert.True(logged.Headers.ContainsKey("Authorization"));
+    }
+
+    [Fact]
     public async Task OfflineSignatureBackup_MatchesHmacOverUnsignedPayloadJson()
     {
         using var mock = new MockMraServer();

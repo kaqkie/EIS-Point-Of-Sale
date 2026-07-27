@@ -7,6 +7,11 @@ namespace PointOfSale.Tests.Mocks;
 /// </summary>
 public sealed class MockMraServer : MockMraEisServer
 {
+    public IReadOnlyList<RecordedMraRequest> AllRequests =>
+        base.AllRequests
+            .Select(r => new RecordedMraRequest(r.Method, r.Path, r.Body, r.Headers))
+            .ToList();
+
     public new IReadOnlyList<RecordedMraRequest> SalesRequests =>
         base.SalesRequests
             .Select(r => new RecordedMraRequest(r.Method, r.Path, r.Body, r.Headers))

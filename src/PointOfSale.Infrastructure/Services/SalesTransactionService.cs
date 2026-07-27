@@ -40,18 +40,16 @@ public sealed class SalesTransactionService
             request,
             cancellationToken);
 
-    public Task<SalesResult<SalesInvoiceSnapshotDto>> GetLastSubmittedOnlineTransactionAsync(
+    public Task<SalesResult<LastSubmittedInvoiceDto>> GetLastSubmittedOnlineTransactionAsync(
         CancellationToken cancellationToken = default) =>
-        PostSignedAsync<object, SalesInvoiceSnapshotDto>(
+        PostJwtOnlyAsync<LastSubmittedInvoiceDto>(
             "sales/last-submitted-online-transaction",
-            new { },
             cancellationToken);
 
-    public Task<SalesResult<SalesInvoiceSnapshotDto>> GetLastSubmittedOfflineTransactionAsync(
+    public Task<SalesResult<LastSubmittedInvoiceDto>> GetLastSubmittedOfflineTransactionAsync(
         CancellationToken cancellationToken = default) =>
-        PostSignedAsync<object, SalesInvoiceSnapshotDto>(
+        PostJwtOnlyAsync<LastSubmittedInvoiceDto>(
             "sales/last-submitted-offline-transaction",
-            new { },
             cancellationToken);
 
     public Task<SalesResult<SalesInvoiceSnapshotDto>> GetInvoiceByNumberAsync(
@@ -184,6 +182,37 @@ public sealed class SalesTransactionService
 
         var response = await _apiClient
             .PostAsync<object, TResponse>(relativePath, payloadToSend, context, cancellationToken)
+            .ConfigureAwait(false);
+
+        var result = ToResult(response);
+        if (!result.Success)
+        {
+            var errorsJson = result.Errors is null
+                ? "(no errors array)"
+                : JsonSerializer.Serialize(result.Errors, MraJson.SerializerOptions);
+            _logger.LogWarning(
+                "MRA EIS {Path} returned success=false. Remark={Remark}. Errors={Errors}. statusCode={StatusCode}",
+                relativePath,
+                result.Remark ?? "(null)",
+                errorsJson,
+                response.StatusCode);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// JWT-authenticated POST with an empty JSON body — no <c>x-signature</c>
+    /// (matches OpenAPI for last-submitted-* and get-latest-configs style queries).
+    /// </summary>
+    private async Task<SalesResult<TResponse>> PostJwtOnlyAsync<TResponse>(
+        string relativePath,
+        CancellationToken cancellationToken)
+    {
+        var context = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
+
+        var response = await _apiClient
+            .PostAsync<object, TResponse>(relativePath, new { }, context, cancellationToken)
             .ConfigureAwait(false);
 
         var result = ToResult(response);
