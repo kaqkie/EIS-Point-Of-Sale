@@ -224,6 +224,18 @@ public sealed class OfflineSalesQueueService
                 return SaleQueueResult.Submitted(queueId, payload.InvoiceHeader.InvoiceNumber, submit.Data, submit.Remark);
             }
 
+            // HTTP was successful, but MRA returned success=false (logical failure).
+            // There is no transport exception here, so log full validation signals.
+            var errorsJson = submit.Errors is null
+                ? "(no errors array)"
+                : JsonSerializer.Serialize(submit.Errors, MraJson.SerializerOptions);
+            _logger.LogWarning(
+                "MRA EIS submission returned success=false for queue {QueueId} invoice {InvoiceNumber}. Remark={Remark}. Errors={ErrorsJson}.",
+                queueId,
+                payload.InvoiceHeader.InvoiceNumber,
+                submit.Remark ?? "(null)",
+                errorsJson);
+
             if (IsPermanentBusinessFailure(submit))
             {
                 await _queueRepository

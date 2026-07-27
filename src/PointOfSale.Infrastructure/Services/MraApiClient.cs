@@ -256,8 +256,8 @@ public sealed class MraApiClient
             (int)statusCode,
             request.Method,
             request.RequestUri,
-            TruncateForLog(requestBody, max: 16000),
-            TruncateForLog(responseBody, max: 8000));
+            TruncateForLog(requestBody, max: 32000),
+            TruncateForLog(responseBody, max: 32000));
     }
 
     private static string TruncateForLog(string? value, int max = 4000)

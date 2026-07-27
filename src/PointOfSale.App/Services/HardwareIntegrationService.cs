@@ -267,7 +267,7 @@ public sealed class HardwareIntegrationService : IHardwareIntegrationService
         buffer.WriteByte(0x61);
         buffer.WriteByte(0x01);
         var banner = Encoding.ASCII.GetBytes(
-            $"VAT {PosTaxCalculator.MalawiStandardVatRatePercent:0.0}% STATUTORY\n");
+            $"VAT {PosTaxCalculator.MalawiStandardVatRatePercent.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% STATUTORY\n");
         buffer.Write(banner);
 
         var offset = body.Length >= 2 && body[0] == 0x1B && body[1] == 0x40 ? 2 : 0;

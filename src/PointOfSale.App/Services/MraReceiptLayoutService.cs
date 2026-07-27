@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Globalization;
 using System.IO;
 using System.Windows.Media.Imaging;
 using PointOfSale.Core.Pricing;
@@ -23,7 +24,7 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
     public const string VatRegisteredBanner = "**VAT REGISTERED**";
 
     public static string StatutoryVatPercentLabel =>
-        $"{PosTaxCalculator.MalawiStandardVatRatePercent:0.0}%";
+        $"{PosTaxCalculator.MalawiStandardVatRatePercent.ToString("0.0", CultureInfo.InvariantCulture)}%";
 
     /// <summary>
     /// Formats the seller TIN from active store/terminal configuration.

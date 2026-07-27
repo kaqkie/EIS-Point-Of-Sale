@@ -68,6 +68,10 @@ public partial class CashierDashboardViewModel : ObservableObject
 
     public decimal StatutoryVatRatePercent => PosTaxCalculator.MalawiStandardVatRatePercent;
 
+    // Culture-invariant so UI always shows `VAT 17.5%` (never `17,5%` / `17.50%`).
+    public string StatutoryVatPercentLabel =>
+        $"VAT {PosTaxCalculator.MalawiStandardVatRatePercent.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%";
+
     [ObservableProperty]
     private int _selectedWorkspaceTab;
 
