@@ -11,6 +11,43 @@ public static class MraInvoiceNumberGenerator
     private const string Base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     /// <summary>
+    /// Returns true when <paramref name="invoiceNumber"/> matches the MRA composite structure:
+    /// Base64(TaxpayerID)-Base64(TerminalPosition)-Base64(JulianDate)-Base64(TransactionCount).
+    /// </summary>
+    public static bool IsMraCompositeInvoiceNumber(string? invoiceNumber)
+    {
+        if (string.IsNullOrWhiteSpace(invoiceNumber))
+        {
+            return false;
+        }
+
+        var trimmed = invoiceNumber.Trim();
+        var parts = trimmed.Split('-', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 4)
+        {
+            return false;
+        }
+
+        foreach (var part in parts)
+        {
+            if (string.IsNullOrWhiteSpace(part))
+            {
+                return false;
+            }
+
+            foreach (var c in part)
+            {
+                if (!Base64Chars.Contains(c))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Builds <c>Base64(TaxpayerID)-Base64(TerminalPosition)-Base64(JulianDate)-Base64(Count)</c>
     /// using MRA Base10→Base64 encoding (not UTF-8 string Base64).
     /// </summary>

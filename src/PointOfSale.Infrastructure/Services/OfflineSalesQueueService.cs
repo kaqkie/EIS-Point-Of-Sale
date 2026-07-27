@@ -5,6 +5,7 @@ using PointOfSale.Core.Compliance;
 using PointOfSale.Core.Constants;
 using PointOfSale.Core.Entities;
 using PointOfSale.Core.Pricing;
+using PointOfSale.Mra.Billing;
 using PointOfSale.Infrastructure.Options;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Mra.Contracts.Configuration;
@@ -26,6 +27,8 @@ public sealed class OfflineSalesQueueService
     private readonly MraRuntimeEnvironmentState? _runtimeState;
     private readonly OfflineSyncOptions _options;
     private readonly ILogger<OfflineSalesQueueService> _logger;
+
+    private readonly SemaphoreSlim _invoiceSequenceGate = new(1, 1);
 
     public OfflineSalesQueueService(
         IOfflineInvoiceQueueRepository queueRepository,
@@ -384,8 +387,15 @@ public sealed class OfflineSalesQueueService
 
         var identity = await LoadFiscalIdentityOverlayAsync(cancellationToken).ConfigureAwait(false);
         var hadOfflineSignature = !string.IsNullOrWhiteSpace(deserialized.InvoiceSummary.OfflineSignature);
+        var invoiceNumberWasLegacyArt = IsLegacyArtInvoiceNumber(deserialized.InvoiceHeader.InvoiceNumber);
         var normalized = NormalizeQueuedPayloadForResubmit(deserialized, identity);
-        if (hadOfflineSignature)
+
+        if (invoiceNumberWasLegacyArt)
+        {
+            normalized = await EnsureCompliantInvoiceNumberAsync(normalized, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (hadOfflineSignature || invoiceNumberWasLegacyArt)
         {
             normalized = await RefreshOfflineSignatureAsync(normalized, cancellationToken).ConfigureAwait(false);
         }
@@ -406,6 +416,163 @@ public sealed class OfflineSalesQueueService
         }
 
         return normalized;
+    }
+
+    private static bool IsLegacyArtInvoiceNumber(string? invoiceNumber)
+    {
+        if (string.IsNullOrWhiteSpace(invoiceNumber))
+        {
+            return false;
+        }
+
+        var trimmed = invoiceNumber.Trim();
+        if (!trimmed.StartsWith("ART-", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Legacy format: ART-{yyyyMMddHHmmss} => ART- + 14 digits.
+        var tail = trimmed["ART-".Length..];
+        return tail.Length == 14 && tail.All(char.IsDigit);
+    }
+
+    private async Task<SubmitSalesTransactionRequest> EnsureCompliantInvoiceNumberAsync(
+        SubmitSalesTransactionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(request.InvoiceHeader.SellerTin, out var taxpayerId))
+        {
+            // Cannot generate compliant invoice numbers without numeric taxpayer id.
+            // Keep existing invoiceNumber so the caller can surface a meaningful MRA error.
+            return request;
+        }
+
+        var transactionUtc = request.InvoiceHeader.InvoiceDateTime.Kind == DateTimeKind.Utc
+            ? request.InvoiceHeader.InvoiceDateTime
+            : request.InvoiceHeader.InvoiceDateTime.ToUniversalTime();
+
+        var terminalPosition = await ReadTerminalPositionAsync(cancellationToken).ConfigureAwait(false);
+        var julianDate = MraInvoiceNumberGenerator.ToJulianDate(transactionUtc);
+        var sequenceKey = $"{MraConfigurationKeys.DailyInvoiceSequencePrefix}{julianDate}";
+
+        await _invoiceSequenceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        long nextCount;
+        try
+        {
+            nextCount = await ReadNextDailyCountAsync(sequenceKey, cancellationToken).ConfigureAwait(false);
+            await PersistDailyCountAsync(sequenceKey, nextCount, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _invoiceSequenceGate.Release();
+        }
+
+        var newInvoiceNumber = MraInvoiceNumberGenerator.Generate(taxpayerId, terminalPosition, transactionUtc, nextCount);
+        var header = request.InvoiceHeader;
+        var updatedHeader = new InvoiceHeaderDto
+        {
+            InvoiceNumber = newInvoiceNumber,
+            InvoiceDateTime = header.InvoiceDateTime,
+            SellerTin = header.SellerTin,
+            BuyerTin = header.BuyerTin,
+            BuyerName = header.BuyerName,
+            BuyerAuthorizationCode = header.BuyerAuthorizationCode,
+            SiteId = header.SiteId,
+            GlobalConfigVersion = header.GlobalConfigVersion,
+            TaxpayerConfigVersion = header.TaxpayerConfigVersion,
+            TerminalConfigVersion = header.TerminalConfigVersion,
+            IsReliefSupply = header.IsReliefSupply,
+            Vat5CertificateDetails = header.Vat5CertificateDetails,
+            PaymentMethod = header.PaymentMethod
+        };
+
+        return request with { InvoiceHeader = updatedHeader };
+    }
+
+    private async Task<int> ReadTerminalPositionAsync(CancellationToken cancellationToken)
+    {
+        if (_configurationRepository is null)
+        {
+            return 1;
+        }
+
+        var json = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TerminalPosition, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return 1;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("position", out var pos) &&
+                pos.TryGetInt32(out var position) &&
+                position > 0)
+            {
+                return position;
+            }
+        }
+        catch (JsonException)
+        {
+            // ignore corrupt config, fall back to 1
+        }
+
+        return 1;
+    }
+
+    private async Task<long> ReadNextDailyCountAsync(
+        string sequenceKey,
+        CancellationToken cancellationToken)
+    {
+        if (_configurationRepository is null)
+        {
+            return 1;
+        }
+
+        var json = await _configurationRepository
+            .GetJsonAsync(sequenceKey, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return 1;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("count", out var countElement) &&
+                countElement.TryGetInt64(out var count) &&
+                count >= 0)
+            {
+                return count + 1;
+            }
+        }
+        catch (JsonException)
+        {
+            // Reset corrupt counter.
+        }
+
+        return 1;
+    }
+
+    private Task PersistDailyCountAsync(
+        string sequenceKey,
+        long count,
+        CancellationToken cancellationToken)
+    {
+        if (_configurationRepository is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return _configurationRepository.UpsertJsonAsync(
+            sequenceKey,
+            JsonSerializer.Serialize(new { count }, MraJson.SerializerOptions),
+            cancellationToken);
     }
 
     /// <summary>
