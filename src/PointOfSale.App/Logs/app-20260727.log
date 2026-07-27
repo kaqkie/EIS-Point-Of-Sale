@@ -1613,3 +1613,96 @@ System.InvalidOperationException: Cannot rebuild indexes while shift 1 is open f
 2026-07-27 13:29:12.820 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 23 404: MRA reachable (404) in 23 ms.
 2026-07-27 13:29:12.890 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 49.25 GB free).
 2026-07-27 13:29:26.425 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-27 14:09:11.008 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-27 14:09:11.297 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 402
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 402
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 405
+ClientConnectionId:b28ead15-13c4-443a-894a-c792286a1777
+Error Number:10611,State:1,Class:16
+2026-07-27 14:09:11.877 +02:00 [INF] Offline invoice FIFO sync worker started (interval 15s). Auto-print is handled after successful MRA sync.
+2026-07-27 14:09:11.906 +02:00 [INF] Hardware fault-tolerance loop started (probe every 20s).
+2026-07-27 14:09:11.909 +02:00 [INF] ArchivalCompressionBackgroundService is disabled.
+2026-07-27 14:09:11.917 +02:00 [INF] Inventory alert scanner started (interval 60s).
+2026-07-27 14:09:11.952 +02:00 [INF] HealthCheckWorker started (interval 45s).
+2026-07-27 14:09:11.956 +02:00 [INF] System health monitor started (interval 45s).
+2026-07-27 14:09:11.960 +02:00 [INF] PerformanceProfilingBackgroundService started (sample 30s, flush 300s).
+2026-07-27 14:09:11.967 +02:00 [INF] DatabaseMaintenanceBackgroundService started (interval 24h).
+2026-07-27 14:09:12.078 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-27 14:09:12.685 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-27 14:09:12.694 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 402
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 402
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 405
+ClientConnectionId:f1d5e670-033e-42f5-8b66-6d639999bc7c
+Error Number:10611,State:1,Class:16
+2026-07-27 14:09:20.080 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-27 14:09:20.311 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: SQL round-trip 2 ms
+2026-07-27 14:09:20.950 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 368 404: MRA reachable (404) in 368 ms.
+2026-07-27 14:09:21.266 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 2 null: All subsystems healthy (SQL 2 ms, disk 49.25 GB free).
+2026-07-27 14:09:23.967 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-27 14:09:23.996 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 19 404: MRA reachable (404) in 19 ms.
+2026-07-27 14:09:24.146 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 49.25 GB free).
+2026-07-27 14:09:24.307 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-27 14:09:49.680 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-27 14:10:06.345 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-27 14:10:06.357 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-27 14:10:06.411 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 51 404: MRA reachable (404) in 51 ms.
+2026-07-27 14:10:06.481 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 49.25 GB free).
+2026-07-27 14:10:09.316 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 3 null: SQL round-trip 3 ms
+2026-07-27 14:10:09.370 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 31 404: MRA reachable (404) in 31 ms.
+2026-07-27 14:10:09.373 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 3 null: All subsystems healthy (SQL 3 ms, disk 49.25 GB free).
+2026-07-27 14:10:09.451 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-27 14:10:12.154 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-27 14:10:46.301 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-27 14:10:51.507 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-27 14:10:51.530 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 3 null: SQL round-trip 3 ms
+2026-07-27 14:10:51.556 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 18 404: MRA reachable (404) in 18 ms.
+2026-07-27 14:10:51.631 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 3 null: All subsystems healthy (SQL 3 ms, disk 49.25 GB free).
+2026-07-27 14:10:54.477 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-27 14:10:54.507 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 23 404: MRA reachable (404) in 23 ms.
+2026-07-27 14:10:56.860 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 49.25 GB free).
+2026-07-27 14:10:56.968 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-27 14:11:12.187 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-27 14:11:19.474 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-27 14:11:36.629 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-27 14:11:36.659 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-27 14:11:36.696 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 32 404: MRA reachable (404) in 32 ms.
+2026-07-27 14:11:37.501 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 49.25 GB free).
+2026-07-27 14:11:41.981 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 3 null: SQL round-trip 3 ms
+2026-07-27 14:11:42.021 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 31 404: MRA reachable (404) in 31 ms.
+2026-07-27 14:11:42.104 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 3 null: All subsystems healthy (SQL 3 ms, disk 49.25 GB free).
+2026-07-27 14:11:42.328 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-27 14:11:49.515 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-27 14:12:12.230 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-27 14:12:22.519 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-27 14:12:22.581 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-27 14:12:22.622 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 21 404: MRA reachable (404) in 21 ms.
+2026-07-27 14:12:22.754 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 49.25 GB free).
+2026-07-27 14:12:27.336 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: SQL round-trip 2 ms
+2026-07-27 14:12:27.374 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 28 404: MRA reachable (404) in 28 ms.
+2026-07-27 14:12:28.257 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 2 null: All subsystems healthy (SQL 2 ms, disk 49.24 GB free).
+2026-07-27 14:12:28.480 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-27 14:12:30.157 +02:00 [INF] Hardware fault-tolerance loop stopped.
