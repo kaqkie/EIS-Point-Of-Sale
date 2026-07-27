@@ -282,4 +282,63 @@ public sealed class MraHttpClientAndQueueErrorTests
             PointOfSale.Mra.Serialization.MraJson.SerializerOptions);
         Assert.Contains("\"amountTendered\":117.5", json.Replace(" ", string.Empty), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void NormalizeQueuedPayload_RecalculatesNetAndVatFromUnitFields()
+    {
+        var request = new SubmitSalesTransactionRequest
+        {
+            InvoiceHeader = new InvoiceHeaderDto
+            {
+                InvoiceNumber = "INV-4",
+                InvoiceDateTime = DateTime.UtcNow,
+                SellerTin = "20162939",
+                SiteId = "SITE-01",
+                PaymentMethod = "Cash",
+                GlobalConfigVersion = 1,
+                TaxpayerConfigVersion = 1,
+                TerminalConfigVersion = 2
+            },
+            InvoiceLineItems =
+            [
+                new InvoiceLineItemDto
+                {
+                    Id = 1,
+                    ProductCode = "P1",
+                    Description = "Item",
+                    TaxRateId = "A",
+                    Quantity = 2,
+                    UnitPrice = 100,
+                    Discount = 10,
+                    Total = 999,
+                    TotalVat = 0
+                }
+            ],
+            InvoiceSummary = new InvoiceSummaryDto
+            {
+                TaxBreakDown =
+                [
+                    new TaxBreakDownDto { RateId = "A", TaxableAmount = 999, TaxAmount = 0 }
+                ],
+                TotalVat = 0,
+                InvoiceTotal = 0,
+                AmountTendered = 0
+            }
+        };
+
+        var normalized = OfflineSalesQueueService.NormalizeQueuedPayloadForResubmit(
+            request,
+            new MraFiscalIdentityOverlay(
+                StandardTaxRateId: "A",
+                ConfiguredTaxRates: [("A", 17.5m)]));
+
+        Assert.Equal(190m, normalized.InvoiceLineItems[0].Total);
+        Assert.Equal(33.25m, normalized.InvoiceLineItems[0].TotalVat);
+        Assert.Equal("A", normalized.InvoiceLineItems[0].TaxRateId);
+        Assert.Equal("A", normalized.InvoiceSummary.TaxBreakDown[0].RateId);
+        Assert.Equal(190m, normalized.InvoiceSummary.TaxBreakDown[0].TaxableAmount);
+        Assert.Equal(33.25m, normalized.InvoiceSummary.TotalVat);
+        Assert.Equal(223.25m, normalized.InvoiceSummary.InvoiceTotal);
+        Assert.Equal(223.25m, normalized.InvoiceSummary.AmountTendered);
+    }
 }

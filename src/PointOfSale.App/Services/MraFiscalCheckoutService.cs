@@ -19,7 +19,7 @@ public interface IMraFiscalCheckoutService
 }
 
 /// <summary>
-    /// Pre-checkout MRA preparation: <c>get-latest-configs</c> identity sync + official invoice numbering.
+/// Pre-checkout MRA preparation: <c>get-latest-configs</c> identity sync + official invoice numbering.
 /// Invoice numbers are reserved fresh on each call — never cached between transactions.
 /// </summary>
 public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
@@ -48,15 +48,24 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
         DateTime transactionUtc,
         CancellationToken cancellationToken = default)
     {
-        await SyncLatestConfigsIfActivatedAsync(cancellationToken).ConfigureAwait(false);
+        var sync = await SyncLatestConfigsIfActivatedAsync(cancellationToken).ConfigureAwait(false);
         var context = await _posConfigurationService.GetRuntimeContextAsync(cancellationToken).ConfigureAwait(false);
 
-        if (PosConfigurationService.IsPlaceholderTaxpayerTin(context.SellerTin))
+        if (sync.IsActivated && !sync.Succeeded)
         {
             throw new InvalidOperationException(
-                "Cannot submit to MRA: sellerTIN is still the sandbox placeholder 1234567890. " +
-                "Re-activate the terminal (JWT may be expired) and confirm get-latest-configs succeeds " +
-                "so sellerTIN/siteId/taxRateId/config versions match activation.");
+                "Cannot submit to MRA: get-latest-configs failed for the activated terminal. " +
+                "Renew/re-activate the terminal JWT, then retry so sellerTIN, siteId, taxRateId, " +
+                "and config versions come from the live configuration sync. " +
+                $"Detail: {sync.Remark ?? "opaque EIS error"}");
+        }
+
+        if (PosConfigurationService.IsPlaceholderTaxpayerTin(context.SellerTin)
+            || string.IsNullOrWhiteSpace(context.SellerTin))
+        {
+            throw new InvalidOperationException(
+                "Cannot submit to MRA: sellerTIN is missing or still the sandbox placeholder 1234567890. " +
+                "Complete terminal activation and confirm get-latest-configs succeeds.");
         }
 
         if (string.IsNullOrWhiteSpace(context.FiscalSiteId)
@@ -67,24 +76,41 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
                 "Sync get-latest-configs after terminal activation so invoiceHeader.siteId matches MRA.");
         }
 
+        if (context.Global is null || context.Terminal is null || context.Taxpayer is null)
+        {
+            throw new InvalidOperationException(
+                "Cannot submit to MRA: cached global/terminal/taxpayer configuration is incomplete. " +
+                "Run get-latest-configs successfully before selling.");
+        }
+
+        _logger.LogInformation(
+            "Checkout fiscal identity ready. sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate} versions g/t/tp={Global}/{Terminal}/{Taxpayer} invoiceTinDigits={TinDigits}",
+            context.SellerTin,
+            context.FiscalSiteId,
+            context.StandardVatTaxRateId,
+            context.GlobalConfigVersion,
+            context.TerminalConfigVersion,
+            context.TaxpayerConfigVersion,
+            MraInvoiceNumberGenerator.TryParseTaxpayerId(context.SellerTin, out var tinDigits) ? tinDigits : 0);
+
         var invoiceNumber = await ReserveInvoiceNumberAtCommitAsync(context, transactionUtc, cancellationToken)
             .ConfigureAwait(false);
         return (context, invoiceNumber);
     }
 
-    private async Task SyncLatestConfigsIfActivatedAsync(CancellationToken cancellationToken)
+    private async Task<ConfigSyncAttempt> SyncLatestConfigsIfActivatedAsync(CancellationToken cancellationToken)
     {
         var terminalId = await _terminalRepository.GetActiveTerminalIdAsync(cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(terminalId))
         {
-            return;
+            return ConfigSyncAttempt.NotActivated();
         }
 
         var terminal = await _terminalRepository.GetByIdAsync(terminalId, cancellationToken).ConfigureAwait(false);
         if (terminal is null ||
             !string.Equals(terminal.ActivationState, TerminalActivationStates.Activated, StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            return ConfigSyncAttempt.NotActivated();
         }
 
         try
@@ -96,11 +122,15 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
                     "Pre-checkout get-latest-configs failed for {TerminalId}: {Remark}",
                     terminalId,
                     result.Remark ?? "(null)");
+                return ConfigSyncAttempt.Failed(result.Remark);
             }
+
+            return ConfigSyncAttempt.Ok();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Pre-checkout get-latest-configs threw for {TerminalId}; using cached configs.", terminalId);
+            _logger.LogWarning(ex, "Pre-checkout get-latest-configs threw for {TerminalId}.", terminalId);
+            return ConfigSyncAttempt.Failed(ex.Message);
         }
     }
 
@@ -117,8 +147,24 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
         }
 
         var terminalPosition = context.TerminalPosition > 0 ? context.TerminalPosition : 1;
-        return await _invoiceSequenceService
+        var invoiceNumber = await _invoiceSequenceService
             .ReserveNextInvoiceNumberAsync(taxpayerId, terminalPosition, transactionUtc, cancellationToken)
             .ConfigureAwait(false);
+
+        if (!MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(invoiceNumber))
+        {
+            throw new InvalidOperationException(
+                $"Generated invoice number '{invoiceNumber}' is not MRA composite " +
+                "Base64(TaxpayerID)-Base64(TerminalPosition)-Base64(JulianDate)-Base64(Count).");
+        }
+
+        return invoiceNumber;
+    }
+
+    private readonly record struct ConfigSyncAttempt(bool IsActivated, bool Succeeded, string? Remark)
+    {
+        public static ConfigSyncAttempt NotActivated() => new(false, true, null);
+        public static ConfigSyncAttempt Ok() => new(true, true, null);
+        public static ConfigSyncAttempt Failed(string? remark) => new(true, false, remark);
     }
 }

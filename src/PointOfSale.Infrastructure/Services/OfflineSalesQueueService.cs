@@ -18,6 +18,11 @@ namespace PointOfSale.Infrastructure.Services;
 
 public sealed class OfflineSalesQueueService
 {
+    private static readonly object LiveConfigRefreshGate = new();
+    private static DateTime _liveConfigRefreshUtc = DateTime.MinValue;
+    private static MraFiscalIdentityOverlay? _liveConfigOverlayCache;
+    private static readonly TimeSpan LiveConfigRefreshTtl = TimeSpan.FromSeconds(90);
+
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly SalesTransactionService _salesTransactionService;
     private readonly IConfigurationRepository? _configurationRepository;
@@ -616,28 +621,33 @@ public sealed class OfflineSalesQueueService
                 }
             }
 
-            // Refresh when identity still looks like local seed rather than terminal activation.
-            var isNonCodeLikeSiteId = siteId?.Contains(' ') == true;
-            var sellerTinIsPlaceholder = sellerTin?.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal) == true;
-            var siteLooksLikeDeploymentSeed = string.Equals(
-                siteId?.Trim(),
-                "SITE-CITY-CENTER",
-                StringComparison.OrdinalIgnoreCase);
-            var configVersionsMissing =
-                (global?.VersionNo ?? 0) <= 0
-                || (terminal?.VersionNo ?? 0) <= 0
-                || (taxpayer?.VersionNo ?? 0) <= 0;
+            // Always try live get-latest-configs when onboarding is wired so Force Sync / Retry
+            // overlays sellerTIN, siteId, taxRateId, and config versions from activation — not seeds.
+            // A short process-wide cache avoids N API calls when draining a large queue.
+            var needsRefresh = _terminalOnboardingService is not null;
 
-            var needsRefresh = isNonCodeLikeSiteId
-                               || sellerTinIsPlaceholder
-                               || siteLooksLikeDeploymentSeed
-                               || configVersionsMissing;
-
-            if (needsRefresh && _terminalOnboardingService is not null)
+            if (needsRefresh)
             {
+                lock (LiveConfigRefreshGate)
+                {
+                    if (_liveConfigOverlayCache is not null
+                        && DateTime.UtcNow - _liveConfigRefreshUtc < LiveConfigRefreshTtl)
+                    {
+                        var cached = _liveConfigOverlayCache;
+                        return new MraFiscalIdentityOverlay(
+                            SellerTin: FirstNonEmpty(cached.SellerTin, sellerTin),
+                            SiteId: FirstNonEmpty(cached.SiteId, siteId),
+                            GlobalConfigVersion: cached.GlobalConfigVersion ?? global?.VersionNo,
+                            TaxpayerConfigVersion: cached.TaxpayerConfigVersion ?? taxpayer?.VersionNo,
+                            TerminalConfigVersion: cached.TerminalConfigVersion ?? terminal?.VersionNo,
+                            StandardTaxRateId: cached.StandardTaxRateId ?? standardId,
+                            ConfiguredTaxRates: cached.ConfiguredTaxRates ?? rates);
+                    }
+                }
+
                 try
                 {
-                    var latest = await _terminalOnboardingService
+                    var latest = await _terminalOnboardingService!
                         .GetLatestConfigsAsync(cancellationToken)
                         .ConfigureAwait(false);
 
@@ -660,16 +670,7 @@ public sealed class OfflineSalesQueueService
                         var refreshedSiteId = FirstNonEmpty(refreshedTerminal?.TerminalSite?.SiteId);
                         var refreshedSellerTin = FirstNonEmpty(refreshedTaxpayer?.Tin, jwtTin);
 
-                        _logger.LogInformation(
-                            "Refreshed fiscal identity from get-latest-configs. sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate} versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
-                            refreshedSellerTin ?? sellerTin,
-                            refreshedSiteId ?? siteId,
-                            refreshedStandardId,
-                            refreshedGlobal?.VersionNo ?? 0,
-                            refreshedTerminal?.VersionNo ?? 0,
-                            refreshedTaxpayer?.VersionNo ?? 0);
-
-                        return new MraFiscalIdentityOverlay(
+                        var overlay = new MraFiscalIdentityOverlay(
                             SellerTin: refreshedSellerTin ?? sellerTin,
                             SiteId: refreshedSiteId ?? siteId,
                             GlobalConfigVersion: refreshedGlobal?.VersionNo ?? global?.VersionNo ?? 1,
@@ -677,6 +678,23 @@ public sealed class OfflineSalesQueueService
                             TerminalConfigVersion: refreshedTerminal?.VersionNo ?? terminal?.VersionNo ?? 1,
                             StandardTaxRateId: refreshedStandardId,
                             ConfiguredTaxRates: refreshedRates);
+
+                        lock (LiveConfigRefreshGate)
+                        {
+                            _liveConfigOverlayCache = overlay;
+                            _liveConfigRefreshUtc = DateTime.UtcNow;
+                        }
+
+                        _logger.LogInformation(
+                            "Refreshed fiscal identity from get-latest-configs. sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate} versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
+                            overlay.SellerTin,
+                            overlay.SiteId,
+                            overlay.StandardTaxRateId,
+                            overlay.GlobalConfigVersion ?? 0,
+                            overlay.TerminalConfigVersion ?? 0,
+                            overlay.TaxpayerConfigVersion ?? 0);
+
+                        return overlay;
                     }
 
                     _logger.LogWarning(
@@ -694,6 +712,8 @@ public sealed class OfflineSalesQueueService
                         siteId);
                 }
             }
+
+            var sellerTinIsPlaceholder = sellerTin?.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal) == true;
 
             if (sellerTinIsPlaceholder)
             {

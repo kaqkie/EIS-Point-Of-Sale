@@ -60,9 +60,22 @@ public static partial class MraFiscalPayloadNormalizer
 
             var unitPrice = PosTaxCalculator.RoundMoney(line.UnitPrice);
             var quantity = RoundQuantity(line.Quantity);
-            var discount = PosTaxCalculator.RoundMoney(line.Discount);
+            if (quantity <= 0m)
+            {
+                quantity = 1m;
+            }
+
+            var discount = PosTaxCalculator.RoundMoney(Math.Max(0m, line.Discount));
+            // Recompute net from mandatory unit fields so total never drifts / nulls out.
+            var expectedNet = PosTaxCalculator.RoundMoney(
+                Math.Max(0m, (unitPrice * quantity) - discount));
             var net = PosTaxCalculator.RoundMoney(line.Total);
-            var vat = PosTaxCalculator.RoundMoney(line.TotalVat);
+            if (Math.Abs(expectedNet - net) > 0.02m || net < 0m)
+            {
+                net = expectedNet;
+            }
+
+            var vat = PosTaxCalculator.RoundMoney(Math.Max(0m, line.TotalVat));
 
             // Re-align VAT to the configured rate when the line is on the standard tier
             // and the stored VAT does not match (prevents sandbox 500 from rate drift).
@@ -75,20 +88,30 @@ public static partial class MraFiscalPayloadNormalizer
                     vat = expectedVat;
                 }
             }
+            else
+            {
+                vat = 0m;
+            }
 
             lines.Add(new InvoiceLineItemDto
             {
                 Id = i + 1,
-                ProductCode = line.ProductCode.Trim(),
-                Description = line.Description.Trim(),
+                ProductCode = string.IsNullOrWhiteSpace(line.ProductCode) ? $"LINE-{i + 1}" : line.ProductCode.Trim(),
+                Description = string.IsNullOrWhiteSpace(line.Description) ? "Item" : line.Description.Trim(),
                 UnitPrice = unitPrice,
                 Quantity = quantity,
                 Discount = discount,
                 Total = net,
                 TotalVat = vat,
-                TaxRateId = taxRateId,
+                TaxRateId = string.IsNullOrWhiteSpace(taxRateId) ? MraTaxRateCodes.StandardVat : taxRateId,
                 IsProduct = line.IsProduct
             });
+        }
+
+        if (lines.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "MRA sales payload must include at least one invoiceLineItem with unitPrice, quantity, total, and totalVAT.");
         }
 
         var taxBreakDown = lines
@@ -107,6 +130,10 @@ public static partial class MraFiscalPayloadNormalizer
             request.InvoiceSummary.AmountTendered > 0
                 ? request.InvoiceSummary.AmountTendered
                 : invoiceTotal);
+        if (amountTendered < invoiceTotal)
+        {
+            amountTendered = invoiceTotal;
+        }
 
         var summary = request.InvoiceSummary with
         {
@@ -122,7 +149,7 @@ public static partial class MraFiscalPayloadNormalizer
             OfflineSignature = NullIfWhiteSpace(request.InvoiceSummary.OfflineSignature),
             TotalVat = totalVat,
             InvoiceTotal = invoiceTotal,
-            AmountTendered = amountTendered < invoiceTotal ? invoiceTotal : amountTendered
+            AmountTendered = amountTendered
         };
 
         return request with
