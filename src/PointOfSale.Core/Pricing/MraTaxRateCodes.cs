@@ -1,36 +1,47 @@
 namespace PointOfSale.Core.Pricing;
 
 /// <summary>
-/// MRA EIS tax rate lookup codes. Standard VAT tier is <see cref="StandardVat"/> (<c>A</c>).
+/// MRA EIS tax rate lookup codes. Standard VAT tier is <see cref="StandardVat"/> (<c>STANDARD_17_5</c>).
 /// </summary>
 public static class MraTaxRateCodes
 {
-    /// <summary>MRA lookup code for the standard VAT tier (historically 16.5% / 17.5% per global config).</summary>
-    public const string StandardVat = "A";
+    /// <summary>MRA lookup code for the standard 17.5% VAT tier.</summary>
+    public const string StandardVat = "STANDARD_17_5";
 
-    /// <summary>Legacy ART default that must be remapped to <see cref="StandardVat"/> before EIS submit.</summary>
+    /// <summary>Legacy ART / sandbox alias that must be remapped before EIS submit.</summary>
     public const string LegacyStandardAlias = "T";
+
+    /// <summary>Historical single-letter MRA code for the standard VAT tier.</summary>
+    public const string LegacyStandardAliasA = "A";
 
     public const string Exempt = "E";
 
-    /// <summary>
-    /// Maps empty / legacy <c>T</c> identifiers onto <see cref="StandardVat"/> (<c>A</c>).
-    /// Known MRA codes (A, E, TL, …) are preserved as-is.
-    /// </summary>
-    public static string Normalize(string? taxRateId)
+    /// <summary>True when the id represents the standard VAT tier (17.5%).</summary>
+    public static bool IsStandardVatTier(string? taxRateId)
     {
         if (string.IsNullOrWhiteSpace(taxRateId))
         {
-            return StandardVat;
+            return true;
         }
 
-        var trimmed = taxRateId.Trim();
-        if (trimmed.Equals(LegacyStandardAlias, StringComparison.OrdinalIgnoreCase))
+        var id = taxRateId.Trim();
+        return id.Equals(StandardVat, StringComparison.OrdinalIgnoreCase)
+               || id.Equals(LegacyStandardAliasA, StringComparison.OrdinalIgnoreCase)
+               || id.Equals(LegacyStandardAlias, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Maps empty / legacy identifiers onto <see cref="StandardVat"/>.
+    /// Known non-standard MRA codes (E, Z, TL, …) are preserved as-is.
+    /// </summary>
+    public static string Normalize(string? taxRateId)
+    {
+        if (IsStandardVatTier(taxRateId))
         {
             return StandardVat;
         }
 
-        return trimmed;
+        return taxRateId!.Trim();
     }
 
     /// <summary>
@@ -41,15 +52,12 @@ public static class MraTaxRateCodes
         string? taxRateId,
         IEnumerable<(string Id, decimal Rate)>? configuredRates)
     {
-        var id = Normalize(taxRateId);
-
-        // Requirement: standard VAT tier must be represented as exactly 17.5%
-        // (even if the sandbox/global config cache is stale or uses a different
-        // rounding band). This ensures invoice VAT math + payload always stays aligned.
-        if (id.Equals(StandardVat, StringComparison.OrdinalIgnoreCase))
+        if (IsStandardVatTier(taxRateId))
         {
             return PosTaxCalculator.MalawiStandardVatRatePercent;
         }
+
+        var id = taxRateId?.Trim() ?? string.Empty;
 
         if (configuredRates is not null)
         {
@@ -74,5 +82,52 @@ public static class MraTaxRateCodes
         }
 
         return PosTaxCalculator.MalawiStandardVatRatePercent;
+    }
+
+    /// <summary>
+    /// Picks the activated standard VAT rate id from global config / taxpayer activation.
+    /// </summary>
+    public static string ResolveStandardRateId(
+        IEnumerable<(string Id, decimal Rate)>? configuredRates,
+        IEnumerable<string>? activatedTaxRateIds)
+    {
+        if (configuredRates is not null)
+        {
+            var exact = configuredRates
+                .FirstOrDefault(r =>
+                    !string.IsNullOrWhiteSpace(r.Id)
+                    && r.Rate == PosTaxCalculator.MalawiStandardVatRatePercent);
+            if (!string.IsNullOrWhiteSpace(exact.Id))
+            {
+                return exact.Id.Trim();
+            }
+
+            var band = configuredRates
+                .FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate is >= 16m and <= 18m);
+            if (!string.IsNullOrWhiteSpace(band.Id))
+            {
+                return band.Id.Trim();
+            }
+        }
+
+        if (activatedTaxRateIds is not null)
+        {
+            foreach (var id in activatedTaxRateIds)
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    continue;
+                }
+
+                var trimmed = id.Trim();
+                if (trimmed.Equals(StandardVat, StringComparison.OrdinalIgnoreCase)
+                    || trimmed.Equals(LegacyStandardAliasA, StringComparison.OrdinalIgnoreCase))
+                {
+                    return trimmed;
+                }
+            }
+        }
+
+        return StandardVat;
     }
 }

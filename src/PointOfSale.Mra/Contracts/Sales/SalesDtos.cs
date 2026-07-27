@@ -121,6 +121,7 @@ public sealed record InvoiceSummaryDto
     [JsonPropertyName("invoiceTotal")]
     public decimal InvoiceTotal { get; init; }
 
+    /// <summary>Cash/card amount tendered by the buyer (mandatory for EIS sales submit).</summary>
     [JsonPropertyName("amountTendered")]
     public decimal AmountTendered { get; init; }
 }

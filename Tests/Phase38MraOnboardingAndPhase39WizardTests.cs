@@ -1,6 +1,7 @@
 using System.Net.Http;
 using PointOfSale.App.Services;
 using PointOfSale.App.ViewModels;
+using PointOfSale.Core.Pricing;
 using PointOfSale.Mra.Http;
 using Xunit;
 
@@ -121,7 +122,7 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
         Assert.Equal("SITE-CITY-CENTER", ctx.FiscalSiteId);
         Assert.Equal("Lilongwe", ctx.BranchId);
         Assert.Equal(1, ctx.GlobalConfigVersion);
-        Assert.Equal("A", ctx.StandardVatTaxRateId);
+        Assert.Equal(MraTaxRateCodes.StandardVat, ctx.StandardVatTaxRateId);
         Assert.True(ctx.HasRequiredSalesIdentity);
     }
 

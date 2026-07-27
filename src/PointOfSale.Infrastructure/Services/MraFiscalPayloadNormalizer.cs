@@ -6,7 +6,7 @@ namespace PointOfSale.Infrastructure.Services;
 
 /// <summary>
 /// Aligns queued / checkout sales payloads with MRA EIS field expectations
-/// (site codes, taxRateId <c>A</c>, config versions, 2-dp money).
+/// (site codes, taxRateId <c>STANDARD_17_5</c>, config versions, 2-dp money).
 /// </summary>
 public static partial class MraFiscalPayloadNormalizer
 {
@@ -51,7 +51,7 @@ public static partial class MraFiscalPayloadNormalizer
         {
             var line = request.InvoiceLineItems[i];
             var taxRateId = MraTaxRateCodes.Normalize(line.TaxRateId);
-            if (taxRateId.Equals(MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase)
+            if (MraTaxRateCodes.IsStandardVatTier(taxRateId)
                 && !string.IsNullOrWhiteSpace(standardTaxRateId))
             {
                 taxRateId = standardTaxRateId;

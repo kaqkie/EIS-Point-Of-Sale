@@ -96,12 +96,16 @@ public sealed class MraHttpClientAndQueueErrorTests
     }
 
     [Fact]
-    public void MraTaxRateCodes_MapsLegacyT_ToStandardA()
+    public void MraTaxRateCodes_MapsLegacyAliasesToStandard_17_5()
     {
         Assert.Equal(MraTaxRateCodes.StandardVat, MraTaxRateCodes.Normalize("T"));
         Assert.Equal(MraTaxRateCodes.StandardVat, MraTaxRateCodes.Normalize(null));
-        Assert.Equal("A", MraTaxRateCodes.Normalize("A"));
+        Assert.Equal(MraTaxRateCodes.StandardVat, MraTaxRateCodes.Normalize("A"));
+        Assert.Equal("STANDARD_17_5", MraTaxRateCodes.Normalize("STANDARD_17_5"));
+        Assert.Equal(17.5m, MraTaxRateCodes.ResolveRatePercent("STANDARD_17_5", [("STANDARD_17_5", 17.5m)]));
         Assert.Equal(17.5m, MraTaxRateCodes.ResolveRatePercent("A", [("A", 17.5m)]));
+        Assert.Equal("STANDARD_17_5", MraTaxRateCodes.ResolveStandardRateId(null, null));
+        Assert.Equal("A", MraTaxRateCodes.ResolveStandardRateId([("A", 17.5m)], null));
     }
 
     [Fact]
@@ -157,8 +161,8 @@ public sealed class MraHttpClientAndQueueErrorTests
                 GlobalConfigVersion: 1,
                 TaxpayerConfigVersion: 1,
                 TerminalConfigVersion: 1,
-                StandardTaxRateId: "A",
-                ConfiguredTaxRates: [("A", 17.5m)]));
+                StandardTaxRateId: "STANDARD_17_5",
+                ConfiguredTaxRates: [("STANDARD_17_5", 17.5m)]));
 
         Assert.Equal("INV-1", normalized.InvoiceHeader.InvoiceNumber);
         Assert.Equal("1234567890", normalized.InvoiceHeader.SellerTin);
@@ -169,8 +173,8 @@ public sealed class MraHttpClientAndQueueErrorTests
         Assert.Equal(1, normalized.InvoiceHeader.GlobalConfigVersion);
         Assert.Equal(1, normalized.InvoiceLineItems[0].Id);
         Assert.Equal("P1", normalized.InvoiceLineItems[0].ProductCode);
-        Assert.Equal("A", normalized.InvoiceLineItems[0].TaxRateId);
-        Assert.Equal("A", normalized.InvoiceSummary.TaxBreakDown[0].RateId);
+        Assert.Equal("STANDARD_17_5", normalized.InvoiceLineItems[0].TaxRateId);
+        Assert.Equal("STANDARD_17_5", normalized.InvoiceSummary.TaxBreakDown[0].RateId);
         Assert.Null(normalized.InvoiceSummary.OfflineSignature);
         Assert.Equal(0, normalized.InvoiceHeader.InvoiceDateTime.Ticks % TimeSpan.TicksPerMillisecond);
         Assert.Equal(DateTimeKind.Utc, normalized.InvoiceHeader.InvoiceDateTime.Kind);
@@ -196,7 +200,7 @@ public sealed class MraHttpClientAndQueueErrorTests
                     Id = 1,
                     ProductCode = "P1",
                     Description = "Item",
-                    TaxRateId = "A",
+                    TaxRateId = "STANDARD_17_5",
                     Quantity = 1,
                     UnitPrice = 100,
                     Total = 100,
@@ -207,7 +211,7 @@ public sealed class MraHttpClientAndQueueErrorTests
             {
                 TaxBreakDown =
                 [
-                    new TaxBreakDownDto { RateId = "A", TaxableAmount = 100, TaxAmount = 17.5m }
+                    new TaxBreakDownDto { RateId = "STANDARD_17_5", TaxableAmount = 100, TaxAmount = 17.5m }
                 ],
                 TotalVat = 17.5m,
                 InvoiceTotal = 0m,

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PointOfSale.Core.Constants;
+using PointOfSale.Core.Pricing;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Serialization;
@@ -134,8 +135,8 @@ public static class LocalFiscalIdentitySeeder
                 [
                     new TaxRateDto
                     {
-                        Id = "A",
-                        Name = "Standard VAT",
+                        Id = MraTaxRateCodes.StandardVat,
+                        Name = "Standard VAT 17.5%",
                         ChargeMode = "VAT",
                         Ordinal = 1,
                         Rate = 17.5m

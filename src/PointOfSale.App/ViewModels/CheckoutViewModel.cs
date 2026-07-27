@@ -1086,7 +1086,7 @@ public partial class CheckoutViewModel : ObservableObject
         foreach (var cartLine in CartItems)
         {
             var rateId = MraTaxRateCodes.Normalize(cartLine.TaxRateId);
-            cartLine.TaxRateId = rateId.Equals(MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase)
+            cartLine.TaxRateId = MraTaxRateCodes.IsStandardVatTier(rateId)
                 ? context.StandardVatTaxRateId
                 : rateId;
             cartLine.VatRatePercent = context.ResolveVatRatePercent(cartLine.TaxRateId);

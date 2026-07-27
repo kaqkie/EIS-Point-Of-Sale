@@ -314,38 +314,13 @@ public sealed record PosRuntimeContext(
     public int TerminalConfigVersion => Terminal?.VersionNo > 0 ? Terminal.VersionNo : 1;
     public int TaxpayerConfigVersion => Taxpayer?.VersionNo > 0 ? Taxpayer.VersionNo : 1;
 
-    /// <summary>MRA taxRateId for the standard VAT tier — prefers configured 17.5% rate, else <c>A</c>.</summary>
-    public string StandardVatTaxRateId
-    {
-        get
-        {
-            var exact = Global?.TaxRates?
-                .FirstOrDefault(r =>
-                    !string.IsNullOrWhiteSpace(r.Id)
-                    && r.Rate == PointOfSale.Core.Pricing.PosTaxCalculator.MalawiStandardVatRatePercent)
-                ?.Id;
-            if (!string.IsNullOrWhiteSpace(exact))
-            {
-                return exact.Trim();
-            }
-
-            var fromRates = Global?.TaxRates?
-                .FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate is >= 16m and <= 18m)
-                ?.Id;
-            if (!string.IsNullOrWhiteSpace(fromRates))
-            {
-                return fromRates.Trim();
-            }
-
-            var activated = Taxpayer?.ActivatedTaxRateIds?
-                .FirstOrDefault(id =>
-                    !string.IsNullOrWhiteSpace(id)
-                    && id.Trim().Equals(PointOfSale.Core.Pricing.MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase));
-            return string.IsNullOrWhiteSpace(activated)
-                ? PointOfSale.Core.Pricing.MraTaxRateCodes.StandardVat
-                : activated.Trim();
-        }
-    }
+    /// <summary>MRA taxRateId for the standard VAT tier — prefers configured 17.5% rate, else <c>STANDARD_17_5</c>.</summary>
+    public string StandardVatTaxRateId =>
+        PointOfSale.Core.Pricing.MraTaxRateCodes.ResolveStandardRateId(
+            Global?.TaxRates?
+                .Where(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate > 0m)
+                .Select(r => (r.Id!.Trim(), r.Rate)),
+            Taxpayer?.ActivatedTaxRateIds);
 
     public decimal ResolveVatRatePercent(string? taxRateId)
     {

@@ -199,7 +199,7 @@ public class MockMraEisServer : IDisposable
                     remark = "Configs",
                     data = new
                     {
-                        globalConfiguration = new { versionNo = 1, taxRates = new[] { new { id = "A", rate = 17.5 } } },
+                        globalConfiguration = new { versionNo = 1, taxRates = new[] { new { id = "STANDARD_17_5", rate = 17.5 } } },
                         terminalConfiguration = new { versionNo = 1, tradingName = "Sandbox Terminal" },
                         taxpayerConfiguration = new { versionNo = 1, tin = "1234567890" }
                     }

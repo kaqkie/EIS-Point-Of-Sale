@@ -56,7 +56,7 @@ public sealed class MraCertificationRunner : IDisposable
             Name = "Certification Item",
             UnitPrice = 100m,
             StockQuantity = 100,
-            TaxRateId = "A",
+            TaxRateId = MraTaxRateCodes.StandardVat,
             HsCode = "0000",
             UnitOfMeasure = "EA"
         });
@@ -89,7 +89,7 @@ public sealed class MraCertificationRunner : IDisposable
                     ProductName = $"Item {i}",
                     UnitPrice = 10m,
                     OpeningStockQuantity = 5,
-                    TaxRateId = "A"
+                    TaxRateId = MraTaxRateCodes.StandardVat
                 })
                 .ToList();
 
@@ -272,7 +272,7 @@ public sealed class MraCertificationRunner : IDisposable
                     Quantity = 1,
                     Total = net,
                     TotalVat = vat,
-                    TaxRateId = "A",
+                    TaxRateId = MraTaxRateCodes.StandardVat,
                     IsProduct = true
                 }
             ],
@@ -280,7 +280,7 @@ public sealed class MraCertificationRunner : IDisposable
             {
                 TaxBreakDown =
                 [
-                    new TaxBreakDownDto { RateId = "A", TaxableAmount = net, TaxAmount = vat }
+                    new TaxBreakDownDto { RateId = MraTaxRateCodes.StandardVat, TaxableAmount = net, TaxAmount = vat }
                 ],
                 TotalVat = vat,
                 InvoiceTotal = net + vat,

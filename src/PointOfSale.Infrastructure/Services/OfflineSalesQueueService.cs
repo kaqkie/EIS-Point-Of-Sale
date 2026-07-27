@@ -457,13 +457,9 @@ public sealed class OfflineSalesQueueService
                 .Select(r => (Id: r.Id!.Trim(), Rate: r.Rate))
                 .ToList();
 
-            var standardFromRate = rates?.FirstOrDefault(r => r.Rate is >= 16m and <= 18m);
-            var standardId = !string.IsNullOrWhiteSpace(standardFromRate?.Id)
-                ? standardFromRate.Value.Id
-                : taxpayer?.ActivatedTaxRateIds?.FirstOrDefault(id =>
-                    !string.IsNullOrWhiteSpace(id)
-                    && id.Trim().Equals(MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase))
-                ?? MraTaxRateCodes.StandardVat;
+            var standardId = MraTaxRateCodes.ResolveStandardRateId(
+                rates?.Select(r => (r.Id, r.Rate)),
+                taxpayer?.ActivatedTaxRateIds);
 
             var siteId = FirstNonEmpty(
                 terminal?.TerminalSite?.SiteId,
@@ -517,14 +513,9 @@ public sealed class OfflineSalesQueueService
                             .Select(r => (r.Id!.Trim(), r.Rate))
                             .ToList();
 
-                        var activatedStandard = refreshedTaxpayer?.ActivatedTaxRateIds?
-                            .FirstOrDefault(id =>
-                                !string.IsNullOrWhiteSpace(id)
-                                && id.Trim().Equals(MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase));
-
-                        var refreshedStandardId = !string.IsNullOrWhiteSpace(activatedStandard)
-                            ? activatedStandard.Trim()
-                            : MraTaxRateCodes.StandardVat;
+                        var refreshedStandardId = MraTaxRateCodes.ResolveStandardRateId(
+                            refreshedRates?.Select(r => r),
+                            refreshedTaxpayer?.ActivatedTaxRateIds);
 
                         var refreshedSiteId = FirstNonEmpty(refreshedTerminal?.TerminalSite?.SiteId);
                         var refreshedSellerTin = FirstNonEmpty(refreshedTaxpayer?.Tin);

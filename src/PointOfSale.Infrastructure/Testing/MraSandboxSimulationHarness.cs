@@ -374,7 +374,7 @@ public static class SandboxSaleFactory
         Name = "Sandbox Retail Item",
         UnitPrice = 19.99m,
         StockQuantity = 500,
-        TaxRateId = "A",
+        TaxRateId = MraTaxRateCodes.StandardVat,
         HsCode = "1234",
         UnitOfMeasure = "EA"
     };
@@ -410,7 +410,7 @@ public static class SandboxSaleFactory
                     Quantity = quantity,
                     Total = net,
                     TotalVat = vat,
-                    TaxRateId = "A",
+                    TaxRateId = MraTaxRateCodes.StandardVat,
                     IsProduct = true
                 }
             ],
@@ -418,7 +418,7 @@ public static class SandboxSaleFactory
             {
                 TaxBreakDown =
                 [
-                    new TaxBreakDownDto { RateId = "A", TaxableAmount = net, TaxAmount = vat }
+                    new TaxBreakDownDto { RateId = MraTaxRateCodes.StandardVat, TaxableAmount = net, TaxAmount = vat }
                 ],
                 TotalVat = vat,
                 InvoiceTotal = gross,
