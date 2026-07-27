@@ -21,6 +21,7 @@ public partial class CheckoutViewModel : ObservableObject
     private readonly OfflineSalesQueueService _offlineSalesQueueService;
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly IPosConfigurationService _posConfigurationService;
+    private readonly IMraFiscalCheckoutService _mraFiscalCheckoutService;
     private readonly IReceiptPrintingService _receiptPrintingService;
     private readonly IConnectionStatusService _connectionStatusService;
     private readonly INavigationService _navigationService;
@@ -39,6 +40,7 @@ public partial class CheckoutViewModel : ObservableObject
         OfflineSalesQueueService offlineSalesQueueService,
         IOfflineInvoiceQueueRepository queueRepository,
         IPosConfigurationService posConfigurationService,
+        IMraFiscalCheckoutService mraFiscalCheckoutService,
         IReceiptPrintingService receiptPrintingService,
         IConnectionStatusService connectionStatusService,
         INavigationService navigationService,
@@ -54,6 +56,7 @@ public partial class CheckoutViewModel : ObservableObject
         _offlineSalesQueueService = offlineSalesQueueService;
         _queueRepository = queueRepository;
         _posConfigurationService = posConfigurationService;
+        _mraFiscalCheckoutService = mraFiscalCheckoutService;
         _receiptPrintingService = receiptPrintingService;
         _connectionStatusService = connectionStatusService;
         _navigationService = navigationService;
@@ -792,7 +795,26 @@ public partial class CheckoutViewModel : ObservableObject
         {
             await _productionSecretGuard.EnsureReadyForLiveSalesAsync().ConfigureAwait(true);
 
-            var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+            var transactionUtc = DateTime.UtcNow;
+            PosRuntimeContext context;
+            string invoiceNumber;
+            try
+            {
+                (context, invoiceNumber) = await _mraFiscalCheckoutService
+                    .PrepareSaleAsync(transactionUtc)
+                    .ConfigureAwait(true);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ShowOperatorDialog(new OperatorMessage(
+                    "Fiscal preparation failed",
+                    ex.Message,
+                    OperatorMessageSeverity.Error,
+                    SuggestOfflineFallback: false));
+                StatusMessage = "Fiscal preparation failed.";
+                return;
+            }
+
             if (!context.HasRequiredSalesIdentity)
             {
                 ShowOperatorDialog(new OperatorMessage(
@@ -803,8 +825,6 @@ public partial class CheckoutViewModel : ObservableObject
                 StatusMessage = "Terminal configuration incomplete.";
                 return;
             }
-
-            var invoiceNumber = $"ART-{DateTime.Now:yyyyMMddHHmmss}";
 
             // Refresh probe with the full EIS timeout before deciding offline.
             await _connectionStatusService.RefreshAsync().ConfigureAwait(true);
@@ -949,7 +969,25 @@ public partial class CheckoutViewModel : ObservableObject
     {
         try
         {
-            var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+            PosRuntimeContext context;
+            string invoiceNumber;
+            try
+            {
+                (context, invoiceNumber) = await _mraFiscalCheckoutService
+                    .PrepareSaleAsync(DateTime.UtcNow)
+                    .ConfigureAwait(true);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ShowOperatorDialog(new OperatorMessage(
+                    "Fiscal preparation failed",
+                    ex.Message,
+                    OperatorMessageSeverity.Error,
+                    SuggestOfflineFallback: false));
+                StatusMessage = "Fiscal preparation failed.";
+                return;
+            }
+
             if (!context.HasRequiredSalesIdentity)
             {
                 ShowOperatorDialog(new OperatorMessage(
@@ -961,7 +999,6 @@ public partial class CheckoutViewModel : ObservableObject
                 return;
             }
 
-            var invoiceNumber = $"ART-{DateTime.Now:yyyyMMddHHmmss}";
             ApplyFiscalRatesFromContext(context);
             RecalculateTotals();
             var request = BuildSubmitSalesRequest(context, invoiceNumber);

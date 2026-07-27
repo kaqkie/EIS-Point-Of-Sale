@@ -115,6 +115,15 @@ public sealed class TerminalOnboardingService
             JsonSerializer.Serialize(new { code = request.TerminalActivationCode.Trim() }, MraJson.SerializerOptions),
             cancellationToken).ConfigureAwait(false);
 
+        if (activated.TerminalPosition is int terminalPosition && terminalPosition > 0)
+        {
+            await _configurationRepository.UpsertJsonAsync(
+                    MraConfigurationKeys.TerminalPosition,
+                    JsonSerializer.Serialize(new { position = terminalPosition }, MraJson.SerializerOptions),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (response.Data.Configuration is not null)
         {
             await CacheConfigurationBundleAsync(response.Data.Configuration, cancellationToken)

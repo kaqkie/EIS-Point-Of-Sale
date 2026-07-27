@@ -59,6 +59,9 @@ public sealed class ActivatedTerminalDto
     [JsonPropertyName("terminalId")]
     public string? TerminalId { get; set; }
 
+    [JsonPropertyName("terminalPosition")]
+    public int? TerminalPosition { get; set; }
+
     [JsonPropertyName("activationDate")]
     public DateTimeOffset? ActivationDate { get; set; }
 

@@ -65,6 +65,7 @@ public sealed class PosConfigurationService : IPosConfigurationService
                 DeploymentConfigurationKeys.BranchId,
                 cancellationToken)
             .ConfigureAwait(false);
+        var terminalPosition = await ReadTerminalPositionAsync(cancellationToken).ConfigureAwait(false);
 
         string? jwtTin = null;
         try
@@ -89,7 +90,36 @@ public sealed class PosConfigurationService : IPosConfigurationService
             branchOverride,
             AllowSandboxDeveloperTin: IsSandboxOrTrialEnvironment(_mraOptions.Environment),
             HostEnvironmentName: ResolveHostEnvironmentName(),
-            JwtTaxpayerTin: jwtTin);
+            JwtTaxpayerTin: jwtTin,
+            TerminalPosition: terminalPosition);
+    }
+
+    private async Task<int> ReadTerminalPositionAsync(CancellationToken cancellationToken)
+    {
+        var json = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TerminalPosition, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return 1;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("position", out var positionElement) &&
+                positionElement.TryGetInt32(out var position) &&
+                position > 0)
+            {
+                return position;
+            }
+        }
+        catch (JsonException)
+        {
+            // ignore
+        }
+
+        return 1;
     }
 
     /// <summary>Sandbox / Development / trial hosts may use the developer TIN seed.</summary>
@@ -238,7 +268,8 @@ public sealed record PosRuntimeContext(
     string? DeploymentBranchId = null,
     bool AllowSandboxDeveloperTin = false,
     string? HostEnvironmentName = null,
-    string? JwtTaxpayerTin = null)
+    string? JwtTaxpayerTin = null,
+    int TerminalPosition = 1)
 {
     public string TradingName =>
         Terminal?.TradingName
