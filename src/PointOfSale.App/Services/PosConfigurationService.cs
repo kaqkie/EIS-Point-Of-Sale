@@ -345,7 +345,7 @@ public sealed record PosRuntimeContext(
     public int TerminalConfigVersion => Terminal?.VersionNo > 0 ? Terminal.VersionNo : 1;
     public int TaxpayerConfigVersion => Taxpayer?.VersionNo > 0 ? Taxpayer.VersionNo : 1;
 
-    /// <summary>MRA taxRateId for the standard VAT tier — prefers configured 17.5% rate, else <c>STANDARD_17_5</c>.</summary>
+    /// <summary>MRA taxRateId for the standard VAT tier — prefers activated config ids (typically <c>A</c>).</summary>
     public string StandardVatTaxRateId =>
         PointOfSale.Core.Pricing.MraTaxRateCodes.ResolveStandardRateId(
             Global?.TaxRates?

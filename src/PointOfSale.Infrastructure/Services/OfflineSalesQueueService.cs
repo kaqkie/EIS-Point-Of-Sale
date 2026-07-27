@@ -584,28 +584,54 @@ public sealed class OfflineSalesQueueService
 
             // Prefer activation JWT TIN claim over the sandbox developer seed.
             const string sandboxPlaceholderTin = "1234567890";
-            if (string.IsNullOrWhiteSpace(sellerTin) ||
-                sellerTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
+            string? jwt = null;
+            try
             {
-                var jwt = await _configurationRepository
+                jwt = await _configurationRepository
                     .GetProtectedSecretPlainAsync(MraConfigurationKeys.JwtToken, cancellationToken)
                     .ConfigureAwait(false);
-                var jwtTin = MraJwtClaims.TryGetTaxpayerTin(jwt);
-                if (!string.IsNullOrWhiteSpace(jwtTin) &&
-                    !jwtTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not read activation JWT while building fiscal identity overlay.");
+            }
+
+            if (MraJwtClaims.IsExpired(jwt))
+            {
+                _logger.LogWarning(
+                    "Activation JWT appears expired — get-latest-configs and sales may return opaque HTTP 500. Re-activate the terminal.");
+            }
+
+            var jwtTin = MraJwtClaims.TryGetTaxpayerTin(jwt);
+            if (!string.IsNullOrWhiteSpace(jwtTin) &&
+                !jwtTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
+            {
+                if (string.IsNullOrWhiteSpace(sellerTin) ||
+                    sellerTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
                 {
                     sellerTin = jwtTin.Trim();
+                    _logger.LogInformation(
+                        "Using sellerTIN={Tin} from activation JWT (cached taxpayer TIN was missing or placeholder).",
+                        sellerTin);
                 }
             }
 
-            // If cached identity/config looks incomplete (versions missing or values still placeholders),
-            // refresh configs from the activated terminal so invoiceHeader.{sellerTIN,siteId} and
-            // config versions match MRA terminal activation.
+            // Refresh when identity still looks like local seed rather than terminal activation.
             var isNonCodeLikeSiteId = siteId?.Contains(' ') == true;
             var sellerTinIsPlaceholder = sellerTin?.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal) == true;
+            var siteLooksLikeDeploymentSeed = string.Equals(
+                siteId?.Trim(),
+                "SITE-CITY-CENTER",
+                StringComparison.OrdinalIgnoreCase);
+            var configVersionsMissing =
+                (global?.VersionNo ?? 0) <= 0
+                || (terminal?.VersionNo ?? 0) <= 0
+                || (taxpayer?.VersionNo ?? 0) <= 0;
 
-            // Pull active sandbox-activated values when we detect clear placeholders / display labels.
-            var needsRefresh = isNonCodeLikeSiteId || sellerTinIsPlaceholder;
+            var needsRefresh = isNonCodeLikeSiteId
+                               || sellerTinIsPlaceholder
+                               || siteLooksLikeDeploymentSeed
+                               || configVersionsMissing;
 
             if (needsRefresh && _terminalOnboardingService is not null)
             {
@@ -632,7 +658,16 @@ public sealed class OfflineSalesQueueService
                             refreshedTaxpayer?.ActivatedTaxRateIds);
 
                         var refreshedSiteId = FirstNonEmpty(refreshedTerminal?.TerminalSite?.SiteId);
-                        var refreshedSellerTin = FirstNonEmpty(refreshedTaxpayer?.Tin);
+                        var refreshedSellerTin = FirstNonEmpty(refreshedTaxpayer?.Tin, jwtTin);
+
+                        _logger.LogInformation(
+                            "Refreshed fiscal identity from get-latest-configs. sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate} versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
+                            refreshedSellerTin ?? sellerTin,
+                            refreshedSiteId ?? siteId,
+                            refreshedStandardId,
+                            refreshedGlobal?.VersionNo ?? 0,
+                            refreshedTerminal?.VersionNo ?? 0,
+                            refreshedTaxpayer?.VersionNo ?? 0);
 
                         return new MraFiscalIdentityOverlay(
                             SellerTin: refreshedSellerTin ?? sellerTin,
@@ -643,12 +678,28 @@ public sealed class OfflineSalesQueueService
                             StandardTaxRateId: refreshedStandardId,
                             ConfiguredTaxRates: refreshedRates);
                     }
+
+                    _logger.LogWarning(
+                        "get-latest-configs did not succeed during identity refresh: {Remark}. Using JWT/cache identity sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate}.",
+                        latest.Remark ?? "(null)",
+                        sellerTin,
+                        siteId,
+                        standardId);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex,
-                        "Failed refreshing latest MRA configs for payload normalize; falling back to cached identity.");
+                        "Failed refreshing latest MRA configs for payload normalize; falling back to cached identity. sellerTIN={Tin} siteId={SiteId}",
+                        sellerTin,
+                        siteId);
                 }
+            }
+
+            if (sellerTinIsPlaceholder)
+            {
+                _logger.LogWarning(
+                    "Fiscal identity still uses sandbox placeholder sellerTIN=1234567890. " +
+                    "Complete terminal activation and ensure get-latest-configs succeeds before MRA submit.");
             }
 
             return new MraFiscalIdentityOverlay(

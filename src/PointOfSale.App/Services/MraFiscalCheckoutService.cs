@@ -19,7 +19,7 @@ public interface IMraFiscalCheckoutService
 }
 
 /// <summary>
-/// Pre-checkout MRA preparation: <c>POST get-latest-configs</c> identity sync + official invoice numbering.
+    /// Pre-checkout MRA preparation: <c>get-latest-configs</c> identity sync + official invoice numbering.
 /// Invoice numbers are reserved fresh on each call — never cached between transactions.
 /// </summary>
 public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
@@ -50,6 +50,23 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
     {
         await SyncLatestConfigsIfActivatedAsync(cancellationToken).ConfigureAwait(false);
         var context = await _posConfigurationService.GetRuntimeContextAsync(cancellationToken).ConfigureAwait(false);
+
+        if (PosConfigurationService.IsPlaceholderTaxpayerTin(context.SellerTin))
+        {
+            throw new InvalidOperationException(
+                "Cannot submit to MRA: sellerTIN is still the sandbox placeholder 1234567890. " +
+                "Re-activate the terminal (JWT may be expired) and confirm get-latest-configs succeeds " +
+                "so sellerTIN/siteId/taxRateId/config versions match activation.");
+        }
+
+        if (string.IsNullOrWhiteSpace(context.FiscalSiteId)
+            || context.FiscalSiteId.Equals("SITE-LOCAL", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Cannot submit to MRA: siteId is missing or local seed only. " +
+                "Sync get-latest-configs after terminal activation so invoiceHeader.siteId matches MRA.");
+        }
+
         var invoiceNumber = await ReserveInvoiceNumberAtCommitAsync(context, transactionUtc, cancellationToken)
             .ConfigureAwait(false);
         return (context, invoiceNumber);

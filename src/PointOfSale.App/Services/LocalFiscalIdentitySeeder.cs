@@ -135,9 +135,10 @@ public static class LocalFiscalIdentitySeeder
                 [
                     new TaxRateDto
                     {
+                        // MRA sample get-latest-configs uses id "A" for standard VAT.
                         Id = MraTaxRateCodes.StandardVat,
-                        Name = "Standard VAT 17.5%",
-                        ChargeMode = "VAT",
+                        Name = "VAT-A",
+                        ChargeMode = "G",
                         Ordinal = 1,
                         Rate = 17.5m
                     }

@@ -6,7 +6,7 @@ namespace PointOfSale.Infrastructure.Services;
 
 /// <summary>
 /// Aligns queued / checkout sales payloads with MRA EIS field expectations
-/// (site codes, taxRateId <c>STANDARD_17_5</c>, config versions, 2-dp money).
+/// (site codes, taxRateId <c>A</c>, config versions, 2-dp money).
 /// </summary>
 public static partial class MraFiscalPayloadNormalizer
 {
@@ -18,9 +18,10 @@ public static partial class MraFiscalPayloadNormalizer
 
         var sellerTin = FirstNonEmpty(identity?.SellerTin, request.InvoiceHeader.SellerTin)?.Trim() ?? string.Empty;
         var siteId = NormalizeSiteId(FirstNonEmpty(identity?.SiteId, request.InvoiceHeader.SiteId));
-        var standardTaxRateId = string.IsNullOrWhiteSpace(identity?.StandardTaxRateId)
-            ? MraTaxRateCodes.StandardVat
-            : identity!.StandardTaxRateId!.Trim();
+
+        // When overlay is absent (final wire hop), preserve an already-resolved standard-tier
+        // id from the payload instead of inventing STANDARD_17_5 over MRA's activated "A".
+        var standardTaxRateId = ResolveOverlayStandardTaxRateId(identity, request);
 
         var configuredRates = identity?.ConfiguredTaxRates;
 
@@ -167,6 +168,40 @@ public static partial class MraFiscalPayloadNormalizer
     }
 
     public static int EnsureConfigVersion(int version) => version > 0 ? version : 1;
+
+    private static string ResolveOverlayStandardTaxRateId(
+        MraFiscalIdentityOverlay? identity,
+        SubmitSalesTransactionRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(identity?.StandardTaxRateId))
+        {
+            return identity.StandardTaxRateId.Trim();
+        }
+
+        if (identity?.ConfiguredTaxRates is { Count: > 0 } rates)
+        {
+            return MraTaxRateCodes.ResolveStandardRateId(rates, activatedTaxRateIds: null);
+        }
+
+        // Preserve payload's existing standard-tier id (A / T / STANDARD_17_5 → A).
+        var fromLines = request.InvoiceLineItems
+            .Select(l => l.TaxRateId)
+            .FirstOrDefault(id => MraTaxRateCodes.IsStandardVatTier(id));
+        if (!string.IsNullOrWhiteSpace(fromLines))
+        {
+            return MraTaxRateCodes.Normalize(fromLines);
+        }
+
+        var fromBreakdown = request.InvoiceSummary.TaxBreakDown?
+            .Select(t => t.RateId)
+            .FirstOrDefault(id => MraTaxRateCodes.IsStandardVatTier(id));
+        if (!string.IsNullOrWhiteSpace(fromBreakdown))
+        {
+            return MraTaxRateCodes.Normalize(fromBreakdown);
+        }
+
+        return MraTaxRateCodes.StandardVat;
+    }
 
     private static decimal RoundQuantity(decimal quantity) =>
         Math.Round(quantity, 3, MidpointRounding.AwayFromZero);

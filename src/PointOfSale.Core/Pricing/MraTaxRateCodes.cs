@@ -1,22 +1,23 @@
 namespace PointOfSale.Core.Pricing;
 
 /// <summary>
-/// MRA EIS tax rate lookup codes. Standard VAT tier is <see cref="StandardVat"/> (<c>STANDARD_17_5</c>).
+/// MRA EIS tax rate lookup codes. Standard VAT tier uses <see cref="StandardVat"/> (<c>A</c>),
+/// matching <c>get-latest-configs</c> sample <c>taxrates[].id</c> / <c>activatedTaxRateIds</c>.
 /// </summary>
 public static class MraTaxRateCodes
 {
-    /// <summary>MRA lookup code for the standard 17.5% VAT tier.</summary>
-    public const string StandardVat = "STANDARD_17_5";
+    /// <summary>Official MRA lookup code for the standard VAT tier (sample config id <c>A</c>).</summary>
+    public const string StandardVat = "A";
 
-    /// <summary>Legacy ART / sandbox alias that must be remapped before EIS submit.</summary>
+    /// <summary>Legacy ART alias that must be remapped before EIS submit.</summary>
     public const string LegacyStandardAlias = "T";
 
-    /// <summary>Historical single-letter MRA code for the standard VAT tier.</summary>
-    public const string LegacyStandardAliasA = "A";
+    /// <summary>Historical ART invention — not an MRA rate id; remap onto <see cref="StandardVat"/>.</summary>
+    public const string LegacyStandardAliasStandard17_5 = "STANDARD_17_5";
 
     public const string Exempt = "E";
 
-    /// <summary>True when the id represents the standard VAT tier (17.5%).</summary>
+    /// <summary>True when the id represents the standard VAT tier.</summary>
     public static bool IsStandardVatTier(string? taxRateId)
     {
         if (string.IsNullOrWhiteSpace(taxRateId))
@@ -26,12 +27,12 @@ public static class MraTaxRateCodes
 
         var id = taxRateId.Trim();
         return id.Equals(StandardVat, StringComparison.OrdinalIgnoreCase)
-               || id.Equals(LegacyStandardAliasA, StringComparison.OrdinalIgnoreCase)
-               || id.Equals(LegacyStandardAlias, StringComparison.OrdinalIgnoreCase);
+               || id.Equals(LegacyStandardAlias, StringComparison.OrdinalIgnoreCase)
+               || id.Equals(LegacyStandardAliasStandard17_5, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
-    /// Maps empty / legacy identifiers onto <see cref="StandardVat"/>.
+    /// Maps empty / legacy identifiers onto <see cref="StandardVat"/> (<c>A</c>).
     /// Known non-standard MRA codes (E, Z, TL, …) are preserved as-is.
     /// </summary>
     public static string Normalize(string? taxRateId)
@@ -46,33 +47,58 @@ public static class MraTaxRateCodes
 
     /// <summary>
     /// Resolves the percentage for a tax rate id from MRA global config rates when available.
-    /// Falls back to Malawi statutory 17.5% for standard VAT codes.
+    /// Falls back to Malawi statutory 17.5% for standard VAT codes when config is missing.
     /// </summary>
     public static decimal ResolveRatePercent(
         string? taxRateId,
         IEnumerable<(string Id, decimal Rate)>? configuredRates)
     {
-        if (IsStandardVatTier(taxRateId))
-        {
-            return PosTaxCalculator.MalawiStandardVatRatePercent;
-        }
-
         var id = taxRateId?.Trim() ?? string.Empty;
+        var rates = configuredRates?
+            .Where(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate > 0m)
+            .Select(r => (Id: r.Id.Trim(), r.Rate))
+            .ToList();
 
-        if (configuredRates is not null)
+        if (rates is { Count: > 0 })
         {
-            foreach (var rate in configuredRates)
+            if (!string.IsNullOrWhiteSpace(id))
             {
-                if (string.IsNullOrWhiteSpace(rate.Id))
+                foreach (var rate in rates)
                 {
-                    continue;
-                }
-
-                if (rate.Id.Trim().Equals(id, StringComparison.OrdinalIgnoreCase) && rate.Rate > 0m)
-                {
-                    return rate.Rate;
+                    if (rate.Id.Equals(id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return rate.Rate;
+                    }
                 }
             }
+
+            if (IsStandardVatTier(id))
+            {
+                // Prefer the activated/standard id's configured rate (MRA sample: A @ 16.5).
+                foreach (var rate in rates)
+                {
+                    if (IsStandardVatTier(rate.Id) || rate.Rate is >= 16m and <= 18m)
+                    {
+                        // Exact standard aliases first.
+                        if (rate.Id.Equals(StandardVat, StringComparison.OrdinalIgnoreCase)
+                            || rate.Id.Equals(LegacyStandardAliasStandard17_5, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return rate.Rate;
+                        }
+                    }
+                }
+
+                var band = rates.FirstOrDefault(r => r.Rate is >= 16m and <= 18m);
+                if (band.Rate > 0m)
+                {
+                    return band.Rate;
+                }
+            }
+        }
+
+        if (IsStandardVatTier(id))
+        {
+            return PosTaxCalculator.MalawiStandardVatRatePercent;
         }
 
         if (id.Equals(Exempt, StringComparison.OrdinalIgnoreCase) ||
@@ -85,31 +111,64 @@ public static class MraTaxRateCodes
     }
 
     /// <summary>
-    /// Picks the activated standard VAT rate id from global config / taxpayer activation.
+    /// Picks the activated standard VAT rate id from taxpayer activation / global config.
+    /// Prefers activated ids that exist in global taxrates (MRA sample: <c>A</c>).
     /// </summary>
     public static string ResolveStandardRateId(
         IEnumerable<(string Id, decimal Rate)>? configuredRates,
         IEnumerable<string>? activatedTaxRateIds)
     {
-        if (configuredRates is not null)
-        {
-            var exact = configuredRates
-                .FirstOrDefault(r =>
-                    !string.IsNullOrWhiteSpace(r.Id)
-                    && r.Rate == PosTaxCalculator.MalawiStandardVatRatePercent);
-            if (!string.IsNullOrWhiteSpace(exact.Id))
-            {
-                return exact.Id.Trim();
-            }
+        var rates = configuredRates?
+            .Where(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate > 0m)
+            .Select(r => (Id: r.Id.Trim(), r.Rate))
+            .ToList() ?? [];
 
-            var band = configuredRates
-                .FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate is >= 16m and <= 18m);
-            if (!string.IsNullOrWhiteSpace(band.Id))
+        // 1) Prefer activated ids that appear in global taxrates (exact MRA identity).
+        if (activatedTaxRateIds is not null)
+        {
+            foreach (var activated in activatedTaxRateIds)
             {
-                return band.Id.Trim();
+                if (string.IsNullOrWhiteSpace(activated))
+                {
+                    continue;
+                }
+
+                var trimmed = activated.Trim();
+                var configured = rates.FirstOrDefault(r =>
+                    r.Id.Equals(trimmed, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(configured.Id)
+                    && (IsStandardVatTier(configured.Id) || configured.Rate is >= 16m and <= 18m))
+                {
+                    return Normalize(configured.Id);
+                }
+
+                // Activated "A" wins over a locally seeded STANDARD_17_5 row.
+                if (IsStandardVatTier(trimmed)
+                    && rates.Any(r => IsStandardVatTier(r.Id) || r.Rate is >= 16m and <= 18m))
+                {
+                    return Normalize(trimmed);
+                }
             }
         }
 
+        // 2) Rate-based match in global taxrates.
+        if (rates.Count > 0)
+        {
+            var exact = rates.FirstOrDefault(r =>
+                r.Rate == PosTaxCalculator.MalawiStandardVatRatePercent);
+            if (!string.IsNullOrWhiteSpace(exact.Id))
+            {
+                return Normalize(exact.Id);
+            }
+
+            var band = rates.FirstOrDefault(r => r.Rate is >= 16m and <= 18m);
+            if (!string.IsNullOrWhiteSpace(band.Id))
+            {
+                return Normalize(band.Id);
+            }
+        }
+
+        // 3) Activated standard-tier aliases even without a matching global row.
         if (activatedTaxRateIds is not null)
         {
             foreach (var id in activatedTaxRateIds)
@@ -120,10 +179,9 @@ public static class MraTaxRateCodes
                 }
 
                 var trimmed = id.Trim();
-                if (trimmed.Equals(StandardVat, StringComparison.OrdinalIgnoreCase)
-                    || trimmed.Equals(LegacyStandardAliasA, StringComparison.OrdinalIgnoreCase))
+                if (IsStandardVatTier(trimmed))
                 {
-                    return trimmed;
+                    return Normalize(trimmed);
                 }
             }
         }

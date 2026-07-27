@@ -183,7 +183,8 @@ public sealed class SalesTransactionService
     {
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
 
-        // Align sales payloads with OpenAPI invoiceHeader / line / summary expectations + 17.5% VAT.
+        // Align sales payloads with OpenAPI invoiceHeader / line / summary expectations.
+        // Preserve activated taxRateId values (e.g. "A") — do not invent non-MRA ids.
         object payloadToSend = body is SubmitSalesTransactionRequest sales
             ? MraFiscalPayloadNormalizer.Normalize(sales)
             : body!;
