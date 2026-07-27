@@ -384,7 +384,7 @@ public sealed class FinancialClosureService : IFinancialClosureService
             FROM dbo.OfflineInvoiceQueue
             WHERE CreatedAt >= @FromUtc
               AND CreatedAt < @ToUtc
-            ORDER BY CreatedAt DESC, Id DESC;
+            ORDER BY Id DESC;
             """;
 
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
