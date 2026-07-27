@@ -383,7 +383,13 @@ public sealed class OfflineSalesQueueService
             ?? throw new InvalidOperationException($"Queue item {queueId} payload is invalid.");
 
         var identity = await LoadFiscalIdentityOverlayAsync(cancellationToken).ConfigureAwait(false);
+        var hadOfflineSignature = !string.IsNullOrWhiteSpace(deserialized.InvoiceSummary.OfflineSignature);
         var normalized = NormalizeQueuedPayloadForResubmit(deserialized, identity);
+        if (hadOfflineSignature)
+        {
+            normalized = await RefreshOfflineSignatureAsync(normalized, cancellationToken).ConfigureAwait(false);
+        }
+
         var normalizedJson = JsonSerializer.Serialize(normalized, MraJson.SerializerOptions);
         if (!string.Equals(payloadJson.Trim(), normalizedJson, StringComparison.Ordinal))
         {
@@ -618,6 +624,13 @@ public sealed class OfflineSalesQueueService
             return request;
         }
 
+        return await RefreshOfflineSignatureAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<SubmitSalesTransactionRequest> RefreshOfflineSignatureAsync(
+        SubmitSalesTransactionRequest request,
+        CancellationToken cancellationToken)
+    {
         var unsigned = request with
         {
             InvoiceSummary = request.InvoiceSummary with { OfflineSignature = null }

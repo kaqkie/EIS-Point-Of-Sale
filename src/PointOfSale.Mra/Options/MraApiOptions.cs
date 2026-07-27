@@ -133,7 +133,7 @@ public sealed class MraApiOptions
             }
         }
 
-        return trimmed;
+        return CollapseDuplicateApiVersionSegment(trimmed);
     }
 
     public static string NormalizeRelativePath(string? relativePath)
@@ -143,7 +143,35 @@ public sealed class MraApiOptions
             return string.Empty;
         }
 
-        return relativePath.Trim().TrimStart('/');
+        var relative = relativePath.Trim().TrimStart('/');
+
+        // Callers may pass a full OpenAPI path (api/v1/sales/...) while the base URL
+        // already ends with /api/v1/ — strip the duplicate prefix.
+        while (relative.StartsWith("api/v1/", StringComparison.OrdinalIgnoreCase))
+        {
+            relative = relative["api/v1/".Length..];
+        }
+
+        return relative;
+    }
+
+    /// <summary>
+    /// Collapses accidental <c>/api/v1/api/v1/</c> segments in configured base URLs.
+    /// </summary>
+    public static string CollapseDuplicateApiVersionSegment(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return url;
+        }
+
+        const string duplicate = "/api/v1/api/v1/";
+        while (url.Contains(duplicate, StringComparison.OrdinalIgnoreCase))
+        {
+            url = url.Replace(duplicate, "/api/v1/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return url;
     }
 
     /// <summary>

@@ -54,6 +54,15 @@ public sealed class ComplianceAuditLoggingTests
         Assert.Equal(
             "https://dev-eis-api.mra.mw/api/v1/sales/submit-sales-transaction",
             MraApiOptions.CombineEndpoint("https://dev-eis-api.mra.mw/", "sales/submit-sales-transaction").ToString());
+        // Relative paths that already include api/v1 must not duplicate the segment.
+        Assert.Equal(
+            "https://dev-eis-api.mra.mw/api/v1/sales/submit-sales-transaction",
+            MraApiOptions.CombineEndpoint(
+                "https://dev-eis-api.mra.mw/api/v1/",
+                "api/v1/sales/submit-sales-transaction").ToString());
+        Assert.Equal(
+            MraApiOptions.DefaultSandboxBaseUrl,
+            MraApiOptions.NormalizeBaseUrl("https://dev-eis-api.mra.mw/api/v1/api/v1/"));
     }
 
     [Fact]

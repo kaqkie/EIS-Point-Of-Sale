@@ -175,4 +175,54 @@ public sealed class MraHttpClientAndQueueErrorTests
         Assert.Equal(0, normalized.InvoiceHeader.InvoiceDateTime.Ticks % TimeSpan.TicksPerMillisecond);
         Assert.Equal(DateTimeKind.Utc, normalized.InvoiceHeader.InvoiceDateTime.Kind);
     }
+
+    [Fact]
+    public void NormalizeQueuedPayload_DefaultsAmountTenderedToInvoiceTotal()
+    {
+        var request = new SubmitSalesTransactionRequest
+        {
+            InvoiceHeader = new InvoiceHeaderDto
+            {
+                InvoiceNumber = "INV-2",
+                InvoiceDateTime = DateTime.UtcNow,
+                SellerTin = "1234567890",
+                SiteId = "SITE-01",
+                PaymentMethod = "Cash"
+            },
+            InvoiceLineItems =
+            [
+                new InvoiceLineItemDto
+                {
+                    Id = 1,
+                    ProductCode = "P1",
+                    Description = "Item",
+                    TaxRateId = "A",
+                    Quantity = 1,
+                    UnitPrice = 100,
+                    Total = 100,
+                    TotalVat = 17.5m
+                }
+            ],
+            InvoiceSummary = new InvoiceSummaryDto
+            {
+                TaxBreakDown =
+                [
+                    new TaxBreakDownDto { RateId = "A", TaxableAmount = 100, TaxAmount = 17.5m }
+                ],
+                TotalVat = 17.5m,
+                InvoiceTotal = 0m,
+                AmountTendered = 0m
+            }
+        };
+
+        var normalized = OfflineSalesQueueService.NormalizeQueuedPayloadForResubmit(request);
+
+        Assert.Equal(117.5m, normalized.InvoiceSummary.InvoiceTotal);
+        Assert.Equal(117.5m, normalized.InvoiceSummary.AmountTendered);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            normalized,
+            PointOfSale.Mra.Serialization.MraJson.SerializerOptions);
+        Assert.Contains("\"amountTendered\":117.5", json.Replace(" ", string.Empty), StringComparison.Ordinal);
+    }
 }
