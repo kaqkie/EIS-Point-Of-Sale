@@ -21,14 +21,13 @@ public sealed class OfflineSalesQueueService
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly SalesTransactionService _salesTransactionService;
     private readonly IConfigurationRepository? _configurationRepository;
+    private readonly IMraInvoiceSequenceService? _invoiceSequenceService;
     private readonly TerminalOnboardingService? _terminalOnboardingService;
     private readonly IOfflineInvoiceSyncCompletedHandler? _syncCompletedHandler;
     private readonly IComplianceAuditLogger? _complianceAudit;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
     private readonly OfflineSyncOptions _options;
     private readonly ILogger<OfflineSalesQueueService> _logger;
-
-    private readonly SemaphoreSlim _invoiceSequenceGate = new(1, 1);
 
     public OfflineSalesQueueService(
         IOfflineInvoiceQueueRepository queueRepository,
@@ -39,6 +38,7 @@ public sealed class OfflineSalesQueueService
         IComplianceAuditLogger? complianceAudit = null,
         MraRuntimeEnvironmentState? runtimeState = null,
         IConfigurationRepository? configurationRepository = null,
+        IMraInvoiceSequenceService? invoiceSequenceService = null,
         TerminalOnboardingService? terminalOnboardingService = null)
     {
         _queueRepository = queueRepository;
@@ -49,6 +49,7 @@ public sealed class OfflineSalesQueueService
         _complianceAudit = complianceAudit;
         _runtimeState = runtimeState;
         _configurationRepository = configurationRepository;
+        _invoiceSequenceService = invoiceSequenceService;
         _terminalOnboardingService = terminalOnboardingService;
     }
 
@@ -452,22 +453,20 @@ public sealed class OfflineSalesQueueService
             : request.InvoiceHeader.InvoiceDateTime.ToUniversalTime();
 
         var terminalPosition = await ReadTerminalPositionAsync(cancellationToken).ConfigureAwait(false);
-        var julianDate = MraInvoiceNumberGenerator.ToJulianDate(transactionUtc);
-        var sequenceKey = $"{MraConfigurationKeys.DailyInvoiceSequencePrefix}{julianDate}";
 
-        await _invoiceSequenceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        long nextCount;
-        try
+        string newInvoiceNumber;
+        if (_invoiceSequenceService is not null)
         {
-            nextCount = await ReadNextDailyCountAsync(sequenceKey, cancellationToken).ConfigureAwait(false);
-            await PersistDailyCountAsync(sequenceKey, nextCount, cancellationToken).ConfigureAwait(false);
+            newInvoiceNumber = await _invoiceSequenceService
+                .ReserveNextInvoiceNumberAsync(taxpayerId, terminalPosition, transactionUtc, cancellationToken)
+                .ConfigureAwait(false);
         }
-        finally
+        else
         {
-            _invoiceSequenceGate.Release();
+            // Test harness fallback when sequence service is not wired.
+            newInvoiceNumber = MraInvoiceNumberGenerator.Generate(taxpayerId, terminalPosition, transactionUtc, 1);
         }
 
-        var newInvoiceNumber = MraInvoiceNumberGenerator.Generate(taxpayerId, terminalPosition, transactionUtc, nextCount);
         var header = request.InvoiceHeader;
         var updatedHeader = new InvoiceHeaderDto
         {
@@ -521,58 +520,6 @@ public sealed class OfflineSalesQueueService
         }
 
         return 1;
-    }
-
-    private async Task<long> ReadNextDailyCountAsync(
-        string sequenceKey,
-        CancellationToken cancellationToken)
-    {
-        if (_configurationRepository is null)
-        {
-            return 1;
-        }
-
-        var json = await _configurationRepository
-            .GetJsonAsync(sequenceKey, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return 1;
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("count", out var countElement) &&
-                countElement.TryGetInt64(out var count) &&
-                count >= 0)
-            {
-                return count + 1;
-            }
-        }
-        catch (JsonException)
-        {
-            // Reset corrupt counter.
-        }
-
-        return 1;
-    }
-
-    private Task PersistDailyCountAsync(
-        string sequenceKey,
-        long count,
-        CancellationToken cancellationToken)
-    {
-        if (_configurationRepository is null)
-        {
-            return Task.CompletedTask;
-        }
-
-        return _configurationRepository.UpsertJsonAsync(
-            sequenceKey,
-            JsonSerializer.Serialize(new { count }, MraJson.SerializerOptions),
-            cancellationToken);
     }
 
     /// <summary>

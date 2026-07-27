@@ -78,6 +78,7 @@ public static class DependencyInjection
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();
         services.AddScoped<SalesTransactionService>();
+        services.AddSingleton<IMraInvoiceSequenceService, MraInvoiceSequenceService>();
         services.AddScoped<OfflineSalesQueueService>();
         services.AddHostedService<OfflineInvoiceFifoSyncBackgroundService>();
 

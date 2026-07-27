@@ -800,6 +800,7 @@ public partial class CheckoutViewModel : ObservableObject
             string invoiceNumber;
             try
             {
+                // Reserve a fresh MRA invoice number at commit time — never pre-generate or cache across sales.
                 (context, invoiceNumber) = await _mraFiscalCheckoutService
                     .PrepareSaleAsync(transactionUtc)
                     .ConfigureAwait(true);

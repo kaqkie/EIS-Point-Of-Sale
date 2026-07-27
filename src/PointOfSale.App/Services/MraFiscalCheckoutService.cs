@@ -1,19 +1,17 @@
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using PointOfSale.App.Services;
 using PointOfSale.Core.Constants;
-using PointOfSale.Core.Entities;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Billing;
-using PointOfSale.Mra.Serialization;
 
 namespace PointOfSale.App.Services;
 
 public interface IMraFiscalCheckoutService
 {
     /// <summary>
-    /// Refreshes live MRA configs (when activated), then reserves the next compliant invoice number.
+    /// Refreshes live MRA configs (when activated), then reserves the next compliant invoice number
+    /// at commit time. Do not call until the sale is ready to submit.
     /// </summary>
     Task<(PosRuntimeContext Context, string InvoiceNumber)> PrepareSaleAsync(
         DateTime transactionUtc,
@@ -22,27 +20,27 @@ public interface IMraFiscalCheckoutService
 
 /// <summary>
 /// Pre-checkout MRA preparation: <c>POST get-latest-configs</c> identity sync + official invoice numbering.
+/// Invoice numbers are reserved fresh on each call — never cached between transactions.
 /// </summary>
 public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
 {
     private readonly IPosConfigurationService _posConfigurationService;
     private readonly TerminalOnboardingService _terminalOnboardingService;
     private readonly ITerminalRepository _terminalRepository;
-    private readonly IConfigurationRepository _configurationRepository;
+    private readonly IMraInvoiceSequenceService _invoiceSequenceService;
     private readonly ILogger<MraFiscalCheckoutService> _logger;
-    private readonly SemaphoreSlim _sequenceGate = new(1, 1);
 
     public MraFiscalCheckoutService(
         IPosConfigurationService posConfigurationService,
         TerminalOnboardingService terminalOnboardingService,
         ITerminalRepository terminalRepository,
-        IConfigurationRepository configurationRepository,
+        IMraInvoiceSequenceService invoiceSequenceService,
         ILogger<MraFiscalCheckoutService> logger)
     {
         _posConfigurationService = posConfigurationService;
         _terminalOnboardingService = terminalOnboardingService;
         _terminalRepository = terminalRepository;
-        _configurationRepository = configurationRepository;
+        _invoiceSequenceService = invoiceSequenceService;
         _logger = logger;
     }
 
@@ -52,7 +50,7 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
     {
         await SyncLatestConfigsIfActivatedAsync(cancellationToken).ConfigureAwait(false);
         var context = await _posConfigurationService.GetRuntimeContextAsync(cancellationToken).ConfigureAwait(false);
-        var invoiceNumber = await ReserveInvoiceNumberAsync(context, transactionUtc, cancellationToken)
+        var invoiceNumber = await ReserveInvoiceNumberAtCommitAsync(context, transactionUtc, cancellationToken)
             .ConfigureAwait(false);
         return (context, invoiceNumber);
     }
@@ -89,7 +87,7 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
         }
     }
 
-    private async Task<string> ReserveInvoiceNumberAsync(
+    private async Task<string> ReserveInvoiceNumberAtCommitAsync(
         PosRuntimeContext context,
         DateTime transactionUtc,
         CancellationToken cancellationToken)
@@ -102,51 +100,8 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
         }
 
         var terminalPosition = context.TerminalPosition > 0 ? context.TerminalPosition : 1;
-        var julianDate = MraInvoiceNumberGenerator.ToJulianDate(transactionUtc);
-        var sequenceKey = $"{MraConfigurationKeys.DailyInvoiceSequencePrefix}{julianDate}";
-
-        await _sequenceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var nextCount = await ReadNextDailyCountAsync(sequenceKey, cancellationToken).ConfigureAwait(false);
-            await PersistDailyCountAsync(sequenceKey, nextCount, cancellationToken).ConfigureAwait(false);
-            return MraInvoiceNumberGenerator.Generate(taxpayerId, terminalPosition, transactionUtc, nextCount);
-        }
-        finally
-        {
-            _sequenceGate.Release();
-        }
+        return await _invoiceSequenceService
+            .ReserveNextInvoiceNumberAsync(taxpayerId, terminalPosition, transactionUtc, cancellationToken)
+            .ConfigureAwait(false);
     }
-
-    private async Task<long> ReadNextDailyCountAsync(string sequenceKey, CancellationToken cancellationToken)
-    {
-        var json = await _configurationRepository.GetJsonAsync(sequenceKey, cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return 1;
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("count", out var countElement) &&
-                countElement.TryGetInt64(out var count) &&
-                count >= 0)
-            {
-                return count + 1;
-            }
-        }
-        catch (JsonException)
-        {
-            // Reset corrupt counter.
-        }
-
-        return 1;
-    }
-
-    private Task PersistDailyCountAsync(string sequenceKey, long count, CancellationToken cancellationToken) =>
-        _configurationRepository.UpsertJsonAsync(
-            sequenceKey,
-            JsonSerializer.Serialize(new { count }, MraJson.SerializerOptions),
-            cancellationToken);
 }
