@@ -34,6 +34,15 @@ public interface IOfflineInvoiceQueueRepository
     /// <summary>Persists a corrected/normalized payload before Force Sync / Retry resubmit.</summary>
     Task UpdatePayloadJsonAsync(int id, string payloadJson, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Writes the corrected MRA invoice payload and clears quarantine so the item is eligible
+    /// for PENDING resubmit (RetryCount = 0). Internal <paramref name="id"/> stays unchanged.
+    /// </summary>
+    Task UpdatePayloadAndResetForResubmitAsync(
+        int id,
+        string payloadJson,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<OfflineInvoiceQueueItem>> GetRecentItemsAsync(int take, CancellationToken cancellationToken = default);
@@ -279,6 +288,39 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
             new CommandDefinition(
                 sql,
                 new { Id = id, PayloadJson = payloadJson },
+                cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    public async Task UpdatePayloadAndResetForResubmitAsync(
+        int id,
+        string payloadJson,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE dbo.OfflineInvoiceQueue
+            SET PayloadJson = @PayloadJson,
+                Status = @PendingStatus,
+                RetryCount = 0,
+                NextRetryTime = NULL,
+                ErrorMessage = NULL
+            WHERE Id = @Id
+              AND Status IN (@PendingStatus, @QuarantinedStatus, @SyncingStatus);
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    Id = id,
+                    PayloadJson = payloadJson,
+                    PendingStatus = OfflineQueueStatuses.Pending,
+                    QuarantinedStatus = OfflineQueueStatuses.Quarantined,
+                    SyncingStatus = OfflineQueueStatuses.Syncing
+                },
                 cancellationToken: cancellationToken))
             .ConfigureAwait(false);
     }

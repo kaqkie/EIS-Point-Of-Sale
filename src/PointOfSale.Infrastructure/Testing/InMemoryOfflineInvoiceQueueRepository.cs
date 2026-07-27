@@ -158,6 +158,23 @@ public class InMemoryOfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposit
         }
     }
 
+    public Task UpdatePayloadAndResetForResubmitAsync(
+        int id,
+        string payloadJson,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            var item = _items.First(x => x.Id == id);
+            item.PayloadJson = payloadJson;
+            item.Status = OfflineQueueStatuses.Pending;
+            item.RetryCount = 0;
+            item.NextRetryTime = null;
+            item.ErrorMessage = null;
+            return Task.CompletedTask;
+        }
+    }
+
     public Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default)
     {
         lock (_gate)

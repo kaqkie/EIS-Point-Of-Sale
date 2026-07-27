@@ -138,26 +138,27 @@ public sealed class OfflineSalesQueueService
             return null;
         }
 
-        if (item.Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase))
+        // Ensure MRA Base64 invoice number is assigned for this queue Id, then clear quarantine.
+        var identityUpdate = await UpdateReceiptIdentifiersAsync(queueId, request: null, cancellationToken)
+            .ConfigureAwait(false);
+        if (!identityUpdate.Success)
         {
-            var retried = await _queueRepository.RetryQuarantinedAsync(queueId, cancellationToken).ConfigureAwait(false);
-            if (!retried)
-            {
-                return SaleQueueResult.Quarantined(queueId, string.Empty, "Item is not quarantined or could not be retried.");
-            }
-
-            item = await _queueRepository.GetByIdAsync(queueId, cancellationToken).ConfigureAwait(false);
+            return SaleQueueResult.Quarantined(
+                queueId,
+                identityUpdate.InvoiceNumber ?? string.Empty,
+                identityUpdate.Error ?? "Unable to assign MRA invoice number.");
         }
 
+        item = await _queueRepository.GetByIdAsync(queueId, cancellationToken).ConfigureAwait(false);
         if (item is null ||
             !item.Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase))
         {
-            return SaleQueueResult.Queued(queueId, string.Empty, submittedOnline: false, "Item is not eligible for force sync.");
+            return SaleQueueResult.Queued(queueId, identityUpdate.InvoiceNumber ?? string.Empty, submittedOnline: false, "Item is not eligible for force sync.");
         }
 
         if (!await _queueRepository.TryMarkSyncingAsync(queueId, cancellationToken).ConfigureAwait(false))
         {
-            return SaleQueueResult.Queued(queueId, string.Empty, submittedOnline: false, "Item is already syncing.");
+            return SaleQueueResult.Queued(queueId, identityUpdate.InvoiceNumber ?? string.Empty, submittedOnline: false, "Item is already syncing.");
         }
 
         SubmitSalesTransactionRequest payload;
@@ -171,7 +172,7 @@ public sealed class OfflineSalesQueueService
             await _queueRepository
                 .MarkQuarantinedAsync(queueId, TruncateError($"Invalid payload: {ex.Message}"), cancellationToken)
                 .ConfigureAwait(false);
-            return SaleQueueResult.Quarantined(queueId, string.Empty, ex.Message);
+            return SaleQueueResult.Quarantined(queueId, identityUpdate.InvoiceNumber ?? string.Empty, ex.Message);
         }
 
         return await TrySubmitQueuedAsync(
@@ -180,6 +181,106 @@ public sealed class OfflineSalesQueueService
             item.RetryCount,
             cancellationToken,
             triggerAutoPrintOnSuccess: true).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Maps the internal queue/database Id to a fresh MRA Base64 composite invoice number
+    /// (<c>Base64(TIN)-Base64(POS)-Base64(Julian)-Base64(Count)</c>), persists it on the payload,
+    /// and clears quarantine (<c>PENDING</c>, <c>RetryCount = 0</c>).
+    /// The numeric queue Id itself is never overwritten — it remains the local receipt key.
+    /// </summary>
+    public async Task<ReceiptIdentifierUpdateResult> UpdateReceiptIdentifiersAsync(
+        int queueId,
+        InvoiceGenerationRequest? request = null,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await _queueRepository.GetByIdAsync(queueId, cancellationToken).ConfigureAwait(false);
+        if (item is null)
+        {
+            return ReceiptIdentifierUpdateResult.Failed(queueId, null, $"Queue item {queueId} was not found.");
+        }
+
+        if (item.Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase))
+        {
+            var existing = TryReadInvoiceNumber(item.PayloadJson);
+            return ReceiptIdentifierUpdateResult.Succeeded(queueId, existing ?? string.Empty, rewritten: false);
+        }
+
+        SubmitSalesTransactionRequest payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions)
+                ?? throw new InvalidOperationException("Payload is invalid.");
+        }
+        catch (Exception ex)
+        {
+            return ReceiptIdentifierUpdateResult.Failed(queueId, null, $"Invalid payload: {ex.Message}");
+        }
+
+        var identity = await LoadFiscalIdentityOverlayAsync(cancellationToken).ConfigureAwait(false);
+        payload = NormalizeQueuedPayloadForResubmit(payload, identity);
+
+        var sellerTin = FirstNonEmpty(request?.SellerTin, identity?.SellerTin, payload.InvoiceHeader.SellerTin);
+        if (string.IsNullOrWhiteSpace(sellerTin) ||
+            sellerTin.Trim().Equals("1234567890", StringComparison.Ordinal))
+        {
+            return ReceiptIdentifierUpdateResult.Failed(
+                queueId,
+                payload.InvoiceHeader.InvoiceNumber,
+                "Cannot assign MRA invoice number: sellerTIN is missing or still the sandbox placeholder.");
+        }
+
+        // Keep identity TIN on the header so encoded invoice number matches sellerTIN.
+        if (!string.Equals(payload.InvoiceHeader.SellerTin, sellerTin.Trim(), StringComparison.Ordinal))
+        {
+            payload = payload with
+            {
+                InvoiceHeader = CloneHeader(payload.InvoiceHeader, invoiceNumber: payload.InvoiceHeader.InvoiceNumber, sellerTin: sellerTin.Trim())
+            };
+        }
+
+        var transactionUtc = request?.TransactionDateUtc
+            ?? (payload.InvoiceHeader.InvoiceDateTime.Kind == DateTimeKind.Utc
+                ? payload.InvoiceHeader.InvoiceDateTime
+                : payload.InvoiceHeader.InvoiceDateTime.ToUniversalTime());
+
+        var previousInvoiceNumber = payload.InvoiceHeader.InvoiceNumber;
+        var needsRewrite = MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(previousInvoiceNumber, sellerTin);
+        if (needsRewrite)
+        {
+            payload = await EnsureCompliantInvoiceNumberAsync(payload, cancellationToken, transactionUtcOverride: transactionUtc)
+                .ConfigureAwait(false);
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.InvoiceHeader.InvoiceNumber)
+            || !MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(payload.InvoiceHeader.InvoiceNumber))
+        {
+            return ReceiptIdentifierUpdateResult.Failed(
+                queueId,
+                payload.InvoiceHeader.InvoiceNumber,
+                "Failed to generate a valid MRA Base64 composite invoice number.");
+        }
+
+        if (needsRewrite || !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+        {
+            payload = await RefreshOfflineSignatureAsync(payload, cancellationToken).ConfigureAwait(false);
+        }
+
+        var payloadJson = JsonSerializer.Serialize(payload, MraJson.SerializerOptions);
+        await _queueRepository
+            .UpdatePayloadAndResetForResubmitAsync(queueId, payloadJson, cancellationToken)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Updated receipt identifiers for queue {QueueId}: invoiceNumber {Before} -> {After} (status=PENDING, retries=0).",
+            queueId,
+            previousInvoiceNumber,
+            payload.InvoiceHeader.InvoiceNumber);
+
+        return ReceiptIdentifierUpdateResult.Succeeded(
+            queueId,
+            payload.InvoiceHeader.InvoiceNumber,
+            rewritten: needsRewrite || !string.Equals(previousInvoiceNumber, payload.InvoiceHeader.InvoiceNumber, StringComparison.Ordinal));
     }
 
     private async Task<SaleQueueResult> TrySubmitQueuedAsync(
@@ -393,15 +494,18 @@ public sealed class OfflineSalesQueueService
 
         var identity = await LoadFiscalIdentityOverlayAsync(cancellationToken).ConfigureAwait(false);
         var hadOfflineSignature = !string.IsNullOrWhiteSpace(deserialized.InvoiceSummary.OfflineSignature);
-        var invoiceNumberWasLegacyArt = IsLegacyArtInvoiceNumber(deserialized.InvoiceHeader.InvoiceNumber);
         var normalized = NormalizeQueuedPayloadForResubmit(deserialized, identity);
 
-        if (invoiceNumberWasLegacyArt)
+        var needsInvoiceRewrite = MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(
+            normalized.InvoiceHeader.InvoiceNumber,
+            normalized.InvoiceHeader.SellerTin);
+
+        if (needsInvoiceRewrite)
         {
             normalized = await EnsureCompliantInvoiceNumberAsync(normalized, cancellationToken).ConfigureAwait(false);
         }
 
-        if (hadOfflineSignature || invoiceNumberWasLegacyArt)
+        if (hadOfflineSignature || needsInvoiceRewrite)
         {
             normalized = await RefreshOfflineSignatureAsync(normalized, cancellationToken).ConfigureAwait(false);
         }
@@ -412,39 +516,23 @@ public sealed class OfflineSalesQueueService
             await _queueRepository.UpdatePayloadJsonAsync(queueId, normalizedJson, cancellationToken)
                 .ConfigureAwait(false);
             _logger.LogInformation(
-                "Normalized queue payload for item {QueueId} before MRA resubmit (length {Before} -> {After}). sellerTIN={Tin} siteId={SiteId} taxRates={TaxRates}",
+                "Normalized queue payload for item {QueueId} before MRA resubmit (length {Before} -> {After}). sellerTIN={Tin} siteId={SiteId} invoiceNumber={Invoice} taxRates={TaxRates}",
                 queueId,
                 payloadJson.Length,
                 normalizedJson.Length,
                 normalized.InvoiceHeader.SellerTin,
                 normalized.InvoiceHeader.SiteId,
+                normalized.InvoiceHeader.InvoiceNumber,
                 string.Join(",", normalized.InvoiceLineItems.Select(l => l.TaxRateId).Distinct()));
         }
 
         return normalized;
     }
 
-    private static bool IsLegacyArtInvoiceNumber(string? invoiceNumber)
-    {
-        if (string.IsNullOrWhiteSpace(invoiceNumber))
-        {
-            return false;
-        }
-
-        var trimmed = invoiceNumber.Trim();
-        if (!trimmed.StartsWith("ART-", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        // Legacy format: ART-{yyyyMMddHHmmss} => ART- + 14 digits.
-        var tail = trimmed["ART-".Length..];
-        return tail.Length == 14 && tail.All(char.IsDigit);
-    }
-
     private async Task<SubmitSalesTransactionRequest> EnsureCompliantInvoiceNumberAsync(
         SubmitSalesTransactionRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTime? transactionUtcOverride = null)
     {
         if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(request.InvoiceHeader.SellerTin, out var taxpayerId))
         {
@@ -453,9 +541,10 @@ public sealed class OfflineSalesQueueService
             return request;
         }
 
-        var transactionUtc = request.InvoiceHeader.InvoiceDateTime.Kind == DateTimeKind.Utc
-            ? request.InvoiceHeader.InvoiceDateTime
-            : request.InvoiceHeader.InvoiceDateTime.ToUniversalTime();
+        var transactionUtc = transactionUtcOverride
+            ?? (request.InvoiceHeader.InvoiceDateTime.Kind == DateTimeKind.Utc
+                ? request.InvoiceHeader.InvoiceDateTime
+                : request.InvoiceHeader.InvoiceDateTime.ToUniversalTime());
 
         var terminalPosition = await ReadTerminalPositionAsync(cancellationToken).ConfigureAwait(false);
 
@@ -472,12 +561,30 @@ public sealed class OfflineSalesQueueService
             newInvoiceNumber = MraInvoiceNumberGenerator.Generate(taxpayerId, terminalPosition, transactionUtc, 1);
         }
 
-        var header = request.InvoiceHeader;
-        var updatedHeader = new InvoiceHeaderDto
+        if (!MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(newInvoiceNumber))
         {
-            InvoiceNumber = newInvoiceNumber,
+            throw new InvalidOperationException(
+                $"Generated invoice number '{newInvoiceNumber}' is not MRA composite format.");
+        }
+
+        _logger.LogInformation(
+            "Assigned MRA invoice number {InvoiceNumber} for sellerTIN={Tin} (replaced {Previous}).",
+            newInvoiceNumber,
+            request.InvoiceHeader.SellerTin,
+            request.InvoiceHeader.InvoiceNumber);
+
+        return request with
+        {
+            InvoiceHeader = CloneHeader(request.InvoiceHeader, newInvoiceNumber, request.InvoiceHeader.SellerTin)
+        };
+    }
+
+    private static InvoiceHeaderDto CloneHeader(InvoiceHeaderDto header, string invoiceNumber, string? sellerTin) =>
+        new()
+        {
+            InvoiceNumber = invoiceNumber,
             InvoiceDateTime = header.InvoiceDateTime,
-            SellerTin = header.SellerTin,
+            SellerTin = string.IsNullOrWhiteSpace(sellerTin) ? header.SellerTin : sellerTin.Trim(),
             BuyerTin = header.BuyerTin,
             BuyerName = header.BuyerName,
             BuyerAuthorizationCode = header.BuyerAuthorizationCode,
@@ -490,7 +597,22 @@ public sealed class OfflineSalesQueueService
             PaymentMethod = header.PaymentMethod
         };
 
-        return request with { InvoiceHeader = updatedHeader };
+    private static string? TryReadInvoiceNumber(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(payloadJson, MraJson.SerializerOptions);
+            return payload?.InvoiceHeader.InvoiceNumber;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<int> ReadTerminalPositionAsync(CancellationToken cancellationToken)
@@ -975,5 +1097,41 @@ public sealed class SaleQueueResult
             InvoiceNumber = invoiceNumber,
             IsQuarantined = true,
             Remark = remark
+        };
+}
+
+/// <summary>
+/// Optional overrides when regenerating the MRA Base64 invoice number for a queued receipt.
+/// Internal queue/database Id is supplied separately and is never used as the MRA invoice number.
+/// </summary>
+public sealed record InvoiceGenerationRequest(
+    DateTime? TransactionDateUtc = null,
+    string? SellerTin = null);
+
+/// <summary>Result of mapping queue Id → MRA composite invoice number and clearing quarantine.</summary>
+public sealed class ReceiptIdentifierUpdateResult
+{
+    public int QueueId { get; init; }
+    public string? InvoiceNumber { get; init; }
+    public bool Success { get; init; }
+    public bool Rewritten { get; init; }
+    public string? Error { get; init; }
+
+    public static ReceiptIdentifierUpdateResult Succeeded(int queueId, string invoiceNumber, bool rewritten) =>
+        new()
+        {
+            QueueId = queueId,
+            InvoiceNumber = invoiceNumber,
+            Success = true,
+            Rewritten = rewritten
+        };
+
+    public static ReceiptIdentifierUpdateResult Failed(int queueId, string? invoiceNumber, string error) =>
+        new()
+        {
+            QueueId = queueId,
+            InvoiceNumber = invoiceNumber,
+            Success = false,
+            Error = error
         };
 }

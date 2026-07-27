@@ -119,6 +119,76 @@ public static class MraInvoiceNumberGenerator
         return result.ToString();
     }
 
+    /// <summary>Decodes an MRA compact Base64 segment back to Base10.</summary>
+    public static bool TryBase64ToBase10(string? segment, out long number)
+    {
+        number = 0;
+        if (string.IsNullOrWhiteSpace(segment))
+        {
+            return false;
+        }
+
+        long value = 0;
+        foreach (var c in segment.Trim())
+        {
+            var index = Base64Chars.IndexOf(c);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            value = checked(value * 64 + index);
+        }
+
+        number = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Reads the TaxpayerID encoded in the first segment of a composite invoice number.
+    /// </summary>
+    public static bool TryGetEncodedTaxpayerId(string? invoiceNumber, out long taxpayerId)
+    {
+        taxpayerId = 0;
+        if (!IsMraCompositeInvoiceNumber(invoiceNumber))
+        {
+            return false;
+        }
+
+        var tinSegment = invoiceNumber!.Trim().Split('-', 2)[0];
+        return TryBase64ToBase10(tinSegment, out taxpayerId) && taxpayerId > 0;
+    }
+
+    /// <summary>
+    /// True when the invoice number is missing, legacy ART format, non-composite,
+    /// or encodes a different taxpayer id than <paramref name="sellerTin"/>.
+    /// </summary>
+    public static bool NeedsInvoiceNumberRewrite(string? invoiceNumber, string? sellerTin)
+    {
+        if (string.IsNullOrWhiteSpace(invoiceNumber))
+        {
+            return true;
+        }
+
+        var trimmed = invoiceNumber.Trim();
+        if (trimmed.StartsWith("ART-", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!IsMraCompositeInvoiceNumber(trimmed))
+        {
+            return true;
+        }
+
+        if (!TryParseTaxpayerId(sellerTin, out var expectedTin))
+        {
+            return false;
+        }
+
+        return !TryGetEncodedTaxpayerId(trimmed, out var encodedTin) || encodedTin != expectedTin;
+    }
+
     /// <summary>Extracts numeric taxpayer id digits from a TIN string.</summary>
     public static bool TryParseTaxpayerId(string? tin, out long taxpayerId)
     {

@@ -28,11 +28,26 @@ public sealed class MraInvoiceNumberGeneratorTests
     }
 
     [Fact]
-    public void TryParseTaxpayerId_ExtractsDigits()
+    public void NeedsInvoiceNumberRewrite_DetectsLegacyArtAndTinMismatch()
     {
-        Assert.True(MraInvoiceNumberGenerator.TryParseTaxpayerId("20162939", out var id));
-        Assert.Equal(20162939, id);
-        Assert.True(MraInvoiceNumberGenerator.TryParseTaxpayerId("TIN-20162939-X", out id));
-        Assert.Equal(20162939, id);
+        Assert.True(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite("ART-20260724164619", "20162939"));
+        Assert.True(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(null, "20162939"));
+
+        var correct = MraInvoiceNumberGenerator.Generate(20162939, 1, new DateTime(2026, 7, 27, 0, 0, 0, DateTimeKind.Utc), 3);
+        Assert.False(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(correct, "20162939"));
+
+        // Composite that encodes placeholder TIN 1234567890 must be rewritten for real TIN.
+        var wrongTin = MraInvoiceNumberGenerator.Generate(1234567890, 1, new DateTime(2026, 7, 24, 0, 0, 0, DateTimeKind.Utc), 5);
+        Assert.True(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(wrongTin, "20162939"));
+        Assert.True(MraInvoiceNumberGenerator.TryGetEncodedTaxpayerId(wrongTin, out var encoded));
+        Assert.Equal(1234567890, encoded);
+    }
+
+    [Fact]
+    public void TryBase64ToBase10_RoundTripsTaxpayerId()
+    {
+        var segment = MraInvoiceNumberGenerator.Base10ToBase64(20162939);
+        Assert.True(MraInvoiceNumberGenerator.TryBase64ToBase10(segment, out var value));
+        Assert.Equal(20162939, value);
     }
 }

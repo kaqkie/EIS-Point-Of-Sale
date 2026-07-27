@@ -465,6 +465,17 @@ public sealed class QueueItemViewModel
     public string? FiscalResponseJson { get; init; }
     public string InvoiceNumber { get; init; } = string.Empty;
 
+    /// <summary>
+    /// UI label: internal queue Id stays numeric; MRA invoice number is the Base64 composite.
+    /// </summary>
+    public string ReceiptDisplay =>
+        string.IsNullOrWhiteSpace(InvoiceNumber)
+            ? $"#{Id}"
+            : $"#{Id} · {InvoiceNumber}";
+
+    public bool IsMraCompositeInvoiceNumber =>
+        PointOfSale.Mra.Billing.MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(InvoiceNumber);
+
     public bool CanRetry =>
         Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase);
 
