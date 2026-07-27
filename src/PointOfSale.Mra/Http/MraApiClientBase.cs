@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -137,7 +136,34 @@ public abstract class MraApiClientBase
                 content);
         }
 
+        if (!parsed.IsSuccess)
+        {
+            _logger.LogWarning(
+                "MRA EIS logical failure for {Method} {Uri}. statusCode={StatusCode}, remark={Remark}, errors={Errors}. ResponseBody={ResponseBody}",
+                request.Method,
+                request.RequestUri,
+                parsed.StatusCode,
+                parsed.Remark ?? "(null)",
+                FormatErrorsForLog(parsed.Errors),
+                TruncateForLog(content));
+        }
+
         return parsed;
+    }
+
+    private static string FormatErrorsForLog(IReadOnlyList<EisApiError>? errors) =>
+        errors is null || errors.Count == 0
+            ? "(none)"
+            : JsonSerializer.Serialize(errors, MraJson.SerializerOptions);
+
+    private static string TruncateForLog(string? value, int max = 4000)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "(empty)";
+        }
+
+        return value.Length <= max ? value : value[..max] + "…(truncated)";
     }
 
     private static void ApplyAuthorization(HttpRequestMessage request, string? jwtToken)
@@ -147,12 +173,11 @@ public abstract class MraApiClientBase
             return;
         }
 
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwtToken.Trim());
         // MRA samples pass the raw JWT in Authorization without the Bearer prefix.
-        if (!jwtToken.Contains(' ', StringComparison.Ordinal))
+        var normalized = Security.MraJwtClaims.NormalizeAuthorizationToken(jwtToken);
+        if (normalized.Length > 0)
         {
-            request.Headers.TryAddWithoutValidation("Authorization", jwtToken.Trim());
-            request.Headers.Authorization = null;
+            request.Headers.TryAddWithoutValidation("Authorization", normalized);
         }
     }
 }

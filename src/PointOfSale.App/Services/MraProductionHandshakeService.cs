@@ -341,7 +341,12 @@ public sealed class MraProductionHandshakeService : IMraProductionHandshakeServi
         };
 
         using var validatingClient = new HttpClient(handler) { Timeout = client.Timeout };
-        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(baseUrl), "configuration/get-latest-configs"));
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri(new Uri(baseUrl), "configuration/get-latest-configs"))
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+        };
         using var response = await validatingClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
         _ = response.StatusCode;

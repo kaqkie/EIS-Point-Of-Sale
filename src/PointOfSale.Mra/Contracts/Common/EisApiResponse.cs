@@ -16,7 +16,11 @@ public sealed class EisApiResponse<T>
     [JsonPropertyName("errors")]
     public IReadOnlyList<EisApiError>? Errors { get; set; }
 
-    public bool IsSuccess => StatusCode == 1 || StatusCode == 0;
+    /// <summary>
+    /// MRA EIS success responses use <c>statusCode: 1</c>.
+    /// <c>0</c> is the OpenAPI schema default / failure sentinel — never treat it as success.
+    /// </summary>
+    public bool IsSuccess => StatusCode == 1;
 }
 
 public sealed class EisApiError

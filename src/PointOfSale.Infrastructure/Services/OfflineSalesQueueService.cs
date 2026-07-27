@@ -10,6 +10,7 @@ using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Http;
+using PointOfSale.Mra.Security;
 using PointOfSale.Mra.Serialization;
 
 namespace PointOfSale.Infrastructure.Services;
@@ -465,10 +466,25 @@ public sealed class OfflineSalesQueueService
                 taxpayer?.Tin,
                 ExtractConfiguredString(tinOverride));
 
+            // Prefer activation JWT TIN claim over the sandbox developer seed.
+            const string sandboxPlaceholderTin = "1234567890";
+            if (string.IsNullOrWhiteSpace(sellerTin) ||
+                sellerTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
+            {
+                var jwt = await _configurationRepository
+                    .GetProtectedSecretPlainAsync(MraConfigurationKeys.JwtToken, cancellationToken)
+                    .ConfigureAwait(false);
+                var jwtTin = MraJwtClaims.TryGetTaxpayerTin(jwt);
+                if (!string.IsNullOrWhiteSpace(jwtTin) &&
+                    !jwtTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
+                {
+                    sellerTin = jwtTin.Trim();
+                }
+            }
+
             // If cached identity/config looks incomplete (versions missing or values still placeholders),
             // refresh configs from the activated terminal so invoiceHeader.{sellerTIN,siteId} and
             // config versions match MRA terminal activation.
-            const string sandboxPlaceholderTin = "1234567890";
             var isNonCodeLikeSiteId = siteId?.Contains(' ') == true;
             var sellerTinIsPlaceholder = sellerTin?.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal) == true;
 

@@ -66,6 +66,19 @@ public sealed class PosConfigurationService : IPosConfigurationService
                 cancellationToken)
             .ConfigureAwait(false);
 
+        string? jwtTin = null;
+        try
+        {
+            var jwt = await _configurationRepository
+                .GetProtectedSecretPlainAsync(MraConfigurationKeys.JwtToken, cancellationToken)
+                .ConfigureAwait(false);
+            jwtTin = PointOfSale.Mra.Security.MraJwtClaims.TryGetTaxpayerTin(jwt);
+        }
+        catch
+        {
+            // JWT may be unavailable before activation — ignore.
+        }
+
         return new PosRuntimeContext(
             global,
             terminal,
@@ -75,7 +88,8 @@ public sealed class PosConfigurationService : IPosConfigurationService
             tinOverride,
             branchOverride,
             AllowSandboxDeveloperTin: IsSandboxOrTrialEnvironment(_mraOptions.Environment),
-            HostEnvironmentName: ResolveHostEnvironmentName());
+            HostEnvironmentName: ResolveHostEnvironmentName(),
+            JwtTaxpayerTin: jwtTin);
     }
 
     /// <summary>Sandbox / Development / trial hosts may use the developer TIN seed.</summary>
@@ -223,7 +237,8 @@ public sealed record PosRuntimeContext(
     string? DeploymentTaxpayerTin = null,
     string? DeploymentBranchId = null,
     bool AllowSandboxDeveloperTin = false,
-    string? HostEnvironmentName = null)
+    string? HostEnvironmentName = null,
+    string? JwtTaxpayerTin = null)
 {
     public string TradingName =>
         Terminal?.TradingName
@@ -231,15 +246,48 @@ public sealed record PosRuntimeContext(
         ?? "Albert Retail Terminal";
 
     /// <summary>
-    /// Seller TIN for checkout + legal receipts — prefers live MRA taxpayer config, then SQL
-    /// deployment override, then <see cref="TerminalDeploymentOptions.TaxpayerTin"/>.
-    /// In Sandbox/trial, the developer TIN seed is accepted; Production still rejects it.
+    /// Seller TIN for checkout + legal receipts. Prefers a non-placeholder value from
+    /// live taxpayer config, JWT claim, then deployment overrides. Sandbox may fall back
+    /// to the developer seed only when no activated TIN is available.
     /// </summary>
-    public string SellerTin =>
-        PosConfigurationService.NormalizeTaxpayerTin(Taxpayer?.Tin, AllowSandboxDeveloperTin)
-        ?? PosConfigurationService.NormalizeTaxpayerTin(DeploymentTaxpayerTin, AllowSandboxDeveloperTin)
-        ?? PosConfigurationService.NormalizeTaxpayerTin(Deployment?.TaxpayerTin, AllowSandboxDeveloperTin)
-        ?? string.Empty;
+    public string SellerTin
+    {
+        get
+        {
+            foreach (var candidate in TaxpayerTinCandidates)
+            {
+                var preferred = PosConfigurationService.NormalizeTaxpayerTin(candidate, allowSandboxDeveloperTin: false);
+                if (!string.IsNullOrWhiteSpace(preferred))
+                {
+                    return preferred;
+                }
+            }
+
+            if (!AllowSandboxDeveloperTin)
+            {
+                return string.Empty;
+            }
+
+            foreach (var candidate in TaxpayerTinCandidates)
+            {
+                var sandbox = PosConfigurationService.NormalizeTaxpayerTin(candidate, allowSandboxDeveloperTin: true);
+                if (!string.IsNullOrWhiteSpace(sandbox))
+                {
+                    return sandbox;
+                }
+            }
+
+            return string.Empty;
+        }
+    }
+
+    private IEnumerable<string?> TaxpayerTinCandidates =>
+    [
+        Taxpayer?.Tin,
+        JwtTaxpayerTin,
+        DeploymentTaxpayerTin,
+        Deployment?.TaxpayerTin
+    ];
 
     public string SiteId =>
         PosConfigurationService.NormalizeConfiguredValue(Terminal?.TerminalSite?.SiteId)
@@ -266,11 +314,21 @@ public sealed record PosRuntimeContext(
     public int TerminalConfigVersion => Terminal?.VersionNo > 0 ? Terminal.VersionNo : 1;
     public int TaxpayerConfigVersion => Taxpayer?.VersionNo > 0 ? Taxpayer.VersionNo : 1;
 
-    /// <summary>MRA taxRateId for the standard VAT tier — prefers configured 16–18% rate, else <c>A</c>.</summary>
+    /// <summary>MRA taxRateId for the standard VAT tier — prefers configured 17.5% rate, else <c>A</c>.</summary>
     public string StandardVatTaxRateId
     {
         get
         {
+            var exact = Global?.TaxRates?
+                .FirstOrDefault(r =>
+                    !string.IsNullOrWhiteSpace(r.Id)
+                    && r.Rate == PointOfSale.Core.Pricing.PosTaxCalculator.MalawiStandardVatRatePercent)
+                ?.Id;
+            if (!string.IsNullOrWhiteSpace(exact))
+            {
+                return exact.Trim();
+            }
+
             var fromRates = Global?.TaxRates?
                 .FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate is >= 16m and <= 18m)
                 ?.Id;

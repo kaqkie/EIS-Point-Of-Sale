@@ -176,11 +176,31 @@ public sealed class SalesTransactionService
         CancellationToken cancellationToken)
     {
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
+
+        // Align sales payloads with OpenAPI invoiceHeader / line / summary expectations + 17.5% VAT.
+        object payloadToSend = body is SubmitSalesTransactionRequest sales
+            ? MraFiscalPayloadNormalizer.Normalize(sales)
+            : body!;
+
         var response = await _apiClient
-            .PostAsync<TRequest, TResponse>(relativePath, body, context, cancellationToken)
+            .PostAsync<object, TResponse>(relativePath, payloadToSend, context, cancellationToken)
             .ConfigureAwait(false);
 
-        return ToResult(response);
+        var result = ToResult(response);
+        if (!result.Success)
+        {
+            var errorsJson = result.Errors is null
+                ? "(no errors array)"
+                : JsonSerializer.Serialize(result.Errors, MraJson.SerializerOptions);
+            _logger.LogWarning(
+                "MRA EIS {Path} returned success=false. Remark={Remark}. Errors={Errors}. statusCode={StatusCode}",
+                relativePath,
+                result.Remark ?? "(null)",
+                errorsJson,
+                response.StatusCode);
+        }
+
+        return result;
     }
 
     private static void ValidateRequestStructure(SubmitSalesTransactionRequest request)

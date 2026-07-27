@@ -18,8 +18,16 @@ public sealed class ConfigurationApiService : Http.MraApiClientBase
     {
     }
 
+    /// <summary>
+    /// Official MRA OpenAPI: <c>POST /api/v1/configuration/get-latest-configs</c>
+    /// (Authorization JWT only — not GET).
+    /// </summary>
     public Task<EisApiResponse<GetLatestConfigurationResponseData>> GetLatestConfigurationAsync(
         string jwtToken,
         CancellationToken cancellationToken = default) =>
-        GetAsync<GetLatestConfigurationResponseData>(GetLatestConfigsPath, jwtToken, cancellationToken);
+        PostJsonAsync<object, GetLatestConfigurationResponseData>(
+            GetLatestConfigsPath,
+            new { },
+            jwtToken: jwtToken,
+            cancellationToken: cancellationToken);
 }

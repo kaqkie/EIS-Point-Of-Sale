@@ -7,6 +7,7 @@ using PointOfSale.Core.Models;
 using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Contracts.Onboarding;
 using PointOfSale.Mra.Options;
+using PointOfSale.Mra.Security;
 using PointOfSale.Mra.Serialization;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Security;
@@ -149,13 +150,21 @@ public sealed class TerminalOnboardingService
                 new MraRequestContext
                 {
                     SecretKey = pendingSecret,
-                    SignaturePlainText = tac
+                    SignaturePlainText = tac,
+                    IsActivationConfirmationSignature = true
                 },
                 cancellationToken)
             .ConfigureAwait(false);
 
         if (!response.IsSuccess)
         {
+            _logger.LogWarning(
+                "terminal-activated-confirmation failed. statusCode={StatusCode}, remark={Remark}, errors={Errors}",
+                response.StatusCode,
+                response.Remark ?? "(null)",
+                response.Errors is null
+                    ? "(none)"
+                    : JsonSerializer.Serialize(response.Errors, MraJson.SerializerOptions));
             return TerminalConfirmationResult.Failed(response.Remark, response.Errors);
         }
 
@@ -167,6 +176,27 @@ public sealed class TerminalOnboardingService
             MraConfigurationKeys.PendingSecretKey,
             JsonSerializer.Serialize(new { cleared = true }, MraJson.SerializerOptions),
             cancellationToken).ConfigureAwait(false);
+
+        // Official sequence: after confirmation, sync global/terminal/taxpayer configs for sales payloads.
+        try
+        {
+            var configs = await GetLatestConfigsAsync(cancellationToken).ConfigureAwait(false);
+            if (!configs.Success)
+            {
+                _logger.LogWarning(
+                    "Post-confirmation get-latest-configs failed for {TerminalId}: {Remark}",
+                    request.TerminalId,
+                    configs.Remark);
+                await TrySeedTaxpayerTinFromJwtAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Post-confirmation get-latest-configs threw for {TerminalId}; falling back to JWT TIN claim.",
+                request.TerminalId);
+            await TrySeedTaxpayerTinFromJwtAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         _logger.LogInformation("Terminal {TerminalId} confirmed with MRA.", request.TerminalId);
 
@@ -193,6 +223,14 @@ public sealed class TerminalOnboardingService
 
         if (!response.IsSuccess || response.Data is null)
         {
+            _logger.LogWarning(
+                "get-latest-configs failed for {TerminalId}. statusCode={StatusCode}, remark={Remark}, errors={Errors}",
+                terminalId,
+                response.StatusCode,
+                response.Remark ?? "(null)",
+                response.Errors is null
+                    ? "(none)"
+                    : JsonSerializer.Serialize(response.Errors, MraJson.SerializerOptions));
             return LatestConfigurationResult.Failed(response.Remark, response.Errors);
         }
 
@@ -207,7 +245,82 @@ public sealed class TerminalOnboardingService
         await _terminalRepository.UpdateLastSyncedAsync(terminalId, DateTime.UtcNow, cancellationToken)
             .ConfigureAwait(false);
 
+        _logger.LogInformation(
+            "Cached get-latest-configs for {TerminalId}. sellerTIN={Tin}, siteId={SiteId}, versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
+            terminalId,
+            bundle.TaxpayerConfiguration?.Tin ?? "(null)",
+            bundle.TerminalConfiguration?.TerminalSite?.SiteId ?? "(null)",
+            bundle.GlobalConfiguration?.VersionNo ?? 0,
+            bundle.TerminalConfiguration?.VersionNo ?? 0,
+            bundle.TaxpayerConfiguration?.VersionNo ?? 0);
+
         return LatestConfigurationResult.Succeeded(bundle, response.Remark);
+    }
+
+    /// <summary>
+    /// When get-latest-configs is unavailable, recover sellerTIN from the activation JWT claim
+    /// so sales payloads do not keep shipping the sandbox placeholder <c>1234567890</c>.
+    /// </summary>
+    private async Task TrySeedTaxpayerTinFromJwtAsync(CancellationToken cancellationToken)
+    {
+        var jwt = await _configurationRepository
+            .GetProtectedSecretPlainAsync(MraConfigurationKeys.JwtToken, cancellationToken)
+            .ConfigureAwait(false);
+        var tin = MraJwtClaims.TryGetTaxpayerTin(jwt);
+        if (string.IsNullOrWhiteSpace(tin))
+        {
+            return;
+        }
+
+        var existingJson = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TaxpayerConfiguration, cancellationToken)
+            .ConfigureAwait(false);
+
+        TaxpayerConfigurationDto? existing = null;
+        if (!string.IsNullOrWhiteSpace(existingJson))
+        {
+            try
+            {
+                existing = JsonSerializer.Deserialize<TaxpayerConfigurationDto>(existingJson, MraJson.SerializerOptions);
+            }
+            catch (JsonException)
+            {
+                existing = null;
+            }
+        }
+
+        if (existing is not null &&
+            !string.IsNullOrWhiteSpace(existing.Tin) &&
+            !existing.Tin.Trim().Equals("1234567890", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var taxpayer = existing ?? new TaxpayerConfigurationDto
+        {
+            VersionNo = 1,
+            IsVatRegistered = true,
+            ActivatedTaxRateIds = ["A"]
+        };
+        taxpayer.Tin = tin.Trim();
+        if (taxpayer.VersionNo <= 0)
+        {
+            taxpayer.VersionNo = 1;
+        }
+
+        await _configurationRepository.UpsertJsonAsync(
+                MraConfigurationKeys.TaxpayerConfiguration,
+                JsonSerializer.Serialize(taxpayer, MraJson.SerializerOptions),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await _configurationRepository.UpsertJsonAsync(
+                DeploymentConfigurationKeys.TaxpayerTin,
+                JsonSerializer.Serialize(new { tin = tin.Trim() }, MraJson.SerializerOptions),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation("Seeded sellerTIN={Tin} from activation JWT claim after config sync failure.", tin);
     }
 
     private async Task CacheConfigurationBundleAsync(

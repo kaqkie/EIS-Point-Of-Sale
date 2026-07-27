@@ -107,12 +107,17 @@ public sealed class MraApiClient
     }
 
     /// <summary>
-    /// MRA documents get-latest-configs as HTTP GET with Authorization JWT.
+    /// Official MRA OpenAPI: <c>POST /api/v1/configuration/get-latest-configs</c>
+    /// with Authorization JWT and an empty JSON body (no x-signature).
     /// </summary>
     public Task<EisApiResponse<TResponse>> GetLatestConfigsAsync<TResponse>(
         string jwtToken,
         CancellationToken cancellationToken = default) =>
-        GetAsync<TResponse>("configuration/get-latest-configs", new MraRequestContext { JwtToken = jwtToken }, cancellationToken);
+        PostAsync<object, TResponse>(
+            "configuration/get-latest-configs",
+            new { },
+            new MraRequestContext { JwtToken = jwtToken },
+            cancellationToken);
 
     public static string ComputeSignature(string plainText, string secretKey) =>
         HmacSignatureService.ComputeHmacSha512Base64(plainText, secretKey);
@@ -121,14 +126,28 @@ public sealed class MraApiClient
     {
         if (context?.JwtToken is { Length: > 0 } jwt)
         {
-            request.Headers.TryAddWithoutValidation("Authorization", jwt.Trim());
+            // MRA samples use the raw JWT string — never "Bearer {token}".
+            var normalized = MraJwtClaims.NormalizeAuthorizationToken(jwt);
+            if (normalized.Length > 0)
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", normalized);
+            }
         }
 
+        // Confirmation: HMAC-SHA512(TAC, secretKey). Sales/other POSTs: HMAC over JSON body.
         if (context?.SecretKey is { Length: > 0 } secretKey &&
             !string.IsNullOrWhiteSpace(signaturePlainText))
         {
-            var signature = ComputeSignature(signaturePlainText, secretKey);
+            var signature = context.IsActivationConfirmationSignature
+                ? HmacSignatureService.ComputeActivationConfirmationSignature(signaturePlainText, secretKey)
+                : ComputeSignature(signaturePlainText, secretKey);
             request.Headers.TryAddWithoutValidation(HmacSignatureService.SignatureHeaderName, signature);
+            _logger.LogDebug(
+                "Attached {Header} for {Method} {Path} (activationConfirmation={IsActivation})",
+                HmacSignatureService.SignatureHeaderName,
+                request.Method,
+                request.RequestUri,
+                context.IsActivationConfirmationSignature);
         }
         else if (context?.SecretKey is { Length: > 0 } payloadSecret &&
                  !string.IsNullOrWhiteSpace(jsonBody))
@@ -231,6 +250,11 @@ public sealed class MraApiClient
                     content);
             }
 
+            if (!parsed.IsSuccess)
+            {
+                LogLogicalFailure(request, auditRequestBody, parsed.StatusCode, parsed.Remark, parsed.Errors, content);
+            }
+
             return parsed;
         }
         catch (Exception ex) when (ex is not MraApiException)
@@ -265,6 +289,29 @@ public sealed class MraApiClient
             (int)statusCode,
             request.Method,
             request.RequestUri,
+            TruncateForLog(requestBody, max: 32000),
+            TruncateForLog(responseBody, max: 32000));
+    }
+
+    private void LogLogicalFailure(
+        HttpRequestMessage request,
+        string? requestBody,
+        int statusCode,
+        string? remark,
+        IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? errors,
+        string? responseBody)
+    {
+        var errorsJson = errors is null || errors.Count == 0
+            ? "(none)"
+            : JsonSerializer.Serialize(errors, MraJson.SerializerOptions);
+
+        _logger.LogWarning(
+            "MRA EIS logical failure for {Method} {Uri}. statusCode={StatusCode}, remark={Remark}, errors={Errors}. RequestPayload={RequestPayload}. ResponseBody={ResponseBody}",
+            request.Method,
+            request.RequestUri,
+            statusCode,
+            remark ?? "(null)",
+            errorsJson,
             TruncateForLog(requestBody, max: 32000),
             TruncateForLog(responseBody, max: 32000));
     }
@@ -395,4 +442,10 @@ public sealed class MraRequestContext
     /// When null and SecretKey is set with a POST body, HMAC is computed over the JSON payload.
     /// </summary>
     public string? SignaturePlainText { get; init; }
+
+    /// <summary>
+    /// When true, <see cref="SignaturePlainText"/> is treated as the TAC for
+    /// <c>POST onboarding/terminal-activated-confirmation</c> (HMAC-SHA512 → Base64 x-signature).
+    /// </summary>
+    public bool IsActivationConfirmationSignature { get; init; }
 }
