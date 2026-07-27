@@ -40,12 +40,20 @@ public sealed class SalesTransactionService
             request,
             cancellationToken);
 
+    /// <summary>
+    /// <c>POST /api/v1/sales/last-submitted-online-transaction</c> — activation JWT in
+    /// <c>Authorization</c> (raw token; a stored <c>Bearer</c> prefix is stripped) and empty JSON body <c>{}</c>.
+    /// No <c>x-signature</c> header.
+    /// </summary>
     public Task<SalesResult<LastSubmittedInvoiceDto>> GetLastSubmittedOnlineTransactionAsync(
         CancellationToken cancellationToken = default) =>
         PostJwtOnlyAsync<LastSubmittedInvoiceDto>(
             "sales/last-submitted-online-transaction",
             cancellationToken);
 
+    /// <summary>
+    /// <c>POST /api/v1/sales/last-submitted-offline-transaction</c> — same JWT-only auth model as online.
+    /// </summary>
     public Task<SalesResult<LastSubmittedInvoiceDto>> GetLastSubmittedOfflineTransactionAsync(
         CancellationToken cancellationToken = default) =>
         PostJwtOnlyAsync<LastSubmittedInvoiceDto>(

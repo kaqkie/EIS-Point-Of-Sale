@@ -63,6 +63,11 @@ public sealed class ComplianceAuditLoggingTests
         Assert.Equal(
             MraApiOptions.DefaultSandboxBaseUrl,
             MraApiOptions.NormalizeBaseUrl("https://dev-eis-api.mra.mw/api/v1/api/v1/"));
+        Assert.Equal(
+            "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-online-transaction",
+            MraApiOptions.CombineEndpoint(
+                "https://dev-eis-api.mra.mw/api/v1/",
+                "sales/last-submitted-online-transaction").ToString());
     }
 
     [Fact]
