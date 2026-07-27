@@ -183,14 +183,14 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
               SELECT TOP (@Take)
                   Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage, FiscalResponseJson
               FROM dbo.OfflineInvoiceQueue
-              ORDER BY CreatedAt ASC, Id ASC;
+              ORDER BY CreatedAt DESC, Id DESC;
               """
             : """
               SELECT TOP (@Take)
                   Id, PayloadJson, CreatedAt, Status, RetryCount, NextRetryTime, ErrorMessage, FiscalResponseJson
               FROM dbo.OfflineInvoiceQueue
               WHERE Status = @StatusFilter
-              ORDER BY CreatedAt ASC, Id ASC;
+              ORDER BY CreatedAt DESC, Id DESC;
               """;
 
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)

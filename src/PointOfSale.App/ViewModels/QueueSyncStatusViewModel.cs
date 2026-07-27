@@ -123,8 +123,8 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
                 : SelectedStatusFilter;
             var items = await _queueRepository.GetItemsAsync(filter, take: 250).ConfigureAwait(true);
             var rows = items
-                .OrderByDescending(x => x.CreatedAt)
-                .ThenByDescending(x => x.Id)
+                .OrderByDescending(x => x.Id)
+                .ThenByDescending(x => x.CreatedAt)
                 .Select(QueueItemViewModel.FromEntity)
                 .ToList();
 

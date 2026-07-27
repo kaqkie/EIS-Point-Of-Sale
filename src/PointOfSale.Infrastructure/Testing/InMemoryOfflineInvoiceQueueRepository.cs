@@ -100,7 +100,9 @@ public class InMemoryOfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposit
     {
         lock (_gate)
         {
-            IEnumerable<OfflineInvoiceQueueItem> query = _items.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id);
+            IEnumerable<OfflineInvoiceQueueItem> query = _items
+                .OrderByDescending(x => x.CreatedAt)
+                .ThenByDescending(x => x.Id);
             if (!string.IsNullOrWhiteSpace(statusFilter))
             {
                 query = query.Where(x => x.Status.Equals(statusFilter, StringComparison.OrdinalIgnoreCase));

@@ -187,7 +187,7 @@ public sealed class ShiftManagementService : IShiftManagementService
             WHERE Status = N'SYNCED'
               AND CreatedAt >= @FromUtc
               AND CreatedAt <= @ToUtc
-            ORDER BY CreatedAt ASC;
+            ORDER BY CreatedAt DESC, Id DESC;
             """;
 
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
