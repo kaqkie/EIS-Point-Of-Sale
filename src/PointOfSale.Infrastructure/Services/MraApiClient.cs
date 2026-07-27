@@ -53,8 +53,17 @@ public sealed class MraApiClient
         IOptions<MraApiOptions> options,
         ILogger<MraApiClient> logger,
         IAuditLoggingService? auditLoggingService = null,
-        MraRuntimeEnvironmentState? runtimeState = null) =>
-        new(new FixedHttpClientFactory(httpClient), options, logger, auditLoggingService, runtimeState);
+        MraRuntimeEnvironmentState? runtimeState = null)
+    {
+        // Ensure test harnesses that rely on HTTP timeouts (e.g. mocked delays)
+        // behave consistently even when callers don't explicitly set HttpClient.Timeout.
+        if (options.Value.HttpTimeout > TimeSpan.Zero)
+        {
+            httpClient.Timeout = options.Value.HttpTimeout;
+        }
+
+        return new(new FixedHttpClientFactory(httpClient), options, logger, auditLoggingService, runtimeState);
+    }
 
     public async Task<EisApiResponse<TResponse>> PostAsync<TRequest, TResponse>(
         string relativePath,

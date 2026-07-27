@@ -42,6 +42,15 @@ public static class MraTaxRateCodes
         IEnumerable<(string Id, decimal Rate)>? configuredRates)
     {
         var id = Normalize(taxRateId);
+
+        // Requirement: standard VAT tier must be represented as exactly 17.5%
+        // (even if the sandbox/global config cache is stale or uses a different
+        // rounding band). This ensures invoice VAT math + payload always stays aligned.
+        if (id.Equals(StandardVat, StringComparison.OrdinalIgnoreCase))
+        {
+            return PosTaxCalculator.MalawiStandardVatRatePercent;
+        }
+
         if (configuredRates is not null)
         {
             foreach (var rate in configuredRates)
@@ -54,18 +63,6 @@ public static class MraTaxRateCodes
                 if (rate.Id.Trim().Equals(id, StringComparison.OrdinalIgnoreCase) && rate.Rate > 0m)
                 {
                     return rate.Rate;
-                }
-            }
-
-            // Prefer any configured rate near the statutory band when id is standard VAT.
-            if (id.Equals(StandardVat, StringComparison.OrdinalIgnoreCase))
-            {
-                foreach (var rate in configuredRates)
-                {
-                    if (rate.Rate is >= 16m and <= 18m)
-                    {
-                        return rate.Rate;
-                    }
                 }
             }
         }

@@ -19,6 +19,7 @@ public sealed class OfflineSalesQueueService
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly SalesTransactionService _salesTransactionService;
     private readonly IConfigurationRepository? _configurationRepository;
+    private readonly TerminalOnboardingService? _terminalOnboardingService;
     private readonly IOfflineInvoiceSyncCompletedHandler? _syncCompletedHandler;
     private readonly IComplianceAuditLogger? _complianceAudit;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
@@ -33,7 +34,8 @@ public sealed class OfflineSalesQueueService
         IOfflineInvoiceSyncCompletedHandler? syncCompletedHandler = null,
         IComplianceAuditLogger? complianceAudit = null,
         MraRuntimeEnvironmentState? runtimeState = null,
-        IConfigurationRepository? configurationRepository = null)
+        IConfigurationRepository? configurationRepository = null,
+        TerminalOnboardingService? terminalOnboardingService = null)
     {
         _queueRepository = queueRepository;
         _salesTransactionService = salesTransactionService;
@@ -43,6 +45,7 @@ public sealed class OfflineSalesQueueService
         _complianceAudit = complianceAudit;
         _runtimeState = runtimeState;
         _configurationRepository = configurationRepository;
+        _terminalOnboardingService = terminalOnboardingService;
     }
 
     public async Task<SaleQueueResult> EnqueueAndTrySubmitAsync(
@@ -281,6 +284,29 @@ public sealed class OfflineSalesQueueService
             }
             else if (MraApiException.IsOpaqueSandboxInternalError(ex.ResponseBody))
             {
+                // Local log visibility: even though MraApiClient logs RequestPayload, this ensures
+                // we also capture the exact serialized JSON that this queue item sent.
+                string? outgoingJson = null;
+                try
+                {
+                    outgoingJson = JsonSerializer.Serialize(payload, MraJson.SerializerOptions);
+                }
+                catch
+                {
+                    // Never let logging break the quarantine path.
+                }
+
+                var outgoingJsonForLog = outgoingJson is null
+                    ? "(unable to serialize outgoing payload)"
+                    : outgoingJson.Length <= 100_000
+                        ? outgoingJson
+                        : outgoingJson[..100_000] + "...(truncated)";
+
+                _logger.LogError(ex,
+                    "Opaque sandbox rejection for queue {QueueId}. OutgoingPayloadJson={OutgoingPayloadJson}",
+                    queueId,
+                    outgoingJsonForLog);
+
                 detail = TruncateError(
                     "MRA sandbox rejected the payload (opaque internal error). " +
                     "Verify sellerTIN, siteId, taxRateId, and config versions match terminal activation. " +
@@ -438,6 +464,65 @@ public sealed class OfflineSalesQueueService
             var sellerTin = FirstNonEmpty(
                 taxpayer?.Tin,
                 ExtractConfiguredString(tinOverride));
+
+            // If cached identity/config looks incomplete (versions missing or values still placeholders),
+            // refresh configs from the activated terminal so invoiceHeader.{sellerTIN,siteId} and
+            // config versions match MRA terminal activation.
+            const string sandboxPlaceholderTin = "1234567890";
+            var isNonCodeLikeSiteId = siteId?.Contains(' ') == true;
+            var sellerTinIsPlaceholder = sellerTin?.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal) == true;
+
+            // Pull active sandbox-activated values when we detect clear placeholders / display labels.
+            var needsRefresh = isNonCodeLikeSiteId || sellerTinIsPlaceholder;
+
+            if (needsRefresh && _terminalOnboardingService is not null)
+            {
+                try
+                {
+                    var latest = await _terminalOnboardingService
+                        .GetLatestConfigsAsync(cancellationToken)
+                        .ConfigureAwait(false);
+
+                    if (latest.Success && latest.Configuration is not null)
+                    {
+                        var bundle = latest.Configuration;
+                        var refreshedGlobal = bundle.GlobalConfiguration;
+                        var refreshedTerminal = bundle.TerminalConfiguration;
+                        var refreshedTaxpayer = bundle.TaxpayerConfiguration;
+
+                        var refreshedRates = refreshedGlobal?.TaxRates?
+                            .Where(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate > 0m)
+                            .Select(r => (r.Id!.Trim(), r.Rate))
+                            .ToList();
+
+                        var activatedStandard = refreshedTaxpayer?.ActivatedTaxRateIds?
+                            .FirstOrDefault(id =>
+                                !string.IsNullOrWhiteSpace(id)
+                                && id.Trim().Equals(MraTaxRateCodes.StandardVat, StringComparison.OrdinalIgnoreCase));
+
+                        var refreshedStandardId = !string.IsNullOrWhiteSpace(activatedStandard)
+                            ? activatedStandard.Trim()
+                            : MraTaxRateCodes.StandardVat;
+
+                        var refreshedSiteId = FirstNonEmpty(refreshedTerminal?.TerminalSite?.SiteId);
+                        var refreshedSellerTin = FirstNonEmpty(refreshedTaxpayer?.Tin);
+
+                        return new MraFiscalIdentityOverlay(
+                            SellerTin: refreshedSellerTin ?? sellerTin,
+                            SiteId: refreshedSiteId ?? siteId,
+                            GlobalConfigVersion: refreshedGlobal?.VersionNo ?? global?.VersionNo ?? 1,
+                            TaxpayerConfigVersion: refreshedTaxpayer?.VersionNo ?? taxpayer?.VersionNo ?? 1,
+                            TerminalConfigVersion: refreshedTerminal?.VersionNo ?? terminal?.VersionNo ?? 1,
+                            StandardTaxRateId: refreshedStandardId,
+                            ConfiguredTaxRates: refreshedRates);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed refreshing latest MRA configs for payload normalize; falling back to cached identity.");
+                }
+            }
 
             return new MraFiscalIdentityOverlay(
                 SellerTin: sellerTin,
