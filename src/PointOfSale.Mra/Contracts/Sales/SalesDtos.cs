@@ -230,7 +230,9 @@ public sealed class SalesInvoiceSnapshotDto
 
 /// <summary>
 /// Full invoice returned by <c>POST sales/last-submitted-online-transaction</c> and offline variant.
+/// Prefer <see cref="SubmittedTransactionData"/> for deserialization of live EIS responses.
 /// </summary>
+[Obsolete("Use SubmittedTransactionData for last-submitted-* API responses.")]
 public sealed class LastSubmittedInvoiceDto
 {
     [JsonPropertyName("invoiceHeader")]

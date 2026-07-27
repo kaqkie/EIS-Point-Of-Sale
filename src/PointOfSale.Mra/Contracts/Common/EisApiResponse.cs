@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace PointOfSale.Mra.Contracts.Common;
 
-public sealed class EisApiResponse<T>
+public class EisApiResponse<T>
 {
     [JsonPropertyName("statusCode")]
     public int StatusCode { get; set; }
