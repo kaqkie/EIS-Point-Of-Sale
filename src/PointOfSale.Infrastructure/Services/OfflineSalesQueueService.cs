@@ -773,7 +773,8 @@ public sealed class OfflineSalesQueueService
                         .GetLatestConfigsAsync(cancellationToken)
                         .ConfigureAwait(false);
 
-                    if (latest.Success && latest.Configuration is not null)
+                    if (latest.IsUsable && latest.Configuration is not null &&
+                        (latest.Success || HasAnyConfiguration(latest.Configuration)))
                     {
                         var bundle = latest.Configuration;
                         var refreshedGlobal = bundle.GlobalConfiguration;
@@ -801,20 +802,32 @@ public sealed class OfflineSalesQueueService
                             StandardTaxRateId: refreshedStandardId,
                             ConfiguredTaxRates: refreshedRates);
 
-                        lock (LiveConfigRefreshGate)
+                        if (latest.Success)
                         {
-                            _liveConfigOverlayCache = overlay;
-                            _liveConfigRefreshUtc = DateTime.UtcNow;
-                        }
+                            lock (LiveConfigRefreshGate)
+                            {
+                                _liveConfigOverlayCache = overlay;
+                                _liveConfigRefreshUtc = DateTime.UtcNow;
+                            }
 
-                        _logger.LogInformation(
-                            "Refreshed fiscal identity from get-latest-configs. sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate} versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
-                            overlay.SellerTin,
-                            overlay.SiteId,
-                            overlay.StandardTaxRateId,
-                            overlay.GlobalConfigVersion ?? 0,
-                            overlay.TerminalConfigVersion ?? 0,
-                            overlay.TaxpayerConfigVersion ?? 0);
+                            _logger.LogInformation(
+                                "Refreshed fiscal identity from get-latest-configs. sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate} versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
+                                overlay.SellerTin,
+                                overlay.SiteId,
+                                overlay.StandardTaxRateId,
+                                overlay.GlobalConfigVersion ?? 0,
+                                overlay.TerminalConfigVersion ?? 0,
+                                overlay.TaxpayerConfigVersion ?? 0);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Using local activation fallback fiscal identity (live get-latest-configs unavailable). sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate}. {Remark}",
+                                overlay.SellerTin,
+                                overlay.SiteId,
+                                overlay.StandardTaxRateId,
+                                latest.Remark ?? "(null)");
+                        }
 
                         return overlay;
                     }
@@ -898,6 +911,11 @@ public sealed class OfflineSalesQueueService
 
         return null;
     }
+
+    private static bool HasAnyConfiguration(EisConfigurationBundleDto bundle) =>
+        bundle.GlobalConfiguration is not null
+        || bundle.TerminalConfiguration is not null
+        || bundle.TaxpayerConfiguration is not null;
 
     private static string? FirstNonEmpty(params string?[] values)
     {

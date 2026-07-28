@@ -308,7 +308,14 @@ public sealed class TerminalProvisioningService : ITerminalProvisioningService
             .ConfigureAwait(false);
 
         var configSync = await _onboarding.GetLatestConfigsAsync(cancellationToken).ConfigureAwait(false);
-        if (!configSync.Success)
+        if (configSync.UsedLocalFallback)
+        {
+            _logger.LogWarning(
+                "Terminal {TerminalId} activated; live configuration sync unavailable — using local activation fallback. {Remark}",
+                activate.TerminalId,
+                configSync.Remark);
+        }
+        else if (!configSync.Success)
         {
             _logger.LogWarning(
                 "Terminal {TerminalId} activated but configuration sync failed: {Remark}",

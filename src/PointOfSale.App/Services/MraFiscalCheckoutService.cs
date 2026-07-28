@@ -116,6 +116,15 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
         try
         {
             var result = await _terminalOnboardingService.GetLatestConfigsAsync(cancellationToken).ConfigureAwait(false);
+            if (result.UsedLocalFallback)
+            {
+                _logger.LogWarning(
+                    "Pre-checkout get-latest-configs unavailable for {TerminalId}; continuing with local activation fallback. {Remark}",
+                    terminalId,
+                    result.Remark ?? "(null)");
+                return ConfigSyncAttempt.Ok();
+            }
+
             if (!result.Success)
             {
                 _logger.LogWarning(

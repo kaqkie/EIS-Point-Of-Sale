@@ -141,6 +141,22 @@ public sealed class MraProductionHandshakeService : IMraProductionHandshakeServi
         using var scope = _scopeFactory.CreateScope();
         var onboarding = scope.ServiceProvider.GetRequiredService<TerminalOnboardingService>();
         var result = await onboarding.GetLatestConfigsAsync(cancellationToken).ConfigureAwait(false);
+        if (result.UsedLocalFallback)
+        {
+            await _complianceAudit.LogEventAsync(
+                    ComplianceAuditCategories.Certificate,
+                    "RenewCredentials",
+                    result.Remark ?? "Configuration refresh fell back to local activation credentials.",
+                    success: false,
+                    operatorUsername: _auth.CurrentOperator?.Username,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            throw new InvalidOperationException(
+                result.Remark ??
+                "MRA credential renewal could not reach get-latest-configs (HTTP 5xx). " +
+                "Local activation credentials remain in use for offline/test operation.");
+        }
+
         if (!result.Success)
         {
             await _complianceAudit.LogEventAsync(

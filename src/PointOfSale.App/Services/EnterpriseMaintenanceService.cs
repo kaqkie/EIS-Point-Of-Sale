@@ -215,6 +215,18 @@ public sealed class EnterpriseMaintenanceService : IEnterpriseMaintenanceService
         CancellationToken cancellationToken)
     {
         var configs = await _onboarding.GetLatestConfigsAsync(cancellationToken).ConfigureAwait(false);
+        if (configs.UsedLocalFallback)
+        {
+            return new EnterpriseMaintenanceResult
+            {
+                CommandType = EnterpriseMaintenanceCommandTypes.RenewMraCredentials,
+                Success = false,
+                Message = configs.Remark
+                    ?? "MRA get-latest-configs unavailable; local dbo.Terminals activation credentials remain in use.",
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
         if (!configs.Success)
         {
             return new EnterpriseMaintenanceResult

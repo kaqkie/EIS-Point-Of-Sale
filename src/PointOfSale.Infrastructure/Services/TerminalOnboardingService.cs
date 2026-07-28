@@ -6,6 +6,7 @@ using PointOfSale.Core.Entities;
 using PointOfSale.Core.Models;
 using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Contracts.Onboarding;
+using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Options;
 using PointOfSale.Mra.Security;
 using PointOfSale.Mra.Serialization;
@@ -190,7 +191,14 @@ public sealed class TerminalOnboardingService
         try
         {
             var configs = await GetLatestConfigsAsync(cancellationToken).ConfigureAwait(false);
-            if (!configs.Success)
+            if (configs.UsedLocalFallback)
+            {
+                _logger.LogWarning(
+                    "Post-confirmation get-latest-configs unavailable for {TerminalId}; continuing with local activation. {Remark}",
+                    request.TerminalId,
+                    configs.Remark);
+            }
+            else if (!configs.Success)
             {
                 _logger.LogWarning(
                     "Post-confirmation get-latest-configs failed for {TerminalId}: {Remark}",
@@ -226,44 +234,220 @@ public sealed class TerminalOnboardingService
             throw new InvalidOperationException("JWT token missing. Complete terminal activation first.");
         }
 
-        var response = await _apiClient
-            .GetLatestConfigsAsync<GetLatestConfigurationResponseData>(jwt, cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            var response = await _apiClient
+                .GetLatestConfigsAsync<GetLatestConfigurationResponseData>(jwt, cancellationToken)
+                .ConfigureAwait(false);
 
-        if (!response.IsSuccess || response.Data is null)
+            if (!response.IsSuccess || response.Data is null)
+            {
+                _logger.LogWarning(
+                    "get-latest-configs failed for {TerminalId}. statusCode={StatusCode}, remark={Remark}, errors={Errors}",
+                    terminalId,
+                    response.StatusCode,
+                    response.Remark ?? "(null)",
+                    response.Errors is null
+                        ? "(none)"
+                        : JsonSerializer.Serialize(response.Errors, MraJson.SerializerOptions));
+
+                return await TryFallbackToLocalActivationAsync(
+                        terminalId,
+                        response.StatusCode,
+                        response.Remark ?? "get-latest-configs returned a non-success EIS payload.",
+                        response.Errors,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            var bundle = new EisConfigurationBundleDto
+            {
+                GlobalConfiguration = response.Data.GlobalConfiguration,
+                TerminalConfiguration = response.Data.TerminalConfiguration,
+                TaxpayerConfiguration = response.Data.TaxpayerConfiguration
+            };
+
+            await CacheConfigurationBundleAsync(bundle, cancellationToken).ConfigureAwait(false);
+            await _terminalRepository.UpdateLastSyncedAsync(terminalId, DateTime.UtcNow, cancellationToken)
+                .ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "Cached get-latest-configs for {TerminalId}. sellerTIN={Tin}, siteId={SiteId}, versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
+                terminalId,
+                bundle.TaxpayerConfiguration?.Tin ?? "(null)",
+                bundle.TerminalConfiguration?.TerminalSite?.SiteId ?? "(null)",
+                bundle.GlobalConfiguration?.VersionNo ?? 0,
+                bundle.TerminalConfiguration?.VersionNo ?? 0,
+                bundle.TaxpayerConfiguration?.VersionNo ?? 0);
+
+            return LatestConfigurationResult.Succeeded(bundle, response.Remark);
+        }
+        catch (MraApiException ex) when (ex.HttpStatusCode >= 500 || ex.HttpStatusCode == 0)
+        {
+            // Sandbox often returns opaque HTTP 500 (or transport failure) on get-latest-configs.
+            // Do not fail startup / provisioning — fall back to dbo.Terminals activation + cached configs.
+            _logger.LogWarning(
+                ex,
+                "get-latest-configs threw HTTP {StatusCode} for {TerminalId}; attempting local activation fallback.",
+                ex.HttpStatusCode,
+                terminalId);
+
+            return await TryFallbackToLocalActivationAsync(
+                    terminalId,
+                    ex.HttpStatusCode,
+                    ex.Message,
+                    errors: null,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (MraApiException ex)
         {
             _logger.LogWarning(
-                "get-latest-configs failed for {TerminalId}. statusCode={StatusCode}, remark={Remark}, errors={Errors}",
+                ex,
+                "get-latest-configs client error HTTP {StatusCode} for {TerminalId}; attempting local activation fallback.",
+                ex.HttpStatusCode,
+                terminalId);
+
+            return await TryFallbackToLocalActivationAsync(
+                    terminalId,
+                    ex.HttpStatusCode,
+                    ex.Message,
+                    errors: null,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not InvalidOperationException)
+        {
+            _logger.LogWarning(
+                ex,
+                "get-latest-configs unexpected failure for {TerminalId}; attempting local activation fallback.",
+                terminalId);
+
+            return await TryFallbackToLocalActivationAsync(
+                    terminalId,
+                    httpStatusCode: 0,
+                    ex.Message,
+                    errors: null,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// When live <c>get-latest-configs</c> is unavailable (e.g. MRA sandbox HTTP 500), continue using
+    /// the activated row in <c>dbo.Terminals</c> plus DPAPI-stored JWT/secret and any cached
+    /// global/terminal/taxpayer configuration so offline / sandbox test sales can proceed.
+    /// </summary>
+    private async Task<LatestConfigurationResult> TryFallbackToLocalActivationAsync(
+        string terminalId,
+        int httpStatusCode,
+        string? remark,
+        IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? errors,
+        CancellationToken cancellationToken)
+    {
+        var terminal = await _terminalRepository.GetByIdAsync(terminalId, cancellationToken).ConfigureAwait(false);
+        if (terminal is null ||
+            !string.Equals(terminal.ActivationState, TerminalActivationStates.Activated, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(
+                "Local fallback unavailable for {TerminalId}: terminal missing or ActivationState={State}.",
                 terminalId,
-                response.StatusCode,
-                response.Remark ?? "(null)",
-                response.Errors is null
-                    ? "(none)"
-                    : JsonSerializer.Serialize(response.Errors, MraJson.SerializerOptions));
-            return LatestConfigurationResult.Failed(response.Remark, response.Errors);
+                terminal?.ActivationState ?? "(null)");
+            return LatestConfigurationResult.Failed(remark, errors, httpStatusCode);
         }
 
-        var bundle = new EisConfigurationBundleDto
+        var jwt = await _configurationRepository
+            .GetProtectedSecretPlainAsync(MraConfigurationKeys.JwtToken, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(jwt))
         {
-            GlobalConfiguration = response.Data.GlobalConfiguration,
-            TerminalConfiguration = response.Data.TerminalConfiguration,
-            TaxpayerConfiguration = response.Data.TaxpayerConfiguration
-        };
+            _logger.LogWarning(
+                "Local fallback unavailable for {TerminalId}: stored JWT credentials missing.",
+                terminalId);
+            return LatestConfigurationResult.Failed(
+                remark ?? "Activated terminal has no stored JWT for offline fallback.",
+                errors,
+                httpStatusCode);
+        }
 
-        await CacheConfigurationBundleAsync(bundle, cancellationToken).ConfigureAwait(false);
-        await _terminalRepository.UpdateLastSyncedAsync(terminalId, DateTime.UtcNow, cancellationToken)
+        if (string.IsNullOrWhiteSpace(terminal.SecretKey))
+        {
+            _logger.LogWarning(
+                "Local fallback for {TerminalId}: dbo.Terminals.SecretKey is empty; HMAC-signed sales may fail until re-activation.",
+                terminalId);
+        }
+
+        await TrySeedTaxpayerTinFromJwtAsync(cancellationToken).ConfigureAwait(false);
+
+        var cached = await TryLoadCachedConfigurationBundleAsync(cancellationToken).ConfigureAwait(false);
+        var fallbackRemark =
+            $"Live get-latest-configs unavailable (HTTP {httpStatusCode}). " +
+            $"Using local activation for {terminalId} (ActivationState={terminal.ActivationState}" +
+            (terminal.LastSyncedAt is { } synced ? $", LastSyncedAt={synced:O}" : string.Empty) +
+            "). " +
+            (string.IsNullOrWhiteSpace(remark) ? string.Empty : remark);
+
+        _logger.LogWarning(
+            "Using local MRA config fallback for {TerminalId}. ActivationState={State}, hasSecretKey={HasSecret}, hasCachedConfigs={HasCache}. Detail: {Remark}",
+            terminalId,
+            terminal.ActivationState,
+            !string.IsNullOrWhiteSpace(terminal.SecretKey),
+            cached is not null,
+            fallbackRemark);
+
+        // Prefer previously synced configs; otherwise return an empty bundle so callers can still
+        // treat the activated terminal + stored credentials as usable for offline/test flows.
+        return LatestConfigurationResult.SucceededFromLocalFallback(
+            cached ?? new EisConfigurationBundleDto(),
+            fallbackRemark,
+            httpStatusCode);
+    }
+
+    private async Task<EisConfigurationBundleDto?> TryLoadCachedConfigurationBundleAsync(
+        CancellationToken cancellationToken)
+    {
+        var globalJson = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.GlobalConfiguration, cancellationToken)
+            .ConfigureAwait(false);
+        var terminalJson = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TerminalConfiguration, cancellationToken)
+            .ConfigureAwait(false);
+        var taxpayerJson = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TaxpayerConfiguration, cancellationToken)
             .ConfigureAwait(false);
 
-        _logger.LogInformation(
-            "Cached get-latest-configs for {TerminalId}. sellerTIN={Tin}, siteId={SiteId}, versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
-            terminalId,
-            bundle.TaxpayerConfiguration?.Tin ?? "(null)",
-            bundle.TerminalConfiguration?.TerminalSite?.SiteId ?? "(null)",
-            bundle.GlobalConfiguration?.VersionNo ?? 0,
-            bundle.TerminalConfiguration?.VersionNo ?? 0,
-            bundle.TaxpayerConfiguration?.VersionNo ?? 0);
+        var global = TryDeserialize<GlobalConfigurationDto>(globalJson);
+        var terminal = TryDeserialize<TerminalConfigurationDto>(terminalJson);
+        var taxpayer = TryDeserialize<TaxpayerConfigurationDto>(taxpayerJson);
 
-        return LatestConfigurationResult.Succeeded(bundle, response.Remark);
+        if (global is null && terminal is null && taxpayer is null)
+        {
+            return null;
+        }
+
+        return new EisConfigurationBundleDto
+        {
+            GlobalConfiguration = global,
+            TerminalConfiguration = terminal,
+            TaxpayerConfiguration = taxpayer
+        };
+    }
+
+    private static T? TryDeserialize<T>(string? json) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, MraJson.SerializerOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -401,15 +585,46 @@ public sealed class TerminalConfirmationResult
 public sealed class LatestConfigurationResult
 {
     public bool Success { get; init; }
+
+    /// <summary>
+    /// True when live EIS sync failed (e.g. HTTP 500) but local <c>dbo.Terminals</c> activation
+    /// and stored credentials / cached configs were used instead.
+    /// </summary>
+    public bool UsedLocalFallback { get; init; }
+
+    /// <summary>Live sync succeeded, or local activation fallback is usable for offline/test flows.</summary>
+    public bool IsUsable => Success || UsedLocalFallback;
+
     public EisConfigurationBundleDto? Configuration { get; init; }
     public string? Remark { get; init; }
+    public int? HttpStatusCode { get; init; }
     public IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? Errors { get; init; }
 
     public static LatestConfigurationResult Succeeded(EisConfigurationBundleDto configuration, string? remark) =>
         new() { Success = true, Configuration = configuration, Remark = remark };
 
+    public static LatestConfigurationResult SucceededFromLocalFallback(
+        EisConfigurationBundleDto configuration,
+        string? remark,
+        int? httpStatusCode = null) =>
+        new()
+        {
+            Success = false,
+            UsedLocalFallback = true,
+            Configuration = configuration,
+            Remark = remark,
+            HttpStatusCode = httpStatusCode
+        };
+
     public static LatestConfigurationResult Failed(
         string? remark,
-        IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? errors) =>
-        new() { Success = false, Remark = remark, Errors = errors };
+        IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? errors,
+        int? httpStatusCode = null) =>
+        new()
+        {
+            Success = false,
+            Remark = remark,
+            Errors = errors,
+            HttpStatusCode = httpStatusCode
+        };
 }
