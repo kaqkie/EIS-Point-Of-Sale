@@ -57,6 +57,8 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         var verificationUrl = fiscal?.VerificationUrl?.Trim() ?? string.Empty;
         var isOfflinePending = FiscalReceiptEnricher.IsOfflinePlaceholder(fiscalSignature);
         var includeQr = !isOfflinePending && !string.IsNullOrWhiteSpace(verificationUrl);
+        var fiscalReceiptNumber = request.ResolveFiscalReceiptNumber();
+        var paymentLabel = request.ResolvePaymentMethodLabel();
 
         bool[,]? qrMatrix = null;
         BitmapSource? qrImage = null;
@@ -69,7 +71,7 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             ? request.InvoiceDateTime.ToLocalTime()
             : request.InvoiceDateTime;
 
-        // ---- Header (START + MRA portal + vendor identity) ----
+        // ---- 1. Header: business name, address, contact, Merchant TIN ----
         var header = new List<string>
         {
             Center(LegalReceiptStartBanner, charactersPerLine),
@@ -80,14 +82,29 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             Center(Truncate(request.TradingName, charactersPerLine), charactersPerLine)
         };
 
-        foreach (var address in request.AddressLines.Where(a => !string.IsNullOrWhiteSpace(a)))
+        var addressLines = request.AddressLines
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .Select(a => a.Trim())
+            .ToList();
+        if (addressLines.Count == 0)
         {
-            header.Add(Center(Truncate(address.Trim(), charactersPerLine), charactersPerLine));
+            header.Add(Center("Address: NOT CONFIGURED", charactersPerLine));
+        }
+        else
+        {
+            foreach (var address in addressLines)
+            {
+                header.Add(Center(Truncate(address, charactersPerLine), charactersPerLine));
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(request.ContactPhone))
         {
             header.Add(Center(Truncate($"Tel: {request.ContactPhone.Trim()}", charactersPerLine), charactersPerLine));
+        }
+        else
+        {
+            header.Add(Center("Tel: N/A", charactersPerLine));
         }
 
         if (!string.IsNullOrWhiteSpace(request.ContactEmail))
@@ -95,36 +112,35 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             header.Add(Center(Truncate($"Email: {request.ContactEmail.Trim()}", charactersPerLine), charactersPerLine));
         }
 
-        header.Add(Center(Truncate($"TIN: {FormatSellerTin(request.SellerTin)}", charactersPerLine), charactersPerLine));
+        header.Add(Center(
+            Truncate($"Merchant TIN: {FormatSellerTin(request.SellerTin)}", charactersPerLine),
+            charactersPerLine));
         header.Add(Center(VatRegisteredBanner, charactersPerLine));
         header.Add(Separator('-', charactersPerLine));
 
-        // ---- Buyer + receipt metadata ----
+        // ---- 2. Buyer placeholders + MRA fiscal receipt number ----
         var buyerTin = string.IsNullOrWhiteSpace(request.BuyerTin) ? "N/A" : request.BuyerTin.Trim();
         var buyerName = string.IsNullOrWhiteSpace(request.BuyerName) ? "WALK-IN CUSTOMER" : request.BuyerName.Trim();
         var meta = new List<string>
         {
             Truncate($"Buyer's TIN: {buyerTin}", charactersPerLine),
             Truncate($"Buyer's Name: {buyerName}", charactersPerLine),
-            Truncate($"RECEIPT NUMBER: {request.InvoiceNumber}", charactersPerLine),
-            Truncate($"Date: {localTime:yyyy-MM-dd}", charactersPerLine),
-            Truncate($"Time: {localTime:HH:mm:ss}", charactersPerLine),
+            Truncate($"FISCAL RECEIPT NUMBER: {fiscalReceiptNumber}", charactersPerLine),
+            Truncate($"Date/Time: {localTime:yyyy-MM-dd HH:mm:ss}", charactersPerLine),
             Separator('-', charactersPerLine),
-            Columns("QTY DESCRIPTION", "TOTAL TAX", charactersPerLine)
+            // Clear thermal columns: QTY | DESCRIPTION ........ AMOUNT
+            ItemHeaderLine(charactersPerLine)
         };
 
-        // ---- Line items: qty + description | total + tax code ----
+        // ---- 3. Itemized breakdown: qty, description, pricing ----
         var lineItems = new List<MraReceiptLineItemViewModel>();
         foreach (var item in request.LineItems)
         {
             var taxCode = string.IsNullOrWhiteSpace(item.TaxRateId) ? "A" : item.TaxRateId.Trim().ToUpperInvariant();
-            var left = $"{item.Quantity:N2} {item.Description}";
-            var right = $"{item.Total:N2} {taxCode}";
-            var qtyPriceLine = Columns(left, right, charactersPerLine);
-            // Keep a secondary line for unit detail (optional clarity on narrow paper).
+            var qtyPriceLine = FormatItemRow(item.Quantity, item.Description, item.Total, charactersPerLine);
             var detailLine = Columns(
-                $"  @ {item.UnitPrice:N2}",
-                taxCode,
+                $"  @ {item.UnitPrice:N2} x {item.Quantity:N2}",
+                $"VAT-{taxCode}",
                 charactersPerLine);
 
             lineItems.Add(new MraReceiptLineItemViewModel
@@ -140,12 +156,18 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             });
         }
 
-        // ---- Tax breakdown: TAXABLE A-17.5% / VAT A=17.5% ----
+        // ---- 4. Tax summary: taxable, VAT rate 17.5%, total VAT, grand total ----
         var taxLines = new List<string> { Separator('-', charactersPerLine) };
         if (request.TaxBreakdown.Count == 0)
         {
-            taxLines.Add(Columns($"TAXABLE A-{StatutoryVatPercentLabel}", $"{request.ResolveSubtotalNet():N2}", charactersPerLine));
-            taxLines.Add(Columns($"VAT A={StatutoryVatPercentLabel}", $"{request.ResolveTotalVat():N2}", charactersPerLine));
+            taxLines.Add(Columns(
+                $"TAXABLE AMOUNT A-{StatutoryVatPercentLabel}",
+                $"{request.ResolveSubtotalNet():N2}",
+                charactersPerLine));
+            taxLines.Add(Columns(
+                $"VAT RATE A={StatutoryVatPercentLabel}",
+                $"{request.ResolveTotalVat():N2}",
+                charactersPerLine));
         }
         else
         {
@@ -153,19 +175,28 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             {
                 var rateId = string.IsNullOrWhiteSpace(tax.RateId) ? "A" : tax.RateId.Trim().ToUpperInvariant();
                 var rateLabel = FormatStatutoryRateLabel(rateId);
-                taxLines.Add(Columns($"TAXABLE {rateId}-{rateLabel}", $"{tax.TaxableAmount:N2}", charactersPerLine));
-                taxLines.Add(Columns($"VAT {rateId}={rateLabel}", $"{tax.TaxAmount:N2}", charactersPerLine));
+                taxLines.Add(Columns(
+                    $"TAXABLE AMOUNT {rateId}-{rateLabel}",
+                    $"{tax.TaxableAmount:N2}",
+                    charactersPerLine));
+                taxLines.Add(Columns(
+                    $"VAT RATE {rateId}={rateLabel}",
+                    $"{tax.TaxAmount:N2}",
+                    charactersPerLine));
             }
         }
 
-        // ---- Summary totals ----
+        // ---- 5. Payment + tendered/change + totals ----
         var totals = new List<string>
         {
             Separator('-', charactersPerLine),
             Columns("TOTAL VAT", $"{request.ResolveTotalVat():N2}", charactersPerLine),
-            Columns("TOTAL", $"{request.InvoiceTotal:N2}", charactersPerLine),
-            Columns("AMOUNT", $"{request.AmountTendered:N2}", charactersPerLine),
+            Columns("GRAND TOTAL", $"{request.InvoiceTotal:N2}", charactersPerLine),
+            Separator('-', charactersPerLine),
+            Truncate($"PAYMENT METHOD: {paymentLabel}", charactersPerLine),
+            Columns("AMOUNT TENDERED", $"{request.AmountTendered:N2}", charactersPerLine),
             Columns("CHANGE", $"{request.ChangeDue:N2}", charactersPerLine),
+            Truncate($"TRANSACTION DATE/TIME: {localTime:yyyy-MM-dd HH:mm:ss}", charactersPerLine),
             Separator('-', charactersPerLine)
         };
 
@@ -300,6 +331,21 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         string.Equals(rateId, "A", StringComparison.OrdinalIgnoreCase)
             ? StatutoryVatPercentLabel
             : StatutoryVatPercentLabel;
+
+    /// <summary>Column header for qty / description / amount itemization.</summary>
+    internal static string ItemHeaderLine(int width) =>
+        Columns("QTY  DESCRIPTION", "AMOUNT", width);
+
+    /// <summary>
+    /// Formats one sale line as quantity + description (left) and line amount (right).
+    /// </summary>
+    internal static string FormatItemRow(decimal quantity, string description, decimal lineTotal, int width)
+    {
+        var qty = quantity.ToString("N2", CultureInfo.InvariantCulture);
+        var left = $"{qty} {description}".Trim();
+        var right = lineTotal.ToString("N2", CultureInfo.InvariantCulture);
+        return Columns(left, right, width);
+    }
 
     internal static string Separator(char ch, int width) => new(ch, Math.Min(width, 64));
 

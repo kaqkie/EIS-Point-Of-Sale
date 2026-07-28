@@ -68,6 +68,9 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
             if (text.Contains("START OF LEGAL RECEIPT", StringComparison.Ordinal)
                 || text.Contains("END OF LEGAL RECEIPT", StringComparison.Ordinal)
                 || text.Contains("VAT REGISTERED", StringComparison.Ordinal)
+                || text.Contains("GRAND TOTAL", StringComparison.Ordinal)
+                || text.Contains("FISCAL RECEIPT NUMBER", StringComparison.Ordinal)
+                || text.StartsWith("TOTAL VAT", StringComparison.Ordinal)
                 || text.StartsWith("TOTAL", StringComparison.Ordinal))
             {
                 document.Blocks.Add(HeadingInline(text.Trim()));
@@ -210,6 +213,9 @@ public sealed class ReceiptPrintRequest
     /// <summary>Vendor contact email printed in the legal receipt header.</summary>
     public string? ContactEmail { get; init; }
 
+    /// <summary>Payment method printed on the legal receipt (e.g. CASH, CARD, MOBILE MONEY).</summary>
+    public string? PaymentMethod { get; init; }
+
     public decimal ResolveSubtotalNet() =>
         SubtotalNet > 0m
             ? SubtotalNet
@@ -221,6 +227,40 @@ public sealed class ReceiptPrintRequest
             : TaxBreakdown.Sum(t => t.TaxAmount);
 
     public decimal ChangeDue => Math.Max(0m, AmountTendered - InvoiceTotal);
+
+    /// <summary>
+    /// MRA-assigned fiscal receipt / invoice number (composite Base64 form, e.g. <c>CV-WEB-JY4+-C</c>).
+    /// Prefers the EIS response invoice number when present.
+    /// </summary>
+    public string ResolveFiscalReceiptNumber()
+    {
+        var fromEis = FiscalResponse?.InvoiceNumber?.Trim();
+        if (!string.IsNullOrWhiteSpace(fromEis))
+        {
+            return fromEis;
+        }
+
+        return string.IsNullOrWhiteSpace(InvoiceNumber) ? "PENDING" : InvoiceNumber.Trim();
+    }
+
+    /// <summary>Normalizes payment method for thermal print (uppercase legal label).</summary>
+    public string ResolvePaymentMethodLabel()
+    {
+        if (string.IsNullOrWhiteSpace(PaymentMethod))
+        {
+            return "CASH";
+        }
+
+        var normalized = PaymentMethod.Trim();
+        return normalized.ToUpperInvariant() switch
+        {
+            "MOBILEMONEY" or "MOBILE_MONEY" or "MOBILE MONEY" => "MOBILE MONEY",
+            "CARD" => "CARD",
+            "SPLIT" => "SPLIT",
+            "CASH" => "CASH",
+            _ => normalized.ToUpperInvariant()
+        };
+    }
 }
 
 public sealed class ReceiptPrintResult

@@ -77,13 +77,14 @@ public sealed class FiscalConnectivityAndReceiptTests
             {
                 TradingName = "Albert Retail",
                 SellerTin = "2007123456",
-                AddressLines = ["City Center"],
+                AddressLines = ["City Center", "Lilongwe"],
                 ContactPhone = "+265 1 234 567",
                 ContactEmail = "shop@albertretail.mw",
                 BuyerTin = "9876543210",
                 BuyerName = "Test Buyer",
-                InvoiceNumber = "ART-LAYOUT-1",
+                InvoiceNumber = "CV-WEB-JY4+-C",
                 InvoiceDateTime = new DateTime(2026, 7, 24, 9, 0, 0),
+                PaymentMethod = "Cash",
                 LineItems =
                 [
                     new InvoiceLineItemDto
@@ -113,9 +114,9 @@ public sealed class FiscalConnectivityAndReceiptTests
                 TotalVat = 17.5m,
                 FiscalResponse = new SubmitSalesTransactionResponseData
                 {
-                    InvoiceNumber = "ART-LAYOUT-1",
+                    InvoiceNumber = "CV-WEB-JY4+-C",
                     FiscalSignature = "FSIG-LIVE-LAYOUT",
-                    VerificationUrl = "https://dev-eis-portal.mra.mw/verify?invoice=ART-LAYOUT-1&sig=FSIG-LIVE-LAYOUT"
+                    VerificationUrl = "https://dev-eis-portal.mra.mw/verify?invoice=CV-WEB-JY4+-C&sig=FSIG-LIVE-LAYOUT"
                 }
             },
             charactersPerLine: 42);
@@ -125,17 +126,26 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains(MraReceiptLayoutService.LegalReceiptEndBanner, text, StringComparison.Ordinal);
         Assert.Contains(MraReceiptLayoutService.VatRegisteredBanner, text, StringComparison.Ordinal);
         Assert.Contains("MALAWI REVENUE AUTHORITY", text, StringComparison.Ordinal);
-        Assert.Contains("RECEIPT NUMBER: ART-LAYOUT-1", text, StringComparison.Ordinal);
+        Assert.Contains("Albert Retail", text, StringComparison.Ordinal);
+        Assert.Contains("City Center", text, StringComparison.Ordinal);
+        Assert.Contains("Tel: +265 1 234 567", text, StringComparison.Ordinal);
+        Assert.Contains("Email: shop@albertretail.mw", text, StringComparison.Ordinal);
+        Assert.Contains("Merchant TIN: 2007123456", text, StringComparison.Ordinal);
+        Assert.Contains("FISCAL RECEIPT NUMBER: CV-WEB-JY4+-C", text, StringComparison.Ordinal);
         Assert.Contains("Buyer's TIN: 9876543210", text, StringComparison.Ordinal);
-        Assert.Contains("TIN: 2007123456", text, StringComparison.Ordinal);
-        Assert.Contains("Date: 2026-07-24", text, StringComparison.Ordinal);
-        Assert.Contains("Time: 09:00:00", text, StringComparison.Ordinal);
-        Assert.Contains("TAXABLE A-17.5%", text, StringComparison.Ordinal);
-        Assert.Contains("VAT A=17.5%", text, StringComparison.Ordinal);
-        Assert.Contains("TOTAL VAT", text, StringComparison.Ordinal);
+        Assert.Contains("Buyer's Name: Test Buyer", text, StringComparison.Ordinal);
+        Assert.Contains("QTY  DESCRIPTION", text, StringComparison.Ordinal);
         Assert.Contains("AMOUNT", text, StringComparison.Ordinal);
+        Assert.Contains("Bread", text, StringComparison.Ordinal);
+        Assert.Contains("TAXABLE AMOUNT A-17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("VAT RATE A=17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("TOTAL VAT", text, StringComparison.Ordinal);
+        Assert.Contains("GRAND TOTAL", text, StringComparison.Ordinal);
+        Assert.Contains("PAYMENT METHOD: CASH", text, StringComparison.Ordinal);
+        Assert.Contains("AMOUNT TENDERED", text, StringComparison.Ordinal);
         Assert.Contains("CHANGE", text, StringComparison.Ordinal);
-        Assert.Contains(" A", layout.LineItems[0].QuantityPriceLine, StringComparison.Ordinal);
+        Assert.Contains("TRANSACTION DATE/TIME: 2026-07-24 09:00:00", text, StringComparison.Ordinal);
+        Assert.Contains("Date/Time: 2026-07-24 09:00:00", text, StringComparison.Ordinal);
         Assert.False(layout.FiscalStatus.IsOfflinePending);
         Assert.True(layout.FiscalStatus.IncludeQrCode);
         Assert.NotNull(layout.FiscalStatus.QrModuleMatrix);
@@ -165,6 +175,7 @@ public sealed class FiscalConnectivityAndReceiptTests
                 AddressLines = ["City Center"],
                 InvoiceNumber = "ART-LAYOUT-2",
                 InvoiceDateTime = DateTime.UtcNow,
+                PaymentMethod = "Card",
                 LineItems =
                 [
                     new InvoiceLineItemDto
@@ -199,7 +210,33 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.DoesNotContain(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
         Assert.Contains(MraReceiptLayoutService.LegalReceiptStartBanner, text, StringComparison.Ordinal);
         Assert.Contains(MraReceiptLayoutService.LegalReceiptEndBanner, text, StringComparison.Ordinal);
-        Assert.Contains("VAT A=17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("VAT RATE A=17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("PAYMENT METHOD: CARD", text, StringComparison.Ordinal);
         Assert.Contains("OFFLINE", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ReceiptPrintRequest_ResolvesFiscalNumberAndPaymentLabels()
+    {
+        var request = new ReceiptPrintRequest
+        {
+            TradingName = "Albert Retail",
+            SellerTin = "2007123456",
+            AddressLines = ["City Center"],
+            InvoiceNumber = "LOCAL-1",
+            InvoiceDateTime = DateTime.UtcNow,
+            LineItems = [],
+            TaxBreakdown = [],
+            InvoiceTotal = 0m,
+            AmountTendered = 0m,
+            PaymentMethod = "MobileMoney",
+            FiscalResponse = new SubmitSalesTransactionResponseData
+            {
+                InvoiceNumber = "CV-WEB-JY4+-C"
+            }
+        };
+
+        Assert.Equal("CV-WEB-JY4+-C", request.ResolveFiscalReceiptNumber());
+        Assert.Equal("MOBILE MONEY", request.ResolvePaymentMethodLabel());
     }
 }

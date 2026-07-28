@@ -393,6 +393,7 @@ public sealed class HardwareIntegrationService : IHardwareIntegrationService
             TotalVat = request.ResolveTotalVat(),
             InvoiceTotal = request.InvoiceTotal,
             AmountTendered = request.AmountTendered,
+            PaymentMethod = request.PaymentMethod,
             FiscalResponse = request.FiscalResponse
         };
     }

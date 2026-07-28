@@ -1203,6 +1203,7 @@ public partial class CheckoutViewModel : ObservableObject
             TotalVat = request.InvoiceSummary.TotalVat,
             InvoiceTotal = request.InvoiceSummary.InvoiceTotal,
             AmountTendered = request.InvoiceSummary.AmountTendered,
+            PaymentMethod = request.InvoiceHeader.PaymentMethod,
             FiscalResponse = fiscal
         };
 
