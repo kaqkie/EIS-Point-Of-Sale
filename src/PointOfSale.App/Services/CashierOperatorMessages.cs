@@ -131,6 +131,25 @@ public static class CashierOperatorMessages
             OperatorMessageSeverity.Information,
             SuggestOfflineFallback: false);
 
+    public static OperatorMessage TerminalBlockedByMra(string? officialMessage, DateTime? blockedAt = null)
+    {
+        var when = blockedAt is DateTime at
+            ? $"\n\nBlocked at (UTC): {at:yyyy-MM-dd HH:mm:ss}"
+            : string.Empty;
+        var body =
+            "Albert Retail Terminal must stop all sales processing until MRA unblocks this terminal.\n\n" +
+            "Official MRA explanation:\n" +
+            Truncate(officialMessage ?? "No blocking reason was returned. Contact MRA Taxpayer Services.") +
+            when +
+            "\n\nNext steps: contact MRA / your tax consultant, then use Check Terminal Unblock Status once cleared.";
+
+        return new OperatorMessage(
+            "Terminal blocked by MRA",
+            body,
+            OperatorMessageSeverity.Error,
+            SuggestOfflineFallback: false);
+    }
+
     private static string Truncate(string message) =>
         message.Length <= 400 ? message : message[..397] + "...";
 }
@@ -185,12 +204,30 @@ public sealed class ProductionSecretGuard : IProductionSecretGuard
                 "MRA fiscal signing certificate lockout is active. Renew credentials from Compliance Audit before live sales.");
         }
 
+        if (runtime?.TerminalBlockedActive == true)
+        {
+            throw new InvalidOperationException(
+                "This terminal is blocked by the Malawi Revenue Authority. " +
+                (runtime.TerminalBlockingReason
+                 ?? "Retrieve the official blocking message and stop sales until MRA unblocks the terminal."));
+        }
+
+        var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
+        var blockingJson = await configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TerminalBlockingState, cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(blockingJson)
+            && blockingJson.Contains("\"isBlocked\":true", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "This terminal remains blocked by MRA. Stop sales and contact MRA Taxpayer Services until unblocked.");
+        }
+
         if (!isProduction || !_deployment.Value.RequireEncryptedSecrets)
         {
             return;
         }
 
-        var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
         var terminalRepository = scope.ServiceProvider.GetRequiredService<ITerminalRepository>();
 
         var jwt = await configurationRepository

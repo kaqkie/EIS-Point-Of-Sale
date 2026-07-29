@@ -35,6 +35,7 @@ public sealed class OfflineSalesQueueService
     private readonly IConfigurationRepository? _configurationRepository;
     private readonly IMraInvoiceSequenceService? _invoiceSequenceService;
     private readonly TerminalOnboardingService? _terminalOnboardingService;
+    private readonly TerminalBlockingMessageService? _terminalBlockingMessageService;
     private readonly IOfflineInvoiceSyncCompletedHandler? _syncCompletedHandler;
     private readonly IComplianceAuditLogger? _complianceAudit;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
@@ -53,6 +54,7 @@ public sealed class OfflineSalesQueueService
         IConfigurationRepository? configurationRepository = null,
         IMraInvoiceSequenceService? invoiceSequenceService = null,
         TerminalOnboardingService? terminalOnboardingService = null,
+        TerminalBlockingMessageService? terminalBlockingMessageService = null,
         IMraEisResponseEvaluator? responseEvaluator = null)
     {
         _queueRepository = queueRepository;
@@ -65,6 +67,7 @@ public sealed class OfflineSalesQueueService
         _configurationRepository = configurationRepository;
         _invoiceSequenceService = invoiceSequenceService;
         _terminalOnboardingService = terminalOnboardingService;
+        _terminalBlockingMessageService = terminalBlockingMessageService;
         _responseEvaluator = responseEvaluator ?? new MraEisResponseEvaluator(
             NullLogger<MraEisResponseEvaluator>.Instance);
     }
@@ -339,7 +342,14 @@ public sealed class OfflineSalesQueueService
                     }
                 }
 
-                return SaleQueueResult.Submitted(queueId, payload.InvoiceHeader.InvoiceNumber, submit.Data, submit.Remark);
+                var blockHandling = await TryHandleTerminalBlockAsync(submit.Data, cancellationToken)
+                    .ConfigureAwait(false);
+                return SaleQueueResult.Submitted(
+                    queueId,
+                    payload.InvoiceHeader.InvoiceNumber,
+                    submit.Data,
+                    submit.Remark,
+                    blockHandling);
             }
 
             if (submit.Success)
@@ -353,6 +363,9 @@ public sealed class OfflineSalesQueueService
 
             // HTTP was successful, but MRA returned success=false (logical failure).
             // Classify known EIS status / field error codes for quarantine vs retry vs config sync.
+            // Also honor shouldBlockTerminal / shouldBoardTerminal when present on failure payloads.
+            var failureBlockHandling = await TryHandleTerminalBlockAsync(submit.Data, cancellationToken)
+                .ConfigureAwait(false);
             var evaluation = _responseEvaluator.Evaluate(submit.StatusCode, submit.Remark, submit.Errors);
             _logger.LogWarning(
                 "MRA EIS submission returned success=false for queue {QueueId} invoice {InvoiceNumber}. " +
@@ -380,19 +393,23 @@ public sealed class OfflineSalesQueueService
                 }
             }
 
-            if (evaluation.ShouldQuarantine || IsPermanentBusinessFailure(submit, evaluation))
+            if (evaluation.ShouldQuarantine
+                || IsPermanentBusinessFailure(submit, evaluation)
+                || failureBlockHandling?.IsBlocked == true)
             {
                 var quarantineRemark = TruncateError(
-                    evaluation.TechnicalDetail.Length > 0
+                    failureBlockHandling?.OperatorMessage
+                    ?? (evaluation.TechnicalDetail.Length > 0
                         ? evaluation.TechnicalDetail
-                        : submit.Remark ?? "MRA rejected sale.");
+                        : submit.Remark ?? "MRA rejected sale."));
                 await _queueRepository
                     .MarkQuarantinedAsync(queueId, quarantineRemark, cancellationToken)
                     .ConfigureAwait(false);
                 return SaleQueueResult.Quarantined(
                     queueId,
                     payload.InvoiceHeader.InvoiceNumber,
-                    evaluation.OperatorMessage);
+                    failureBlockHandling?.OperatorMessage ?? evaluation.OperatorMessage,
+                    failureBlockHandling);
             }
 
             await ScheduleRetryAsync(
@@ -423,7 +440,8 @@ public sealed class OfflineSalesQueueService
                 queueId,
                 payload.InvoiceHeader.InvoiceNumber,
                 submittedOnline: false,
-                evaluation.OperatorMessage);
+                evaluation.OperatorMessage,
+                failureBlockHandling);
         }
         catch (MraApiException ex) when (ex.LooksLikeValidationOrClientError()
             || _responseEvaluator.EvaluateException(ex).ShouldQuarantine)
@@ -1188,6 +1206,44 @@ public sealed class OfflineSalesQueueService
         _complianceAudit is null
             ? Task.CompletedTask
             : _complianceAudit.LogEventAsync(category, action, detail, success, correlationId, cancellationToken: cancellationToken);
+
+    private async Task<TerminalBlockHandlingResult?> TryHandleTerminalBlockAsync(
+        SubmitSalesTransactionResponseData? salesData,
+        CancellationToken cancellationToken)
+    {
+        if (_terminalBlockingMessageService is null
+            || salesData is null
+            || !salesData.RequiresTerminalBlockHandling)
+        {
+            return null;
+        }
+
+        try
+        {
+            var handling = await _terminalBlockingMessageService
+                .HandleSalesResponseAsync(salesData, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (handling.IsBlocked)
+            {
+                await LogComplianceAsync(
+                        ComplianceAuditCategories.TransactionSubmission,
+                        "TerminalBlockedByMra",
+                        handling.OperatorMessage ?? "MRA blocked this terminal.",
+                        success: false,
+                        correlationId: salesData.InvoiceNumber,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            return handling;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed while handling shouldBlockTerminal / shouldBoardTerminal.");
+            return null;
+        }
+    }
 }
 
 public sealed class SaleQueueResult
@@ -1198,37 +1254,59 @@ public sealed class SaleQueueResult
     public bool IsQuarantined { get; init; }
     public string? Remark { get; init; }
     public SubmitSalesTransactionResponseData? Response { get; init; }
+    public bool TerminalBlocked { get; init; }
+    public string? OfficialBlockingMessage { get; init; }
+    public DateTime? TerminalBlockedAt { get; init; }
 
     public static SaleQueueResult Submitted(
         int queueId,
         string invoiceNumber,
         SubmitSalesTransactionResponseData? response,
-        string? remark) =>
+        string? remark,
+        TerminalBlockHandlingResult? blockHandling = null) =>
         new()
         {
             QueueId = queueId,
             InvoiceNumber = invoiceNumber,
             SubmittedOnline = true,
             Response = response,
-            Remark = remark
+            Remark = remark,
+            TerminalBlocked = blockHandling?.IsBlocked == true,
+            OfficialBlockingMessage = blockHandling?.OperatorMessage,
+            TerminalBlockedAt = blockHandling?.State?.BlockedAt
         };
 
-    public static SaleQueueResult Queued(int queueId, string invoiceNumber, bool submittedOnline, string? remark = null) =>
+    public static SaleQueueResult Queued(
+        int queueId,
+        string invoiceNumber,
+        bool submittedOnline,
+        string? remark = null,
+        TerminalBlockHandlingResult? blockHandling = null) =>
         new()
         {
             QueueId = queueId,
             InvoiceNumber = invoiceNumber,
             SubmittedOnline = submittedOnline,
-            Remark = remark
+            Remark = remark,
+            TerminalBlocked = blockHandling?.IsBlocked == true,
+            OfficialBlockingMessage = blockHandling?.OperatorMessage,
+            TerminalBlockedAt = blockHandling?.State?.BlockedAt
         };
 
-    public static SaleQueueResult Quarantined(int queueId, string invoiceNumber, string remark) =>
+    public static SaleQueueResult Quarantined(
+        int queueId,
+        string invoiceNumber,
+        string remark,
+        TerminalBlockHandlingResult? blockHandling = null) =>
         new()
         {
             QueueId = queueId,
             InvoiceNumber = invoiceNumber,
             IsQuarantined = true,
-            Remark = remark
+            Remark = remark,
+            TerminalBlocked = blockHandling?.IsBlocked == true,
+            OfficialBlockingMessage = blockHandling?.OperatorMessage,
+            TerminalBlockedAt = blockHandling?.State?.BlockedAt
         };
 }
 

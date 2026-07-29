@@ -167,6 +167,23 @@ public sealed class SubmitSalesTransactionResponseData
     [JsonPropertyName("shouldDownloadLatestConfig")]
     public bool ShouldDownloadLatestConfig { get; set; }
 
+    /// <summary>
+    /// When true, Albert Retail Terminal must call <c>get-terminal-blocking-message</c>,
+    /// display the official reason, and stop further sales processing.
+    /// </summary>
+    [JsonPropertyName("shouldBlockTerminal")]
+    public bool ShouldBlockTerminal { get; set; }
+
+    /// <summary>
+    /// Alternate EIS flag used by some responses; treated the same as <see cref="ShouldBlockTerminal"/>.
+    /// </summary>
+    [JsonPropertyName("shouldBoardTerminal")]
+    public bool ShouldBoardTerminal { get; set; }
+
+    /// <summary>True when either boarding/blocking flag requires the blocking-message utility call.</summary>
+    [JsonIgnore]
+    public bool RequiresTerminalBlockHandling => ShouldBlockTerminal || ShouldBoardTerminal;
+
     public string ResolveFiscalSignature() =>
         !string.IsNullOrWhiteSpace(FiscalSignature) ? FiscalSignature! : FiscalCode ?? string.Empty;
 }

@@ -881,9 +881,21 @@ public partial class CheckoutViewModel : ObservableObject
 
             if (result.IsQuarantined)
             {
-                var message = CashierOperatorMessages.Quarantined(result.Remark);
-                ShowOperatorDialog(message);
-                StatusMessage = message.Title;
+                if (result.TerminalBlocked)
+                {
+                    var blocked = CashierOperatorMessages.TerminalBlockedByMra(
+                        result.OfficialBlockingMessage ?? result.Remark,
+                        result.TerminalBlockedAt);
+                    ShowOperatorDialog(blocked);
+                    StatusMessage = blocked.Title;
+                }
+                else
+                {
+                    var message = CashierOperatorMessages.Quarantined(result.Remark);
+                    ShowOperatorDialog(message);
+                    StatusMessage = message.Title;
+                }
+
                 await RefreshQueueBadgeAsync().ConfigureAwait(true);
                 return;
             }
@@ -894,13 +906,22 @@ public partial class CheckoutViewModel : ObservableObject
                     result.Response,
                     result.InvoiceNumber);
                 await PrintReceiptAsync(request, fiscal).ConfigureAwait(true);
-                var ok = CashierOperatorMessages.SubmittedOnline(result.InvoiceNumber);
-                StatusMessage = $"{ok.Body} Receipt sent to printer.";
+                if (result.TerminalBlocked)
+                {
+                    var blocked = CashierOperatorMessages.TerminalBlockedByMra(
+                        result.OfficialBlockingMessage,
+                        result.TerminalBlockedAt);
+                    ShowOperatorDialog(blocked);
+                    StatusMessage = blocked.Title;
+                }
+                else
+                {
+                    var ok = CashierOperatorMessages.SubmittedOnline(result.InvoiceNumber);
+                    StatusMessage = $"{ok.Body} Receipt sent to printer.";
+                }
             }
             else
             {
-                var queued = CashierOperatorMessages.QueuedOffline(result.InvoiceNumber, forceOffline);
-                ShowOperatorDialog(queued);
                 // Same cash-register / POS path: always print a customer receipt after a successful take.
                 await PrintReceiptAsync(
                         request,
@@ -913,7 +934,21 @@ public partial class CheckoutViewModel : ObservableObject
                             },
                             result.InvoiceNumber))
                     .ConfigureAwait(true);
-                StatusMessage = $"{queued.Body} Receipt sent to printer.";
+
+                if (result.TerminalBlocked)
+                {
+                    var blocked = CashierOperatorMessages.TerminalBlockedByMra(
+                        result.OfficialBlockingMessage ?? result.Remark,
+                        result.TerminalBlockedAt);
+                    ShowOperatorDialog(blocked);
+                    StatusMessage = blocked.Title;
+                }
+                else
+                {
+                    var queued = CashierOperatorMessages.QueuedOffline(result.InvoiceNumber, forceOffline);
+                    ShowOperatorDialog(queued);
+                    StatusMessage = $"{queued.Body} Receipt sent to printer.";
+                }
             }
 
             // Capture before cart reset — earn points on the final paid invoice total.

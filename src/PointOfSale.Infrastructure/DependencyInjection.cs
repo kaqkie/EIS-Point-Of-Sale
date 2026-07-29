@@ -84,6 +84,7 @@ public static class DependencyInjection
         services.AddSingleton<IVat5CertificateResponseService, Vat5CertificateResponseService>();
         services.AddScoped<ITerminalSiteProductsCatalogSyncService, TerminalSiteProductsCatalogSyncService>();
         services.AddScoped<Vat5CertificateValidationService>();
+        services.AddScoped<TerminalBlockingMessageService>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();

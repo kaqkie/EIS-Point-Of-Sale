@@ -35,7 +35,9 @@ public static class FiscalReceiptEnricher
                 FiscalCode = response.FiscalCode,
                 FiscalSignature = string.IsNullOrWhiteSpace(signature) ? OfflinePendingPlaceholder : signature,
                 VerificationUrl = null,
-                ShouldDownloadLatestConfig = response.ShouldDownloadLatestConfig
+                ShouldDownloadLatestConfig = response.ShouldDownloadLatestConfig,
+                ShouldBlockTerminal = response.ShouldBlockTerminal,
+                ShouldBoardTerminal = response.ShouldBoardTerminal
             };
         }
 
@@ -69,7 +71,9 @@ public static class FiscalReceiptEnricher
             FiscalCode = response.FiscalCode,
             FiscalSignature = string.IsNullOrWhiteSpace(response.FiscalSignature) ? signature : response.FiscalSignature,
             VerificationUrl = verificationUrl,
-            ShouldDownloadLatestConfig = response.ShouldDownloadLatestConfig
+            ShouldDownloadLatestConfig = response.ShouldDownloadLatestConfig,
+            ShouldBlockTerminal = response.ShouldBlockTerminal,
+            ShouldBoardTerminal = response.ShouldBoardTerminal
         };
     }
 

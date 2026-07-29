@@ -339,6 +339,23 @@ public class MockMraEisServer : IDisposable
             });
         }
 
+        if (path.Contains("get-terminal-blocking-message", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateJsonResponse(HttpStatusCode.OK, new
+            {
+                statusCode = 1,
+                remark = "Terminal blocking message retrieved.",
+                data = new
+                {
+                    isBlocked = true,
+                    blockingReason =
+                        "Terminal blocked by MRA for compliance review. Contact MRA Taxpayer Services and stop all sales until the terminal is unblocked.",
+                    blockedAt = "2025-05-28T06:42:59.980Z"
+                },
+                errors = (object?)null
+            });
+        }
+
         if (path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
         {
             return await _inventoryResponder(request, body).ConfigureAwait(false);

@@ -15,6 +15,9 @@ public sealed class MraRuntimeEnvironmentState
     public DateTime? CertificateNotAfterUtc { get; private set; }
     public bool FiscalLockoutActive { get; private set; }
     public string? LastCertificateWarning { get; private set; }
+    public bool TerminalBlockedActive { get; private set; }
+    public string? TerminalBlockingReason { get; private set; }
+    public DateTime? TerminalBlockedAtUtc { get; private set; }
 
     public bool IsLiveProductionActive(MraApiOptions options) =>
         string.Equals(GetEffectiveEnvironment(options), "Production", StringComparison.OrdinalIgnoreCase);
@@ -81,6 +84,16 @@ public sealed class MraRuntimeEnvironmentState
             CertificateNotAfterUtc = notAfterUtc;
             LastCertificateWarning = warning;
             FiscalLockoutActive = lockout;
+        }
+    }
+
+    public void SetTerminalBlocked(bool blocked, string? reason, DateTime? blockedAtUtc)
+    {
+        lock (_sync)
+        {
+            TerminalBlockedActive = blocked;
+            TerminalBlockingReason = blocked ? reason : null;
+            TerminalBlockedAtUtc = blocked ? blockedAtUtc : null;
         }
     }
 

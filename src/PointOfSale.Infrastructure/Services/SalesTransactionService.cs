@@ -401,7 +401,7 @@ public sealed class SalesTransactionService
     private static SalesResult<T> ToResult<T>(EisApiResponse<T> response) =>
         response.IsSuccess && response.Data is not null
             ? SalesResult<T>.Succeeded(response.Data, response.Remark)
-            : SalesResult<T>.Failed(response.StatusCode, response.Remark, response.Errors);
+            : SalesResult<T>.Failed(response.StatusCode, response.Remark, response.Errors, response.Data);
 }
 
 public sealed class SalesResult<T>
@@ -418,8 +418,12 @@ public sealed class SalesResult<T>
     public static SalesResult<T> Failed(string? remark, IReadOnlyList<EisApiError>? errors) =>
         Failed(statusCode: 0, remark, errors);
 
-    public static SalesResult<T> Failed(int statusCode, string? remark, IReadOnlyList<EisApiError>? errors) =>
-        new() { Success = false, StatusCode = statusCode, Remark = remark, Errors = errors };
+    public static SalesResult<T> Failed(
+        int statusCode,
+        string? remark,
+        IReadOnlyList<EisApiError>? errors,
+        T? data = default) =>
+        new() { Success = false, StatusCode = statusCode, Remark = remark, Errors = errors, Data = data };
 }
 
 /// <summary>
