@@ -243,6 +243,70 @@ public sealed class TerminalBlockingMessageService
         _runtimeState?.SetTerminalBlocked(false, null, null);
     }
 
+    /// <summary>
+    /// <c>POST /api/v1/utilities/check-terminal-unblock-status</c> —
+    /// when <c>data.isUnblocked</c> is true, clears local terminal lockout so sales can resume.
+    /// </summary>
+    public async Task<TerminalUnblockCheckResult> CheckTerminalUnblockStatusAsync(
+        CheckTerminalUnblockStatusRequest? request = null,
+        CancellationToken cancellationToken = default)
+    {
+        var terminalId = FirstNonEmpty(request?.TerminalId);
+        if (string.IsNullOrWhiteSpace(terminalId))
+        {
+            terminalId = await _authProvider.GetActiveTerminalIdAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        if (string.IsNullOrWhiteSpace(terminalId))
+        {
+            return TerminalUnblockCheckResult.Failed("No active terminalId is available for check-terminal-unblock-status.");
+        }
+
+        var payload = new CheckTerminalUnblockStatusRequest { TerminalId = terminalId.Trim() };
+        var signed = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
+        var context = new MraRequestContext
+        {
+            JwtToken = signed.JwtToken,
+            SecretKey = signed.SecretKey,
+            UseBearerAuthorization = true,
+            AcceptHeader = "text/plain"
+        };
+
+        var response = await _apiClient
+            .PostAsync<CheckTerminalUnblockStatusRequest, TerminalUnblockStatusData>(
+                "utilities/check-terminal-unblock-status",
+                payload,
+                context,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!response.IsSuccess || response.Data is null)
+        {
+            _logger.LogWarning(
+                "check-terminal-unblock-status failed for terminalId={TerminalId}. Remark={Remark}",
+                payload.TerminalId,
+                response.Remark ?? "(null)");
+            return TerminalUnblockCheckResult.Failed(
+                response.Remark ?? "Unable to check terminal unblock status.",
+                response.StatusCode,
+                response.Errors,
+                payload.TerminalId);
+        }
+
+        var isUnblocked = response.Data.IsUnblocked;
+        _logger.LogInformation(
+            "check-terminal-unblock-status for terminalId={TerminalId} isUnblocked={IsUnblocked}",
+            payload.TerminalId,
+            isUnblocked);
+
+        if (isUnblocked)
+        {
+            await ClearBlockingStateAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return TerminalUnblockCheckResult.Succeeded(payload.TerminalId, isUnblocked, response.Remark);
+    }
+
     private Task PersistBlockingStateAsync(
         TerminalBlockingStateSnapshot snapshot,
         CancellationToken cancellationToken) =>
@@ -365,4 +429,39 @@ public sealed class TerminalBlockingStateSnapshot
     public bool TriggeredByShouldBlockTerminal { get; init; }
     public bool TriggeredByShouldBoardTerminal { get; init; }
     public bool OfficialMessageRetrieved { get; init; }
+}
+
+public sealed class TerminalUnblockCheckResult
+{
+    public bool Success { get; init; }
+    public string? TerminalId { get; init; }
+    public bool IsUnblocked { get; init; }
+    public string? Remark { get; init; }
+    public int StatusCode { get; init; }
+    public IReadOnlyList<EisApiError>? Errors { get; init; }
+
+    public static TerminalUnblockCheckResult Succeeded(string terminalId, bool isUnblocked, string? remark) =>
+        new()
+        {
+            Success = true,
+            StatusCode = 1,
+            TerminalId = terminalId,
+            IsUnblocked = isUnblocked,
+            Remark = remark
+        };
+
+    public static TerminalUnblockCheckResult Failed(
+        string remark,
+        int statusCode = 0,
+        IReadOnlyList<EisApiError>? errors = null,
+        string? terminalId = null) =>
+        new()
+        {
+            Success = false,
+            StatusCode = statusCode,
+            Remark = remark,
+            Errors = errors,
+            TerminalId = terminalId,
+            IsUnblocked = false
+        };
 }

@@ -245,23 +245,51 @@ public sealed class ProductionSecretGuard : IProductionSecretGuard
                 "MRA fiscal signing certificate lockout is active. Renew credentials from Compliance Audit before live sales.");
         }
 
-        if (runtime?.TerminalBlockedActive == true)
+        var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
+        var blockingService = scope.ServiceProvider.GetService<TerminalBlockingMessageService>();
+
+        var locallyBlocked = runtime?.TerminalBlockedActive == true;
+        if (!locallyBlocked)
         {
-            throw new InvalidOperationException(
-                "This terminal is blocked by the Malawi Revenue Authority. " +
-                (runtime.TerminalBlockingReason
-                 ?? "Retrieve the official blocking message and stop sales until MRA unblocks the terminal."));
+            var blockingJson = await configurationRepository
+                .GetJsonAsync(MraConfigurationKeys.TerminalBlockingState, cancellationToken)
+                .ConfigureAwait(false);
+            locallyBlocked = !string.IsNullOrWhiteSpace(blockingJson)
+                && blockingJson.Contains("\"isBlocked\":true", StringComparison.OrdinalIgnoreCase);
         }
 
-        var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
-        var blockingJson = await configurationRepository
-            .GetJsonAsync(MraConfigurationKeys.TerminalBlockingState, cancellationToken)
-            .ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(blockingJson)
-            && blockingJson.Contains("\"isBlocked\":true", StringComparison.OrdinalIgnoreCase))
+        if (locallyBlocked)
         {
-            throw new InvalidOperationException(
-                "This terminal remains blocked by MRA. Stop sales and contact MRA Taxpayer Services until unblocked.");
+            // Ask EIS whether MRA has cleared the block before refusing sales.
+            if (blockingService is not null)
+            {
+                try
+                {
+                    var unblock = await blockingService
+                        .CheckTerminalUnblockStatusAsync(cancellationToken: cancellationToken)
+                        .ConfigureAwait(false);
+                    if (unblock.Success && unblock.IsUnblocked)
+                    {
+                        locallyBlocked = false;
+                    }
+                    else if (!unblock.Success)
+                    {
+                        // Keep the lockout if the status check fails — do not silently resume.
+                    }
+                }
+                catch
+                {
+                    // Network / EIS errors: remain blocked until a successful isUnblocked=true.
+                }
+            }
+
+            if (locallyBlocked)
+            {
+                throw new InvalidOperationException(
+                    "This terminal is blocked by the Malawi Revenue Authority. " +
+                    (runtime?.TerminalBlockingReason
+                     ?? "Stop sales until MRA unblocks the terminal, then retry — the POS will re-check unblock status."));
+            }
         }
 
         if (!isProduction || !_deployment.Value.RequireEncryptedSecrets)
