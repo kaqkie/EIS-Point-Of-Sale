@@ -65,7 +65,7 @@ public abstract class MraApiClientBase
             var signature = HmacSignatureService.ComputeHmacSha512Base64(
                 xSignaturePlainText,
                 secretKeyForSignature);
-            request.Headers.TryAddWithoutValidation(HmacSignatureService.SignatureHeaderName, signature);
+            HmacSignatureService.ApplyXSignatureHeader(request, signature);
         }
 
         return await SendAsync<TResponse>(request, cancellationToken).ConfigureAwait(false);
@@ -85,8 +85,8 @@ public abstract class MraApiClientBase
         };
 
         ApplyAuthorization(request, jwtToken);
-        request.Headers.TryAddWithoutValidation(
-            HmacSignatureService.SignatureHeaderName,
+        HmacSignatureService.ApplyXSignatureHeader(
+            request,
             HmacSignatureService.ComputeHmacSha512Base64(json, secretKey));
 
         return await SendAsync<TResponse>(request, cancellationToken).ConfigureAwait(false);

@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Text.Json;
 using PointOfSale.Core.Constants;
 using PointOfSale.Core.Entities;
@@ -39,6 +40,25 @@ public sealed class MraIntegrationTests
 
         var signature = HmacSignatureService.ComputeActivationConfirmationSignature(tac, secret);
         Assert.Equal(HmacSignatureService.ComputeHmacSha512Base64(tac, secret), signature);
+
+        var digest = HmacSignatureService.ComputeHmacSha512(tac, secret);
+        Assert.Equal(signature, HmacSignatureService.EncodeSignatureBase64(digest));
+    }
+
+    [Fact]
+    public void AttachActivationConfirmationSignature_InjectsXSignatureHeader()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "onboarding/terminal-activated-confirmation");
+        var signature = HmacSignatureService.AttachActivationConfirmationSignature(
+            request,
+            terminalActivationCode: " TAC-112233 ",
+            secretKey: "pending-secret");
+
+        Assert.True(request.Headers.TryGetValues(HmacSignatureService.SignatureHeaderName, out var values));
+        Assert.Equal(signature, Assert.Single(values));
+        Assert.Equal(
+            HmacSignatureService.ComputeActivationConfirmationSignature("TAC-112233", "pending-secret"),
+            signature);
     }
 
     [Fact]

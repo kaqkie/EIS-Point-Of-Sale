@@ -151,7 +151,7 @@ public sealed class MraApiClient
             var signature = context.IsActivationConfirmationSignature
                 ? HmacSignatureService.ComputeActivationConfirmationSignature(signaturePlainText, secretKey)
                 : ComputeSignature(signaturePlainText, secretKey);
-            request.Headers.TryAddWithoutValidation(HmacSignatureService.SignatureHeaderName, signature);
+            HmacSignatureService.ApplyXSignatureHeader(request, signature);
             _logger.LogDebug(
                 "Attached {Header} for {Method} {Path} (activationConfirmation={IsActivation})",
                 HmacSignatureService.SignatureHeaderName,
@@ -163,7 +163,7 @@ public sealed class MraApiClient
                  !string.IsNullOrWhiteSpace(jsonBody))
         {
             var signature = ComputeSignature(jsonBody, payloadSecret);
-            request.Headers.TryAddWithoutValidation(HmacSignatureService.SignatureHeaderName, signature);
+            HmacSignatureService.ApplyXSignatureHeader(request, signature);
         }
     }
 
