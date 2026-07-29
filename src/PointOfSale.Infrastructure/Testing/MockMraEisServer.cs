@@ -40,7 +40,9 @@ public class MockMraEisServer : IDisposable
 
     public IReadOnlyList<RecordedMraEisRequest> InitialInventoryRequests =>
         _handler.Requests
-            .Where(x => x.Path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                x.Path.Contains("taxpayer-initial-inventory-upload", StringComparison.OrdinalIgnoreCase)
+                || x.Path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
     public void EnableHmacVerification(string terminalSecretKey, bool rejectInvalidSignatures = true)
@@ -67,11 +69,23 @@ public class MockMraEisServer : IDisposable
 
     public void ConfigureSalesHttp400ForInvoice(string invoiceNumber, string remark = "MRA validation failure (simulated)")
     {
+        // Offline queue may rewrite non-composite invoice numbers before POST.
+        // Keep a one-shot fallback so FIFO quarantine tests still fail the first sales call.
+        var forcedFailuresRemaining = 1;
         SetSalesResponder((body, _) =>
         {
             var invoice = ParseInvoiceNumber(body);
-            if (invoice.Equals(invoiceNumber, StringComparison.OrdinalIgnoreCase))
+            var exactMatch = invoice.Equals(invoiceNumber, StringComparison.OrdinalIgnoreCase);
+            var forceFirstFailure = !exactMatch
+                && System.Threading.Interlocked.CompareExchange(ref forcedFailuresRemaining, 0, 1) == 1;
+
+            if (exactMatch || forceFirstFailure)
             {
+                if (exactMatch)
+                {
+                    System.Threading.Interlocked.Exchange(ref forcedFailuresRemaining, 0);
+                }
+
                 return Task.FromResult(CreateJsonResponse(HttpStatusCode.BadRequest, new
                 {
                     statusCode = 0,
@@ -150,7 +164,14 @@ public class MockMraEisServer : IDisposable
         {
             statusCode = 1,
             remark = "Batch accepted",
-            data = new { acceptedCount = 50 }
+            data = new
+            {
+                totalItems = 50,
+                mappedItems = 50,
+                unmappedItems = 0,
+                isPartialUpload = false,
+                skippedItems = Array.Empty<string>()
+            }
         }));
     }
 
@@ -189,7 +210,7 @@ public class MockMraEisServer : IDisposable
                 {
                     statusCode = 1,
                     remark = "Confirmed",
-                    data = new { }
+                    data = true
                 });
             }
 
@@ -220,7 +241,20 @@ public class MockMraEisServer : IDisposable
 
             if (path.Contains("process-credit-debit-note", StringComparison.OrdinalIgnoreCase))
             {
-                return CreateSuccessSalesResponse("CERT-CDN-001", "FSIG-CDN-001");
+                return CreateJsonResponse(HttpStatusCode.OK, new
+                {
+                    statusCode = 1,
+                    remark = "Credit/debit note processed",
+                    data = new
+                    {
+                        invoiceNumber = "CERT-CDN-001",
+                        originalInvoiceNumber = "CERT-ONLINE-001",
+                        noteType = "Credit",
+                        validationUrl = "https://dev-eis-portal.mra.mw/verify/test",
+                        invoiceTotal = 100m,
+                        totalVat = 14.89m
+                    }
+                });
             }
 
             if (path.Contains("submit-sales-transaction", StringComparison.OrdinalIgnoreCase))
@@ -228,7 +262,8 @@ public class MockMraEisServer : IDisposable
                 return await InvokeSalesResponderAsync(body, request).ConfigureAwait(false);
             }
 
-            if (path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
+            if (path.Contains("taxpayer-initial-inventory-upload", StringComparison.OrdinalIgnoreCase)
+                || path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
             {
                 return await _inventoryResponder(request, body).ConfigureAwait(false);
             }
@@ -356,7 +391,8 @@ public class MockMraEisServer : IDisposable
             });
         }
 
-        if (path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
+        if (path.Contains("taxpayer-initial-inventory-upload", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
         {
             return await _inventoryResponder(request, body).ConfigureAwait(false);
         }
@@ -421,6 +457,10 @@ public class MockMraEisServer : IDisposable
             remark = "Sale fiscalized",
             data = new
             {
+                validationURL = verificationUrl,
+                shouldDownloadLatestConfig = false,
+                shouldBlockTerminal = false,
+                validationErrors = (string[]?)null,
                 invoiceNumber,
                 fiscalSignature,
                 verificationUrl

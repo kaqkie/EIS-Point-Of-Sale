@@ -953,9 +953,9 @@ public sealed class OfflineSalesQueueService
                         return new MraFiscalIdentityOverlay(
                             SellerTin: FirstNonEmpty(cached.SellerTin, sellerTin),
                             SiteId: FirstNonEmpty(cached.SiteId, siteId),
-                            GlobalConfigVersion: cached.GlobalConfigVersion ?? global?.VersionNo,
-                            TaxpayerConfigVersion: cached.TaxpayerConfigVersion ?? taxpayer?.VersionNo,
-                            TerminalConfigVersion: cached.TerminalConfigVersion ?? terminal?.VersionNo,
+                            GlobalConfigVersion: cached.GlobalConfigVersion ?? ToConfigVersion(global?.VersionNo),
+                            TaxpayerConfigVersion: cached.TaxpayerConfigVersion ?? ToConfigVersion(taxpayer?.VersionNo),
+                            TerminalConfigVersion: cached.TerminalConfigVersion ?? ToConfigVersion(terminal?.VersionNo),
                             StandardTaxRateId: cached.StandardTaxRateId ?? standardId,
                             ConfiguredTaxRates: cached.ConfiguredTaxRates ?? rates);
                     }
@@ -990,9 +990,9 @@ public sealed class OfflineSalesQueueService
                         var overlay = new MraFiscalIdentityOverlay(
                             SellerTin: refreshedSellerTin ?? sellerTin,
                             SiteId: refreshedSiteId ?? siteId,
-                            GlobalConfigVersion: refreshedGlobal?.VersionNo ?? global?.VersionNo ?? 1,
-                            TaxpayerConfigVersion: refreshedTaxpayer?.VersionNo ?? taxpayer?.VersionNo ?? 1,
-                            TerminalConfigVersion: refreshedTerminal?.VersionNo ?? terminal?.VersionNo ?? 1,
+                            GlobalConfigVersion: ToConfigVersion(refreshedGlobal?.VersionNo ?? global?.VersionNo) ?? 1,
+                            TaxpayerConfigVersion: ToConfigVersion(refreshedTaxpayer?.VersionNo ?? taxpayer?.VersionNo) ?? 1,
+                            TerminalConfigVersion: ToConfigVersion(refreshedTerminal?.VersionNo ?? terminal?.VersionNo) ?? 1,
                             StandardTaxRateId: refreshedStandardId,
                             ConfiguredTaxRates: refreshedRates);
 
@@ -1054,9 +1054,9 @@ public sealed class OfflineSalesQueueService
             return new MraFiscalIdentityOverlay(
                 SellerTin: sellerTin,
                 SiteId: siteId,
-                GlobalConfigVersion: global?.VersionNo,
-                TaxpayerConfigVersion: taxpayer?.VersionNo,
-                TerminalConfigVersion: terminal?.VersionNo,
+                GlobalConfigVersion: ToConfigVersion(global?.VersionNo),
+                TaxpayerConfigVersion: ToConfigVersion(taxpayer?.VersionNo),
+                TerminalConfigVersion: ToConfigVersion(terminal?.VersionNo),
                 StandardTaxRateId: standardId,
                 ConfiguredTaxRates: rates);
         }
@@ -1110,6 +1110,9 @@ public sealed class OfflineSalesQueueService
         bundle.GlobalConfiguration is not null
         || bundle.TerminalConfiguration is not null
         || bundle.TaxpayerConfiguration is not null;
+
+    private static int? ToConfigVersion(decimal? versionNo) =>
+        versionNo is null ? null : (int)versionNo.Value;
 
     private static string? FirstNonEmpty(params string?[] values)
     {

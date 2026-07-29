@@ -4,7 +4,8 @@ using PointOfSale.Mra.Contracts.Common;
 namespace PointOfSale.Mra.Contracts.Utilities;
 
 /// <summary>
-/// Request body for <c>POST /api/v1/utilities/validate-vat5-certificate</c>.
+/// Request body for <c>POST /api/v1/utilities/validate-vat5-certificate</c>
+/// (EIS <c>Vat5CertificateValidationRequest</c>).
 /// </summary>
 public sealed class ValidateVat5CertificateRequest
 {
@@ -26,13 +27,17 @@ public sealed class ValidateVat5CertificateResponse : EisApiResponse<Vat5Certifi
 }
 
 /// <summary>
-/// Certificate payload returned in <c>data</c> when validation succeeds.
+/// Maps EIS <c>Vat5CertificateValidationResponse</c>.
 /// </summary>
 public sealed class Vat5CertificateValidationData
 {
     [JsonPropertyName("projectNumber")]
     public string? ProjectNumber { get; set; }
 
+    [JsonPropertyName("vat5CertificateNumber")]
+    public string? Vat5CertificateNumber { get; set; }
+
+    /// <summary>Legacy alias accepted when older payloads use <c>certificateNumber</c>.</summary>
     [JsonPropertyName("certificateNumber")]
     public string? CertificateNumber { get; set; }
 
@@ -45,6 +50,25 @@ public sealed class Vat5CertificateValidationData
 
     [JsonPropertyName("dateOfExpiry")]
     public DateTime? DateOfExpiry { get; set; }
+
+    [JsonPropertyName("isValid")]
+    public bool? IsValid { get; set; }
+
+    public string? ResolveCertificateNumber() =>
+        FirstNonEmpty(Vat5CertificateNumber, CertificateNumber);
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
+    }
 }
 
 /// <summary>

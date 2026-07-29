@@ -82,7 +82,7 @@ public partial class InventoryViewModel : ObservableObject
         try
         {
             var response = await _stockManagementService
-                .GetWarehouseInventoryAsync(new WarehouseInventoryRequest { PageNumber = 1, PageSize = 50 })
+                .GetWarehouseInventoryAsync(new WarehouseInventoryRequest { Page = 1, PageSize = 50 })
                 .ConfigureAwait(true);
 
             if (!response.Success || response.Data is null)
@@ -95,7 +95,8 @@ public partial class InventoryViewModel : ObservableObject
             var upserted = 0;
             foreach (var item in response.Data.GetItems())
             {
-                if (string.IsNullOrWhiteSpace(item.ProductCode))
+                var productCode = item.ResolveProductCode();
+                if (string.IsNullOrWhiteSpace(productCode))
                 {
                     continue;
                 }
@@ -103,14 +104,12 @@ public partial class InventoryViewModel : ObservableObject
                 await _inventoryRepository.UpsertAsync(
                     new LocalInventoryItem
                     {
-                        ProductId = item.ProductId ?? item.ProductCode,
-                        ProductCode = item.ProductCode,
+                        ProductId = productCode,
+                        ProductCode = productCode,
                         Name = item.ResolveName(),
-                        UnitPrice = item.UnitPrice,
+                        UnitPrice = item.ResolveUnitPrice(),
                         StockQuantity = item.ResolveQuantity(),
-                        HsCode = item.HsCode,
-                        UnitOfMeasure = item.UnitOfMeasure,
-                        TaxRateId = item.TaxRateId,
+                        UnitOfMeasure = item.ResolveUnitOfMeasure(),
                         CatalogSource = "MraWarehouse"
                     }).ConfigureAwait(true);
                 upserted++;

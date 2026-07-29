@@ -54,11 +54,32 @@ public sealed class SubmittedInvoiceHeader
     [JsonPropertyName("terminalConfigVersion")]
     public int TerminalConfigVersion { get; set; }
 
+    [JsonPropertyName("isExport")]
+    public bool IsExport { get; set; }
+
     [JsonPropertyName("isReliefSupply")]
     public bool IsReliefSupply { get; set; }
 
+    [JsonPropertyName("vat5CertificateDetails")]
+    public SubmittedVat5CertificateDetails? Vat5CertificateDetails { get; set; }
+
     [JsonPropertyName("paymentMethod")]
     public string? PaymentMethod { get; set; }
+}
+
+public sealed class SubmittedVat5CertificateDetails
+{
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+
+    [JsonPropertyName("projectNumber")]
+    public string? ProjectNumber { get; set; }
+
+    [JsonPropertyName("certificateNumber")]
+    public string? CertificateNumber { get; set; }
+
+    [JsonPropertyName("quantity")]
+    public decimal Quantity { get; set; }
 }
 
 public sealed class SubmittedInvoiceLineItem

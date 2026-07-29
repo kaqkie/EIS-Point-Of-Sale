@@ -25,7 +25,7 @@ public static class FiscalReceiptEnricher
         ArgumentException.ThrowIfNullOrWhiteSpace(invoiceNumber);
 
         var signature = response.ResolveFiscalSignature();
-        var verificationUrl = response.VerificationUrl?.Trim();
+        var verificationUrl = response.ResolveVerificationUrl();
 
         if (IsOfflinePlaceholder(signature))
         {
@@ -34,10 +34,12 @@ public static class FiscalReceiptEnricher
                 InvoiceNumber = response.InvoiceNumber ?? invoiceNumber,
                 FiscalCode = response.FiscalCode,
                 FiscalSignature = string.IsNullOrWhiteSpace(signature) ? OfflinePendingPlaceholder : signature,
+                ValidationUrl = null,
                 VerificationUrl = null,
                 ShouldDownloadLatestConfig = response.ShouldDownloadLatestConfig,
                 ShouldBlockTerminal = response.ShouldBlockTerminal,
-                ShouldBoardTerminal = response.ShouldBoardTerminal
+                ShouldBoardTerminal = response.ShouldBoardTerminal,
+                ValidationErrors = response.ValidationErrors
             };
         }
 
@@ -70,10 +72,12 @@ public static class FiscalReceiptEnricher
             InvoiceNumber = response.InvoiceNumber ?? invoiceNumber,
             FiscalCode = response.FiscalCode,
             FiscalSignature = string.IsNullOrWhiteSpace(response.FiscalSignature) ? signature : response.FiscalSignature,
+            ValidationUrl = verificationUrl,
             VerificationUrl = verificationUrl,
             ShouldDownloadLatestConfig = response.ShouldDownloadLatestConfig,
             ShouldBlockTerminal = response.ShouldBlockTerminal,
-            ShouldBoardTerminal = response.ShouldBoardTerminal
+            ShouldBoardTerminal = response.ShouldBoardTerminal,
+            ValidationErrors = response.ValidationErrors
         };
     }
 

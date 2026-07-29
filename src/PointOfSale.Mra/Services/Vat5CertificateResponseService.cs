@@ -132,10 +132,11 @@ public sealed class Vat5CertificateResponseService : IVat5CertificateResponseSer
         ArgumentNullException.ThrowIfNull(data);
 
         var project = TrimOrNull(data.ProjectNumber);
-        var certificate = TrimOrNull(data.CertificateNumber);
+        var certificate = TrimOrNull(data.ResolveCertificateNumber());
         var authentic = !string.IsNullOrWhiteSpace(project)
             && !string.IsNullOrWhiteSpace(certificate)
-            && data.Quantity > 0;
+            && data.Quantity > 0
+            && data.IsValid != false;
 
         var now = (asOfUtc ?? DateTime.UtcNow).ToUniversalTime();
         var expired = data.DateOfExpiry is DateTime expiry

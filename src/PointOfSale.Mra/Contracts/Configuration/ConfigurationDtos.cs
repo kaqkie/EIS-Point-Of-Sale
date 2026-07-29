@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace PointOfSale.Mra.Contracts.Configuration;
 
+/// <summary>Maps EIS <c>Configuration</c> (global / terminal / taxpayer bundle).</summary>
 public sealed class EisConfigurationBundleDto
 {
     [JsonPropertyName("globalConfiguration")]
@@ -14,18 +15,20 @@ public sealed class EisConfigurationBundleDto
     public TaxpayerConfigurationDto? TaxpayerConfiguration { get; set; }
 }
 
+/// <summary>Maps EIS <c>TaxConfiguration</c>.</summary>
 public sealed class GlobalConfigurationDto
 {
     [JsonPropertyName("id")]
-    public int Id { get; set; }
+    public long Id { get; set; }
 
     [JsonPropertyName("versionNo")]
-    public int VersionNo { get; set; }
+    public decimal VersionNo { get; set; }
 
     [JsonPropertyName("taxrates")]
     public IReadOnlyList<TaxRateDto>? TaxRates { get; set; }
 }
 
+/// <summary>Maps EIS <c>TaxRateDto</c>.</summary>
 public sealed class TaxRateDto
 {
     [JsonPropertyName("id")]
@@ -44,10 +47,11 @@ public sealed class TaxRateDto
     public decimal Rate { get; set; }
 }
 
+/// <summary>Maps EIS <c>TerminalConfiguration</c>.</summary>
 public sealed class TerminalConfigurationDto
 {
     [JsonPropertyName("versionNo")]
-    public int VersionNo { get; set; }
+    public decimal VersionNo { get; set; }
 
     [JsonPropertyName("terminalLabel")]
     public string? TerminalLabel { get; set; }
@@ -74,6 +78,7 @@ public sealed class TerminalConfigurationDto
     public OfflineLimitDto? OfflineLimit { get; set; }
 }
 
+/// <summary>Maps EIS <c>TerminalSiteDto</c>.</summary>
 public sealed class TerminalSiteDto
 {
     [JsonPropertyName("siteId")]
@@ -83,19 +88,21 @@ public sealed class TerminalSiteDto
     public string? SiteName { get; set; }
 }
 
+/// <summary>Maps EIS <c>OfflineLimit</c> (API spelling <c>maxCummulativeAmount</c>).</summary>
 public sealed class OfflineLimitDto
 {
     [JsonPropertyName("maxTransactionAgeInHours")]
-    public int MaxTransactionAgeInHours { get; set; }
+    public decimal MaxTransactionAgeInHours { get; set; }
 
     [JsonPropertyName("maxCummulativeAmount")]
     public decimal MaxCummulativeAmount { get; set; }
 }
 
+/// <summary>Maps EIS <c>TaxpayerConfiguration</c>.</summary>
 public sealed class TaxpayerConfigurationDto
 {
     [JsonPropertyName("versionNo")]
-    public int VersionNo { get; set; }
+    public decimal VersionNo { get; set; }
 
     [JsonPropertyName("tin")]
     public string? Tin { get; set; }
@@ -119,6 +126,7 @@ public sealed class TaxpayerConfigurationDto
     public IReadOnlyList<ActivatedLevyDto>? ActivatedLevies { get; set; }
 }
 
+/// <summary>Maps EIS <c>TaxOfficeDto</c>.</summary>
 public sealed class TaxOfficeDto
 {
     [JsonPropertyName("code")]
@@ -128,18 +136,20 @@ public sealed class TaxOfficeDto
     public string? Name { get; set; }
 }
 
+/// <summary>Maps EIS <c>ActivatedTaxrateDto</c>.</summary>
 public sealed class ActivatedTaxRateLinkDto
 {
     [JsonPropertyName("id")]
-    public int Id { get; set; }
+    public long Id { get; set; }
 
     [JsonPropertyName("taxpayerConfigurationId")]
-    public int TaxpayerConfigurationId { get; set; }
+    public long TaxpayerConfigurationId { get; set; }
 
     [JsonPropertyName("taxRateId")]
     public string? TaxRateId { get; set; }
 }
 
+/// <summary>Maps EIS <c>ActivatedLevyDto</c>.</summary>
 public sealed class ActivatedLevyDto
 {
     [JsonPropertyName("id")]
@@ -158,6 +168,7 @@ public sealed class ActivatedLevyDto
     public bool IsActive { get; set; }
 }
 
+/// <summary>Alias for get-latest-configs <c>data</c> payload (same shape as <see cref="EisConfigurationBundleDto"/>).</summary>
 public sealed class GetLatestConfigurationResponseData
 {
     [JsonPropertyName("globalConfiguration")]

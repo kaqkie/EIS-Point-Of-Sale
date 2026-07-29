@@ -74,7 +74,7 @@ public sealed class MraIntegrationTests
 
         var response = await harness.ApiClient.PostAsync<
             PointOfSale.Mra.Contracts.Onboarding.TerminalActivatedConfirmationRequest,
-            PointOfSale.Mra.Contracts.Onboarding.TerminalActivatedConfirmationResponseData>(
+            bool>(
             "onboarding/terminal-activated-confirmation",
             new PointOfSale.Mra.Contracts.Onboarding.TerminalActivatedConfirmationRequest
             {
@@ -88,6 +88,7 @@ public sealed class MraIntegrationTests
             });
 
         Assert.True(response.IsSuccess);
+        Assert.True(response.Data);
 
         var logged = mock.AllRequests.Last(r =>
             r.Path.Contains("terminal-activated-confirmation", StringComparison.OrdinalIgnoreCase));
@@ -223,11 +224,13 @@ public sealed class MraIntegrationTests
         var items = Enumerable.Range(1, 120)
             .Select(i => new Mra.Contracts.Stock.InitialInventoryItemDto
             {
-                ProductCode = $"P{i:D4}",
+                BarCode = $"P{i:D4}",
                 ProductName = $"Product {i}",
+                ProductDescription = $"Product {i}",
                 UnitPrice = 10m,
-                OpeningStockQuantity = 5,
-                TaxRateId = "A"
+                QuantityInStock = 5,
+                CostPrice = 10m,
+                SellingPrice = 10m
             })
             .ToList();
 
@@ -244,8 +247,8 @@ public sealed class MraIntegrationTests
         using var last = JsonDocument.Parse(bodies[2]);
         Assert.False(first.RootElement.GetProperty("isLastBatch").GetBoolean());
         Assert.True(last.RootElement.GetProperty("isLastBatch").GetBoolean());
-        Assert.Equal(50, first.RootElement.GetProperty("inventoryItems").GetArrayLength());
-        Assert.Equal(20, last.RootElement.GetProperty("inventoryItems").GetArrayLength());
+        Assert.Equal(50, first.RootElement.GetProperty("products").GetArrayLength());
+        Assert.Equal(20, last.RootElement.GetProperty("products").GetArrayLength());
     }
 
     [Fact]

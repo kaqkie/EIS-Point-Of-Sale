@@ -100,7 +100,7 @@ public static class QueueReceiptPrintHelper
         var enriched = FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
             response,
             response.InvoiceNumber ?? "UNKNOWN");
-        return !string.IsNullOrWhiteSpace(enriched.VerificationUrl)
+        return !string.IsNullOrWhiteSpace(enriched.ResolveVerificationUrl())
             || (!string.IsNullOrWhiteSpace(enriched.ResolveFiscalSignature())
                 && !FiscalReceiptEnricher.IsOfflinePlaceholder(enriched.ResolveFiscalSignature()));
     }

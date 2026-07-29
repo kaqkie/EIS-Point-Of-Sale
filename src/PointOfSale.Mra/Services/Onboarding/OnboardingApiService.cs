@@ -36,12 +36,12 @@ public sealed class OnboardingApiService : Http.MraApiClientBase
             cancellationToken: cancellationToken);
     }
 
-    public Task<EisApiResponse<TerminalActivatedConfirmationResponseData>> ConfirmTerminalActivatedAsync(
+    public Task<EisApiResponse<bool>> ConfirmTerminalActivatedAsync(
         TerminalActivatedConfirmationRequest request,
         string terminalActivationCode,
         string secretKey,
         CancellationToken cancellationToken = default) =>
-        PostJsonAsync<TerminalActivatedConfirmationRequest, TerminalActivatedConfirmationResponseData>(
+        PostJsonAsync<TerminalActivatedConfirmationRequest, bool>(
             TerminalActivatedConfirmationPath,
             request,
             xSignaturePlainText: terminalActivationCode,

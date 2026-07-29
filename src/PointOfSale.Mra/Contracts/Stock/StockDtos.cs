@@ -2,241 +2,297 @@ using System.Text.Json.Serialization;
 
 namespace PointOfSale.Mra.Contracts.Stock;
 
+/// <summary>Local paging helper for warehouse/raw-material GETs (query: <c>page</c>, <c>pageSize</c>).</summary>
 public sealed class PagedRequest
 {
-    [JsonPropertyName("pageNumber")]
-    public int PageNumber { get; set; } = 1;
+    public int Page { get; set; } = 1;
 
-    [JsonPropertyName("pageSize")]
     public int PageSize { get; set; } = 50;
 }
 
 public sealed class WarehouseInventoryRequest
 {
-    [JsonPropertyName("pageNumber")]
-    public int PageNumber { get; set; } = 1;
+    public int Page { get; set; } = 1;
 
-    [JsonPropertyName("pageSize")]
     public int PageSize { get; set; } = 50;
-
-    [JsonPropertyName("siteId")]
-    public string? SiteId { get; set; }
-
-    [JsonPropertyName("warehouseId")]
-    public string? WarehouseId { get; set; }
 }
 
+/// <summary>Maps EIS warehouse/raw-material inventory page wrappers.</summary>
 public sealed class PagedResponse<T>
 {
-    [JsonPropertyName("pageNumber")]
-    public int PageNumber { get; set; }
+    [JsonPropertyName("stocks")]
+    public IReadOnlyList<T>? Stocks { get; set; }
+
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyName("page")]
+    public int Page { get; set; }
 
     [JsonPropertyName("pageSize")]
     public int PageSize { get; set; }
 
-    [JsonPropertyName("totalRecords")]
-    public int TotalRecords { get; set; }
-
+    /// <summary>Legacy alias accepted when deserializing older cached payloads.</summary>
     [JsonPropertyName("items")]
     public IReadOnlyList<T>? Items { get; set; }
 
-    [JsonPropertyName("data")]
-    public IReadOnlyList<T>? Data { get; set; }
+    [JsonPropertyName("totalRecords")]
+    public int TotalRecords { get; set; }
 
-    public IReadOnlyList<T> GetItems() => Items ?? Data ?? Array.Empty<T>();
+    [JsonPropertyName("pageNumber")]
+    public int PageNumber { get; set; }
+
+    public IReadOnlyList<T> GetItems() => Stocks ?? Items ?? Array.Empty<T>();
+
+    public int ResolveTotal() => Total != 0 ? Total : TotalRecords;
+
+    public int ResolvePage() => Page != 0 ? Page : PageNumber;
 }
 
+/// <summary>Maps EIS <c>WarehouseInventoryItemDto</c>.</summary>
 public sealed class WarehouseInventoryItemDto
 {
-    [JsonPropertyName("productId")]
-    public string? ProductId { get; set; }
-
-    [JsonPropertyName("productCode")]
-    public string? ProductCode { get; set; }
+    [JsonPropertyName("barcode")]
+    public string? Barcode { get; set; }
 
     [JsonPropertyName("productName")]
     public string? ProductName { get; set; }
 
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
+    [JsonPropertyName("productDescription")]
+    public string? ProductDescription { get; set; }
 
-    [JsonPropertyName("hsCode")]
-    public string? HsCode { get; set; }
+    [JsonPropertyName("currentQuantity")]
+    public decimal CurrentQuantity { get; set; }
 
-    [JsonPropertyName("unitOfMeasure")]
-    public string? UnitOfMeasure { get; set; }
+    [JsonPropertyName("uom")]
+    public string? Uom { get; set; }
 
-    [JsonPropertyName("unitPrice")]
-    public decimal UnitPrice { get; set; }
+    [JsonPropertyName("price")]
+    public decimal Price { get; set; }
 
-    [JsonPropertyName("quantityOnHand")]
-    public decimal QuantityOnHand { get; set; }
+    public string ResolveProductCode() => Barcode?.Trim() ?? string.Empty;
 
-    [JsonPropertyName("stockQuantity")]
-    public decimal StockQuantity { get; set; }
+    public string ResolveName() =>
+        FirstNonEmpty(ProductName, ProductDescription, Barcode) ?? string.Empty;
 
-    [JsonPropertyName("taxRateId")]
-    public string? TaxRateId { get; set; }
+    public decimal ResolveQuantity() => CurrentQuantity;
 
-    public string ResolveName() => ProductName ?? Name ?? ProductCode ?? string.Empty;
+    public decimal ResolveUnitPrice() => Price;
 
-    public decimal ResolveQuantity() => QuantityOnHand != 0 ? QuantityOnHand : StockQuantity;
+    public string? ResolveUnitOfMeasure() => Uom;
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
+    }
 }
 
 public sealed class RawMaterialRequest
 {
-    [JsonPropertyName("pageNumber")]
-    public int PageNumber { get; set; } = 1;
+    public int Page { get; set; } = 1;
 
-    [JsonPropertyName("pageSize")]
     public int PageSize { get; set; } = 50;
 }
 
+/// <summary>Maps EIS <c>TaxpayerRawMaterialDto</c>.</summary>
 public sealed class RawMaterialItemDto
 {
-    [JsonPropertyName("rawMaterialId")]
-    public string? RawMaterialId { get; set; }
+    [JsonPropertyName("rawMaterialName")]
+    public string? RawMaterialName { get; set; }
 
-    [JsonPropertyName("rawMaterialCode")]
-    public string? RawMaterialCode { get; set; }
+    [JsonPropertyName("rawMaterialDescription")]
+    public string? RawMaterialDescription { get; set; }
+
+    [JsonPropertyName("barcode")]
+    public string? Barcode { get; set; }
+
+    [JsonPropertyName("currentQuantity")]
+    public decimal CurrentQuantity { get; set; }
+
+    [JsonPropertyName("uom")]
+    public string? Uom { get; set; }
+}
+
+/// <summary>Maps EIS <c>HsCodeLookupDto</c>.</summary>
+public sealed class HsCodeDto
+{
+    [JsonPropertyName("code")]
+    public string? Code { get; set; }
 
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    [JsonPropertyName("unitOfMeasure")]
-    public string? UnitOfMeasure { get; set; }
+    [JsonPropertyName("taxRateId")]
+    public string? TaxRateId { get; set; }
 
-    [JsonPropertyName("quantityOnHand")]
-    public decimal QuantityOnHand { get; set; }
-}
-
-public sealed class HsCodeDto
-{
+    /// <summary>Legacy alias for older cache payloads.</summary>
     [JsonPropertyName("hsCode")]
     public string? HsCode { get; set; }
 
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
+    public string? ResolveCode() => FirstNonEmpty(Code, HsCode);
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
+    }
 }
 
+/// <summary>Maps EIS <c>UnitOfMeasureDto</c>.</summary>
 public sealed class UnitOfMeasureDto
 {
+    [JsonPropertyName("unitOfMeasure")]
+    public string? UnitOfMeasure { get; set; }
+
+    [JsonPropertyName("unitOfMeasureDescription")]
+    public string? UnitOfMeasureDescription { get; set; }
+
+    /// <summary>Legacy aliases for older cache payloads.</summary>
     [JsonPropertyName("code")]
     public string? Code { get; set; }
 
     [JsonPropertyName("name")]
     public string? Name { get; set; }
+
+    public string? ResolveCode() => FirstNonEmpty(UnitOfMeasure, Code);
+
+    public string? ResolveName() => FirstNonEmpty(UnitOfMeasureDescription, Name, UnitOfMeasure, Code);
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
+    }
 }
 
+/// <summary>Maps EIS <c>AdjustmentReasonDto</c>.</summary>
 public sealed class StockAdjustmentReasonDto
 {
-    [JsonPropertyName("reasonId")]
-    public string? ReasonId { get; set; }
-
-    [JsonPropertyName("reasonCode")]
-    public string? ReasonCode { get; set; }
-
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 }
 
+/// <summary>Maps EIS <c>SupplierDto</c>.</summary>
 public sealed class SupplierDto
 {
     [JsonPropertyName("supplierId")]
-    public string? SupplierId { get; set; }
+    public int SupplierId { get; set; }
 
     [JsonPropertyName("supplierName")]
     public string? SupplierName { get; set; }
 
-    [JsonPropertyName("tin")]
-    public string? Tin { get; set; }
+    [JsonPropertyName("supplierContactEmail")]
+    public string? SupplierContactEmail { get; set; }
+
+    [JsonPropertyName("supplierContactPhone")]
+    public string? SupplierContactPhone { get; set; }
+
+    [JsonPropertyName("supplierTin")]
+    public string? SupplierTin { get; set; }
 }
 
+/// <summary>Maps EIS <c>InventoryTransferRequest</c>.</summary>
 public sealed class TransferInventoryRequest
 {
-    [JsonPropertyName("sourceSiteId")]
-    public required string SourceSiteId { get; init; }
+    [JsonPropertyName("fromWarehouseToSite")]
+    public bool FromWarehouseToSite { get; init; }
 
-    [JsonPropertyName("destinationSiteId")]
-    public required string DestinationSiteId { get; init; }
+    [JsonPropertyName("siteToWarehouse")]
+    public bool SiteToWarehouse { get; init; }
 
-    [JsonPropertyName("productCode")]
-    public required string ProductCode { get; init; }
+    [JsonPropertyName("fromSiteId")]
+    public string? FromSiteId { get; init; }
+
+    [JsonPropertyName("toSiteId")]
+    public string? ToSiteId { get; init; }
+
+    [JsonPropertyName("items")]
+    public required IReadOnlyList<InventoryTransferItemDto> Items { get; init; }
+}
+
+/// <summary>Maps EIS <c>InventoryTransferItem</c>.</summary>
+public sealed class InventoryTransferItemDto
+{
+    [JsonPropertyName("barcode")]
+    public required string Barcode { get; init; }
 
     [JsonPropertyName("quantity")]
     public decimal Quantity { get; init; }
 
-    [JsonPropertyName("transferReference")]
-    public string? TransferReference { get; init; }
+    [JsonPropertyName("price")]
+    public decimal Price { get; init; }
 }
 
+/// <summary>Maps EIS <c>GoodsReceivingModel</c> (informal purchase).</summary>
 public sealed class InformalPurchaseRequest
 {
     [JsonPropertyName("supplierId")]
-    public required string SupplierId { get; init; }
+    public int SupplierId { get; init; }
 
-    [JsonPropertyName("purchaseDate")]
-    public DateTime PurchaseDate { get; init; }
+    [JsonPropertyName("deliveryNoteNumber")]
+    public string? DeliveryNoteNumber { get; init; }
 
-    [JsonPropertyName("productCode")]
-    public required string ProductCode { get; init; }
+    [JsonPropertyName("receivingDate")]
+    public DateTime ReceivingDate { get; init; }
 
-    [JsonPropertyName("quantity")]
-    public decimal Quantity { get; init; }
+    [JsonPropertyName("purchaseOrderNumber")]
+    public string? PurchaseOrderNumber { get; init; }
 
-    [JsonPropertyName("unitPrice")]
-    public decimal UnitPrice { get; init; }
+    [JsonPropertyName("receivedBy")]
+    public required string ReceivedBy { get; init; }
 
-    [JsonPropertyName("referenceNumber")]
-    public string? ReferenceNumber { get; init; }
+    [JsonPropertyName("totalItems")]
+    public int TotalItems { get; init; }
+
+    [JsonPropertyName("totalQuantity")]
+    public decimal TotalQuantity { get; init; }
+
+    [JsonPropertyName("totalValue")]
+    public decimal TotalValue { get; init; }
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; init; }
+
+    [JsonPropertyName("items")]
+    public required IReadOnlyList<InformalPurchaseItemDto> Items { get; init; }
 }
 
-public sealed class RawMaterialConversionRequest
+/// <summary>Maps EIS <c>GoodsReceivingItemModel</c>.</summary>
+public sealed class InformalPurchaseItemDto
 {
-    [JsonPropertyName("rawMaterialCode")]
-    public required string RawMaterialCode { get; init; }
+    [JsonPropertyName("itemCode")]
+    public required string ItemCode { get; init; }
 
-    [JsonPropertyName("productCode")]
-    public required string ProductCode { get; init; }
+    [JsonPropertyName("description")]
+    public required string Description { get; init; }
 
-    [JsonPropertyName("rawMaterialQuantity")]
-    public decimal RawMaterialQuantity { get; init; }
+    [JsonPropertyName("quantityOrdered")]
+    public decimal QuantityOrdered { get; init; }
 
-    [JsonPropertyName("productQuantity")]
-    public decimal ProductQuantity { get; init; }
-
-    [JsonPropertyName("conversionReference")]
-    public string? ConversionReference { get; init; }
-}
-
-public sealed class StockAdjustmentRequest
-{
-    [JsonPropertyName("productCode")]
-    public required string ProductCode { get; init; }
-
-    [JsonPropertyName("adjustmentReasonId")]
-    public required string AdjustmentReasonId { get; init; }
-
-    [JsonPropertyName("quantity")]
-    public decimal Quantity { get; init; }
-
-    [JsonPropertyName("adjustmentDate")]
-    public DateTime AdjustmentDate { get; init; }
-
-    [JsonPropertyName("remarks")]
-    public string? Remarks { get; init; }
-}
-
-public sealed class AddProductRequest
-{
-    [JsonPropertyName("productCode")]
-    public required string ProductCode { get; init; }
-
-    [JsonPropertyName("productName")]
-    public required string ProductName { get; init; }
-
-    [JsonPropertyName("hsCode")]
-    public required string HsCode { get; init; }
+    [JsonPropertyName("quantityReceived")]
+    public decimal QuantityReceived { get; init; }
 
     [JsonPropertyName("unitOfMeasure")]
     public required string UnitOfMeasure { get; init; }
@@ -244,66 +300,206 @@ public sealed class AddProductRequest
     [JsonPropertyName("unitPrice")]
     public decimal UnitPrice { get; init; }
 
-    [JsonPropertyName("taxRateId")]
-    public required string TaxRateId { get; init; }
+    [JsonPropertyName("totalPrice")]
+    public decimal TotalPrice { get; init; }
 
-    [JsonPropertyName("isProduct")]
-    public bool IsProduct { get; init; } = true;
-
-    [JsonPropertyName("openingStockQuantity")]
-    public decimal OpeningStockQuantity { get; init; }
-
-    [JsonPropertyName("siteId")]
-    public string? SiteId { get; init; }
+    [JsonPropertyName("isFinishedProduct")]
+    public bool IsFinishedProduct { get; init; } = true;
 }
 
-public sealed class AddProductResponseData
+/// <summary>Maps EIS <c>RawmaterialConversion</c>.</summary>
+public sealed class RawMaterialConversionRequest
+{
+    [JsonPropertyName("productionBatchId")]
+    public string? ProductionBatchId { get; init; }
+
+    [JsonPropertyName("productionDate")]
+    public DateTime? ProductionDate { get; init; }
+
+    [JsonPropertyName("rawMaterials")]
+    public required IReadOnlyList<RawMaterialConversionInputDto> RawMaterials { get; init; }
+
+    [JsonPropertyName("finishedProducts")]
+    public required IReadOnlyList<FinishedProductionDto> FinishedProducts { get; init; }
+}
+
+/// <summary>Maps EIS <c>RawMaterial</c>.</summary>
+public sealed class RawMaterialConversionInputDto
 {
     [JsonPropertyName("productId")]
-    public string? ProductId { get; set; }
-
-    [JsonPropertyName("productCode")]
-    public string? ProductCode { get; set; }
-}
-
-public sealed class InitialInventoryItemDto
-{
-    [JsonPropertyName("productCode")]
-    public required string ProductCode { get; init; }
+    public required string ProductId { get; init; }
 
     [JsonPropertyName("productName")]
     public required string ProductName { get; init; }
 
+    [JsonPropertyName("availableQuantity")]
+    public decimal AvailableQuantity { get; init; }
+
+    [JsonPropertyName("usedQuantity")]
+    public decimal UsedQuantity { get; init; }
+}
+
+/// <summary>Maps EIS <c>FinishedProduction</c>.</summary>
+public sealed class FinishedProductionDto
+{
+    [JsonPropertyName("quantity")]
+    public decimal Quantity { get; init; }
+
+    [JsonPropertyName("unitOfMeasure")]
+    public required string UnitOfMeasure { get; init; }
+
+    [JsonPropertyName("expiryDate")]
+    public DateTime? ExpiryDate { get; init; }
+
+    [JsonPropertyName("productDescription")]
+    public required string ProductDescription { get; init; }
+
+    [JsonPropertyName("barcode")]
+    public required string Barcode { get; init; }
+}
+
+/// <summary>Maps EIS <c>StockAdjustmentRequestDto</c>.</summary>
+public sealed class StockAdjustmentRequest
+{
+    [JsonPropertyName("barcode")]
+    public required string Barcode { get; init; }
+
+    [JsonPropertyName("quantity")]
+    public decimal Quantity { get; init; }
+
+    [JsonPropertyName("adjustmentReason")]
+    public required string AdjustmentReason { get; init; }
+
+    /// <summary>EIS values: <c>Increase</c> or <c>Decrease</c>.</summary>
+    [JsonPropertyName("adjustmentType")]
+    public required string AdjustmentType { get; init; }
+
+    [JsonPropertyName("siteId")]
+    public string? SiteId { get; init; }
+
+    [JsonPropertyName("taxpayerRemarks")]
+    public string? TaxpayerRemarks { get; init; }
+}
+
+/// <summary>Maps EIS <c>AddProductApiRequest</c>.</summary>
+public sealed class AddProductRequest
+{
+    [JsonPropertyName("barcode")]
+    public string? Barcode { get; init; }
+
+    [JsonPropertyName("hsCode")]
+    public required string HsCode { get; init; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("description")]
+    public required string Description { get; init; }
+
+    [JsonPropertyName("uom")]
+    public required string Uom { get; init; }
+
+    /// <summary>Local-only fields used when caching the product after a successful add.</summary>
+    [JsonIgnore]
+    public decimal UnitPrice { get; init; }
+
+    [JsonIgnore]
+    public decimal OpeningStockQuantity { get; init; }
+
+    [JsonIgnore]
+    public string? ExpectedTaxRateId { get; init; }
+
+    [JsonIgnore]
+    public string? SiteId { get; init; }
+
+    public string ResolveProductCode() =>
+        string.IsNullOrWhiteSpace(Barcode) ? Name.Trim() : Barcode.Trim();
+}
+
+/// <summary>Maps EIS <c>AddProductApiResponseDto</c>.</summary>
+public sealed class AddProductResponseData
+{
+    [JsonPropertyName("productId")]
+    public long ProductId { get; set; }
+
+    [JsonPropertyName("barcode")]
+    public string? Barcode { get; set; }
+
+    [JsonPropertyName("hsCode")]
+    public string? HsCode { get; set; }
+
+    [JsonPropertyName("taxRateId")]
+    public string? TaxRateId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("uom")]
+    public string? Uom { get; set; }
+}
+
+/// <summary>Maps EIS <c>InventoryItem</c> for initial inventory upload.</summary>
+public sealed class InitialInventoryItemDto
+{
+    [JsonPropertyName("barCode")]
+    public required string BarCode { get; init; }
+
+    [JsonPropertyName("productName")]
+    public required string ProductName { get; init; }
+
+    [JsonPropertyName("productDescription")]
+    public required string ProductDescription { get; init; }
+
     [JsonPropertyName("unitPrice")]
     public decimal UnitPrice { get; init; }
 
-    [JsonPropertyName("openingStockQuantity")]
-    public decimal OpeningStockQuantity { get; init; }
+    [JsonPropertyName("quantityInStock")]
+    public decimal QuantityInStock { get; init; }
 
-    [JsonPropertyName("taxRateId")]
-    public required string TaxRateId { get; init; }
+    [JsonPropertyName("costPrice")]
+    public decimal CostPrice { get; init; }
+
+    [JsonPropertyName("sellingPrice")]
+    public decimal SellingPrice { get; init; }
+
+    [JsonPropertyName("reorderLevel")]
+    public decimal? ReorderLevel { get; init; }
+
+    [JsonPropertyName("overQuantityStockLevel")]
+    public decimal? OverQuantityStockLevel { get; init; }
 }
 
+/// <summary>Maps EIS <c>TaxpayerInitialInventoryUploadRequest</c>.</summary>
 public sealed class InitialInventoryUploadBatchRequest
 {
-    [JsonPropertyName("inventoryItems")]
-    public required IReadOnlyList<InitialInventoryItemDto> InventoryItems { get; init; }
+    [JsonPropertyName("tin")]
+    public string? Tin { get; init; }
 
     [JsonPropertyName("isLastBatch")]
     public bool IsLastBatch { get; init; }
+
+    [JsonPropertyName("products")]
+    public required IReadOnlyList<InitialInventoryItemDto> Products { get; init; }
 }
 
+/// <summary>Maps EIS <c>InitialInventoryResponse</c>.</summary>
 public sealed class InitialInventoryUploadBatchResponseData
 {
-    [JsonPropertyName("acceptedCount")]
-    public int AcceptedCount { get; set; }
-}
+    [JsonPropertyName("totalItems")]
+    public int TotalItems { get; set; }
 
-public sealed class StockMutationResponseData
-{
-    [JsonPropertyName("transactionId")]
-    public string? TransactionId { get; set; }
+    [JsonPropertyName("mappedItems")]
+    public int MappedItems { get; set; }
 
-    [JsonPropertyName("referenceNumber")]
-    public string? ReferenceNumber { get; set; }
+    [JsonPropertyName("unmappedItems")]
+    public int UnmappedItems { get; set; }
+
+    [JsonPropertyName("isPartialUpload")]
+    public bool IsPartialUpload { get; set; }
+
+    [JsonPropertyName("skippedItems")]
+    public IReadOnlyList<string>? SkippedItems { get; set; }
 }

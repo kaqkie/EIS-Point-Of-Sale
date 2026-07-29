@@ -64,19 +64,9 @@ public sealed class StockManagementService
         var context = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
         var query = new Dictionary<string, string>
         {
-            ["pageNumber"] = Math.Max(1, request.PageNumber).ToString(),
+            ["page"] = Math.Max(1, request.Page).ToString(),
             ["pageSize"] = pageSize.ToString()
         };
-
-        if (!string.IsNullOrWhiteSpace(request.SiteId))
-        {
-            query["siteId"] = request.SiteId.Trim();
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.WarehouseId))
-        {
-            query["warehouseId"] = request.WarehouseId.Trim();
-        }
 
         var response = await _apiClient
             .GetAsync<PagedResponse<WarehouseInventoryItemDto>>("stock/warehouse-inventory", query, context, cancellationToken)
@@ -92,7 +82,7 @@ public sealed class StockManagementService
         var context = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
         var query = new Dictionary<string, string>
         {
-            ["pageNumber"] = Math.Max(1, request.PageNumber).ToString(),
+            ["page"] = Math.Max(1, request.Page).ToString(),
             ["pageSize"] = NormalizeInventoryPageSize(request.PageSize).ToString()
         };
 
@@ -260,17 +250,13 @@ public sealed class StockManagementService
     }
 
     public async Task<StockResult<IReadOnlyList<StockAdjustmentReasonDto>>> GetStockAdjustmentReasonsAsync(
-        PagedRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
-        var body = request ?? new PagedRequest { PageNumber = 1, PageSize = DefaultPageSize };
-        body.PageSize = NormalizePageSize(body.PageSize);
-
         var response = await _apiClient
-            .PostAsync<PagedRequest, IReadOnlyList<StockAdjustmentReasonDto>>(
+            .PostAsync<object, IReadOnlyList<StockAdjustmentReasonDto>>(
                 "stock/getStockAdjustmentReasons",
-                body,
+                new { },
                 context,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -279,17 +265,13 @@ public sealed class StockManagementService
     }
 
     public async Task<StockResult<IReadOnlyList<SupplierDto>>> GetSuppliersAsync(
-        PagedRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
-        var body = request ?? new PagedRequest { PageNumber = 1, PageSize = DefaultPageSize };
-        body.PageSize = NormalizePageSize(body.PageSize);
-
         var response = await _apiClient
-            .PostAsync<PagedRequest, IReadOnlyList<SupplierDto>>(
+            .PostAsync<object, IReadOnlyList<SupplierDto>>(
                 "stock/get-suppliers",
-                body,
+                new { },
                 context,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -297,14 +279,14 @@ public sealed class StockManagementService
         return ToResult(response);
     }
 
-    public async Task<StockResult<StockMutationResponseData>> TransferInventoryAsync(
+    public async Task<StockResult<string>> TransferInventoryAsync(
         TransferInventoryRequest request,
         CancellationToken cancellationToken = default)
     {
         ValidateTransferRequest(request);
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
         var response = await _apiClient
-            .PostAsync<TransferInventoryRequest, StockMutationResponseData>(
+            .PostAsync<TransferInventoryRequest, string>(
                 "stock/transfer-inventory",
                 request,
                 context,
@@ -314,20 +296,24 @@ public sealed class StockManagementService
         return ToResult(response);
     }
 
-    public async Task<StockResult<StockMutationResponseData>> SubmitInformalPurchaseAsync(
+    public async Task<StockResult<string>> SubmitInformalPurchaseAsync(
         InformalPurchaseRequest request,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.SupplierId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProductCode);
-        if (request.Quantity <= 0)
+        if (request.SupplierId <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(request), "Purchase quantity must be greater than zero.");
+            throw new ArgumentOutOfRangeException(nameof(request), "SupplierId must be greater than zero.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ReceivedBy);
+        if (request.Items is null || request.Items.Count == 0)
+        {
+            throw new ArgumentException("Informal purchase requires at least one item.", nameof(request));
         }
 
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
         var response = await _apiClient
-            .PostAsync<InformalPurchaseRequest, StockMutationResponseData>(
+            .PostAsync<InformalPurchaseRequest, string>(
                 "stock/submit-informal-purchase",
                 request,
                 context,
@@ -337,20 +323,23 @@ public sealed class StockManagementService
         return ToResult(response);
     }
 
-    public async Task<StockResult<StockMutationResponseData>> SubmitRawMaterialConversionAsync(
+    public async Task<StockResult<string>> SubmitRawMaterialConversionAsync(
         RawMaterialConversionRequest request,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.RawMaterialCode);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProductCode);
-        if (request.RawMaterialQuantity <= 0 || request.ProductQuantity <= 0)
+        if (request.RawMaterials is null || request.RawMaterials.Count == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(request), "Conversion quantities must be greater than zero.");
+            throw new ArgumentException("Conversion requires at least one raw material.", nameof(request));
+        }
+
+        if (request.FinishedProducts is null || request.FinishedProducts.Count == 0)
+        {
+            throw new ArgumentException("Conversion requires at least one finished product.", nameof(request));
         }
 
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
         var response = await _apiClient
-            .PostAsync<RawMaterialConversionRequest, StockMutationResponseData>(
+            .PostAsync<RawMaterialConversionRequest, string>(
                 "raw-material/submit-conversion",
                 request,
                 context,
@@ -360,12 +349,13 @@ public sealed class StockManagementService
         return ToResult(response);
     }
 
-    public async Task<StockResult<StockMutationResponseData>> SubmitStockAdjustmentAsync(
+    public async Task<StockResult<string>> SubmitStockAdjustmentAsync(
         StockAdjustmentRequest request,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProductCode);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.AdjustmentReasonId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Barcode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.AdjustmentReason);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.AdjustmentType);
         if (request.Quantity == 0)
         {
             throw new ArgumentOutOfRangeException(nameof(request), "Adjustment quantity cannot be zero.");
@@ -373,7 +363,7 @@ public sealed class StockManagementService
 
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
         var response = await _apiClient
-            .PostAsync<StockAdjustmentRequest, StockMutationResponseData>(
+            .PostAsync<StockAdjustmentRequest, string>(
                 "stock/submit-adjustment",
                 request,
                 context,
@@ -402,7 +392,9 @@ public sealed class StockManagementService
         if (result.Success)
         {
             await PersistLocalProductAsync(request, result.Data, cancellationToken).ConfigureAwait(false);
-            _logger.LogInformation("Product {ProductCode} registered with MRA and cached locally.", request.ProductCode);
+            _logger.LogInformation(
+                "Product {ProductCode} registered with MRA and cached locally.",
+                request.ResolveProductCode());
         }
 
         return result;
@@ -411,11 +403,20 @@ public sealed class StockManagementService
     public int NormalizeInventoryPageSize(int pageSize) =>
         NormalizePageSize(Math.Min(pageSize, _inventoryUploadBatchSize));
 
+    public static int NormalizePageSize(int pageSize) =>
+        pageSize switch
+        {
+            <= 0 => DefaultPageSize,
+            > MaxPageSize => MaxPageSize,
+            _ => pageSize
+        };
+
     public IReadOnlyList<InventoryUploadBatch<T>> PlanInitialInventoryUploadBatches<T>(IReadOnlyList<T> items) =>
         InventoryUploadBatchPlanner.CreateBatches(items, _inventoryUploadBatchSize);
 
     public async Task<StockResult<int>> UploadInitialInventoryInBatchesAsync(
         IReadOnlyList<InitialInventoryItemDto> items,
+        string? tin = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(items);
@@ -424,6 +425,7 @@ public sealed class StockManagementService
             return StockResult<int>.Succeeded(0, "No inventory items to upload.");
         }
 
+        var taxpayerTin = await ResolveTaxpayerTinAsync(tin, cancellationToken).ConfigureAwait(false);
         var batches = InventoryUploadBatchPlanner.CreateBatches(items, _inventoryUploadBatchSize);
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
         var uploaded = 0;
@@ -432,13 +434,14 @@ public sealed class StockManagementService
         {
             var request = new InitialInventoryUploadBatchRequest
             {
-                InventoryItems = batch.Items,
+                Tin = taxpayerTin,
+                Products = batch.Items,
                 IsLastBatch = batch.IsLastBatch
             };
 
             var response = await _apiClient
                 .PostAsync<InitialInventoryUploadBatchRequest, InitialInventoryUploadBatchResponseData>(
-                    "stock/upload-initial-inventory",
+                    "utilities/taxpayer-initial-inventory-upload",
                     request,
                     context,
                     cancellationToken)
@@ -456,23 +459,14 @@ public sealed class StockManagementService
         return StockResult<int>.Succeeded(uploaded, $"Uploaded {uploaded} inventory item(s) in {batches.Count} batch(es).");
     }
 
-    public static int NormalizePageSize(int pageSize) =>
-        pageSize switch
-        {
-            <= 0 => DefaultPageSize,
-            > MaxPageSize => MaxPageSize,
-            _ => pageSize
-        };
-
     private async Task ValidateAddProductAgainstLocalRulesAsync(
         AddProductRequest request,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProductCode);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProductName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Description);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.HsCode);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.UnitOfMeasure);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.TaxRateId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Uom);
 
         if (request.UnitPrice < 0)
         {
@@ -484,16 +478,21 @@ public sealed class StockManagementService
             throw new ArgumentOutOfRangeException(nameof(request), "Opening stock quantity cannot be negative.");
         }
 
+        var productCode = request.ResolveProductCode();
         var existing = await _inventoryRepository
-            .GetByProductCodeAsync(request.ProductCode.Trim(), cancellationToken)
+            .GetByProductCodeAsync(productCode, cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
         {
             throw new InvalidOperationException(
-                $"Product code '{request.ProductCode}' already exists in local inventory.");
+                $"Product code '{productCode}' already exists in local inventory.");
         }
 
-        await EnsureTaxRateIsConfiguredAsync(request.TaxRateId, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(request.ExpectedTaxRateId))
+        {
+            await EnsureTaxRateIsConfiguredAsync(request.ExpectedTaxRateId, cancellationToken).ConfigureAwait(false);
+        }
+
         await EnsureReferenceValueExistsAsync(
             MraConfigurationKeys.StockHsCodesCache,
             request.HsCode,
@@ -502,8 +501,8 @@ public sealed class StockManagementService
             cancellationToken).ConfigureAwait(false);
         await EnsureReferenceValueExistsAsync(
             MraConfigurationKeys.StockUnitsOfMeasureCache,
-            request.UnitOfMeasure,
-            value => value.Equals(request.UnitOfMeasure, StringComparison.OrdinalIgnoreCase),
+            request.Uom,
+            value => value.Equals(request.Uom, StringComparison.OrdinalIgnoreCase),
             "unit of measure",
             cancellationToken).ConfigureAwait(false);
     }
@@ -550,7 +549,11 @@ public sealed class StockManagementService
         if (cacheKey == MraConfigurationKeys.StockHsCodesCache)
         {
             var hsCodes = JsonSerializer.Deserialize<List<HsCodeDto>>(cacheJson, MraJson.SerializerOptions) ?? [];
-            if (!hsCodes.Any(x => x.HsCode is not null && match(x.HsCode)))
+            if (!hsCodes.Any(x =>
+            {
+                var code = x.ResolveCode();
+                return code is not null && match(code);
+            }))
             {
                 throw new InvalidOperationException($"HS code '{submittedValue}' is not in the MRA reference list.");
             }
@@ -559,7 +562,11 @@ public sealed class StockManagementService
         }
 
         var units = JsonSerializer.Deserialize<List<UnitOfMeasureDto>>(cacheJson, MraJson.SerializerOptions) ?? [];
-        if (!units.Any(x => x.Code is not null && match(x.Code)))
+        if (!units.Any(x =>
+        {
+            var code = x.ResolveCode();
+            return code is not null && match(code);
+        }))
         {
             throw new InvalidOperationException(
                 $"Unit of measure '{submittedValue}' is not in the MRA reference list.");
@@ -571,23 +578,22 @@ public sealed class StockManagementService
         AddProductResponseData? responseData,
         CancellationToken cancellationToken)
     {
-        var productId = responseData?.ProductId;
-        if (string.IsNullOrWhiteSpace(productId))
-        {
-            productId = request.ProductCode.Trim();
-        }
+        var productCode = FirstNonEmpty(responseData?.Barcode, request.Barcode) ?? request.ResolveProductCode();
+        var productId = responseData is { ProductId: > 0 }
+            ? responseData.ProductId.ToString()
+            : productCode;
 
         await _inventoryRepository.UpsertAsync(
             new LocalInventoryItem
             {
                 ProductId = productId,
-                ProductCode = request.ProductCode.Trim(),
-                Name = request.ProductName.Trim(),
+                ProductCode = productCode,
+                Name = FirstNonEmpty(responseData?.Name, request.Name) ?? productCode,
                 UnitPrice = request.UnitPrice,
                 StockQuantity = request.OpeningStockQuantity,
-                HsCode = request.HsCode.Trim(),
-                UnitOfMeasure = request.UnitOfMeasure.Trim(),
-                TaxRateId = request.TaxRateId.Trim()
+                HsCode = FirstNonEmpty(responseData?.HsCode, request.HsCode),
+                UnitOfMeasure = FirstNonEmpty(responseData?.Uom, request.Uom),
+                TaxRateId = FirstNonEmpty(responseData?.TaxRateId, request.ExpectedTaxRateId)
             },
             cancellationToken).ConfigureAwait(false);
     }
@@ -600,20 +606,60 @@ public sealed class StockManagementService
             cancellationToken).ConfigureAwait(false);
     }
 
-    private static void ValidateTransferRequest(TransferInventoryRequest request)
+    private async Task<string?> ResolveTaxpayerTinAsync(string? tin, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.SourceSiteId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.DestinationSiteId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProductCode);
-        if (request.Quantity <= 0)
+        if (!string.IsNullOrWhiteSpace(tin))
         {
-            throw new ArgumentOutOfRangeException(nameof(request), "Transfer quantity must be greater than zero.");
+            return tin.Trim();
         }
 
-        if (request.SourceSiteId.Equals(request.DestinationSiteId, StringComparison.OrdinalIgnoreCase))
+        var taxpayerJson = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TaxpayerConfiguration, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(taxpayerJson))
+        {
+            return null;
+        }
+
+        var taxpayer = JsonSerializer.Deserialize<TaxpayerConfigurationDto>(taxpayerJson, MraJson.SerializerOptions);
+        return string.IsNullOrWhiteSpace(taxpayer?.Tin) ? null : taxpayer.Tin.Trim();
+    }
+
+    private static void ValidateTransferRequest(TransferInventoryRequest request)
+    {
+        if (!request.FromWarehouseToSite && !request.SiteToWarehouse
+            && string.IsNullOrWhiteSpace(request.FromSiteId)
+            && string.IsNullOrWhiteSpace(request.ToSiteId))
+        {
+            throw new ArgumentException(
+                "Transfer must specify fromWarehouseToSite, siteToWarehouse, or site ids.",
+                nameof(request));
+        }
+
+        if (request.Items is null || request.Items.Count == 0)
+        {
+            throw new ArgumentException("Transfer requires at least one item.", nameof(request));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.FromSiteId)
+            && !string.IsNullOrWhiteSpace(request.ToSiteId)
+            && request.FromSiteId.Equals(request.ToSiteId, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Source and destination sites must differ.");
         }
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
     }
 
     private static StockResult<T> ToResult<T>(EisApiResponse<T> response) =>

@@ -390,9 +390,9 @@ public sealed record PosRuntimeContext(
         && !string.IsNullOrWhiteSpace(SiteId)
         && !string.IsNullOrWhiteSpace(SellerTin);
 
-    public int GlobalConfigVersion => Global?.VersionNo > 0 ? Global.VersionNo : 1;
-    public int TerminalConfigVersion => Terminal?.VersionNo > 0 ? Terminal.VersionNo : 1;
-    public int TaxpayerConfigVersion => Taxpayer?.VersionNo > 0 ? Taxpayer.VersionNo : 1;
+    public int GlobalConfigVersion => Global?.VersionNo > 0 ? (int)Global.VersionNo : 1;
+    public int TerminalConfigVersion => Terminal?.VersionNo > 0 ? (int)Terminal.VersionNo : 1;
+    public int TaxpayerConfigVersion => Taxpayer?.VersionNo > 0 ? (int)Taxpayer.VersionNo : 1;
 
     /// <summary>MRA taxRateId for the standard VAT tier — prefers activated config ids (typically <c>A</c>).</summary>
     public string StandardVatTaxRateId =>

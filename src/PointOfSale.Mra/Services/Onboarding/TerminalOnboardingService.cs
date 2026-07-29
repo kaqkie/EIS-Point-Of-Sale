@@ -92,7 +92,7 @@ public sealed class TerminalOnboardingService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        if (!confirmResponse.IsSuccess)
+        if (!confirmResponse.IsSuccess || !confirmResponse.Data)
         {
             return TerminalOnboardingResult.Failed(
                 "Terminal activated locally but MRA confirmation failed. Retry confirmation before selling.",

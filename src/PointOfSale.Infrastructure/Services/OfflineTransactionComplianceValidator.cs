@@ -36,7 +36,7 @@ public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionC
         var maxAgeHours = offlineLimit?.MaxTransactionAgeInHours > 0
             ? offlineLimit.MaxTransactionAgeInHours
             : FallbackMaxTransactionAgeInHours;
-        var maxAge = TimeSpan.FromHours(maxAgeHours);
+        var maxAge = TimeSpan.FromHours((double)maxAgeHours);
         var age = now - transactionMoment;
 
         if (age > maxAge)
@@ -62,7 +62,7 @@ public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionC
         }
 
         return OfflineTransactionComplianceResult.Ok(
-            maxAgeHours,
+            (int)Math.Ceiling(maxAgeHours),
             age,
             request.InvoiceSummary.OfflineSignature);
     }

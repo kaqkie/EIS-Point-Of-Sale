@@ -344,11 +344,14 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
                         .ConfigureAwait(true);
                     if (lookup.Success && lookup.Data is not null)
                     {
+                        var invoiceNumber = lookup.Data.InvoiceHeader?.InvoiceNumber
+                            ?? payload.InvoiceHeader.InvoiceNumber;
                         fiscal = new SubmitSalesTransactionResponseData
                         {
-                            InvoiceNumber = lookup.Data.InvoiceNumber,
-                            FiscalSignature = lookup.Data.FiscalCode ?? lookup.Data.InvoiceNumber,
-                            VerificationUrl = null
+                            InvoiceNumber = invoiceNumber,
+                            FiscalSignature = invoiceNumber,
+                            ValidationUrl = lookup.Data.ValidationUrl,
+                            VerificationUrl = lookup.Data.ValidationUrl
                         };
                     }
                 }

@@ -230,34 +230,34 @@ public sealed class SalesTransactionService
             lookup.Remark);
     }
 
-    public Task<SalesResult<SalesInvoiceSnapshotDto>> GetInvoiceByNumberAsync(
+    public Task<SalesResult<InvoiceLookupResponseData>> GetInvoiceByNumberAsync(
         InvoiceNumberQueryRequest request,
         CancellationToken cancellationToken = default) =>
-        PostSignedAsync<InvoiceNumberQueryRequest, SalesInvoiceSnapshotDto>(
+        PostSignedAsync<InvoiceNumberQueryRequest, InvoiceLookupResponseData>(
             "sales/get-invoice-by-number",
             request,
             cancellationToken);
 
-    public Task<SalesResult<SubmitSalesTransactionResponseData>> ProcessCreditDebitNoteAsync(
+    public Task<SalesResult<ProcessCreditDebitNoteResponseData>> ProcessCreditDebitNoteAsync(
         ProcessCreditDebitNoteRequest request,
         CancellationToken cancellationToken = default) =>
-        PostSignedAsync<ProcessCreditDebitNoteRequest, SubmitSalesTransactionResponseData>(
+        PostSignedAsync<ProcessCreditDebitNoteRequest, ProcessCreditDebitNoteResponseData>(
             "sales/process-credit-debit-note",
             request,
             cancellationToken);
 
-    public Task<SalesResult<SubmitSalesTransactionResponseData>> CancelReceiptAsync(
+    public Task<SalesResult<CancelReceiptResponseData>> CancelReceiptAsync(
         CancelReceiptRequest request,
         CancellationToken cancellationToken = default) =>
-        PostSignedAsync<CancelReceiptRequest, SubmitSalesTransactionResponseData>(
+        PostSignedAsync<CancelReceiptRequest, CancelReceiptResponseData>(
             "sales/cancel-receipt",
             request,
             cancellationToken);
 
-    public Task<SalesResult<IReadOnlyList<VoidReceiptDto>>> GetVoidReceiptsAsync(
+    public Task<SalesResult<GetVoidReceiptsResponseData>> GetVoidReceiptsAsync(
         GetVoidReceiptsRequest request,
         CancellationToken cancellationToken = default) =>
-        PostSignedAsync<GetVoidReceiptsRequest, IReadOnlyList<VoidReceiptDto>>(
+        PostSignedAsync<GetVoidReceiptsRequest, GetVoidReceiptsResponseData>(
             "sales/get-void-receipts",
             request,
             cancellationToken);
@@ -281,7 +281,7 @@ public sealed class SalesTransactionService
             {
                 await _stockManagementService
                     .GetWarehouseInventoryAsync(
-                        new Mra.Contracts.Stock.WarehouseInventoryRequest { PageNumber = 1, PageSize = 200 },
+                        new Mra.Contracts.Stock.WarehouseInventoryRequest { Page = 1, PageSize = 200 },
                         cancellationToken)
                     .ConfigureAwait(false);
 

@@ -81,20 +81,22 @@ public sealed class MraCertificationRunner : IDisposable
             return (200, JsonSerializer.Serialize(response), null, null, null);
         }, cancellationToken).ConfigureAwait(false);
 
-        await StepAsync(document, "Initial Inventory Staging/Upload", "stock/upload-initial-inventory", async () =>
+        await StepAsync(document, "Initial Inventory Staging/Upload", "utilities/taxpayer-initial-inventory-upload", async () =>
         {
             var items = Enumerable.Range(1, 55)
                 .Select(i => new InitialInventoryItemDto
                 {
-                    ProductCode = $"CERT-{i:D3}",
+                    BarCode = $"CERT-{i:D3}",
                     ProductName = $"Item {i}",
+                    ProductDescription = $"Item {i}",
                     UnitPrice = 10m,
-                    OpeningStockQuantity = 5,
-                    TaxRateId = MraTaxRateCodes.StandardVat
+                    QuantityInStock = 5,
+                    CostPrice = 10m,
+                    SellingPrice = 10m
                 })
                 .ToList();
 
-            var result = await _harness.StockService.UploadInitialInventoryInBatchesAsync(items, cancellationToken)
+            var result = await _harness.StockService.UploadInitialInventoryInBatchesAsync(items, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             Assert.True(result.Success);
             Assert.Equal(55, result.Data);
@@ -167,8 +169,7 @@ public sealed class MraCertificationRunner : IDisposable
         {
             var note = new ProcessCreditDebitNoteRequest
             {
-                OriginalInvoiceNumber = "CERT-ONLINE-001",
-                NoteType = "Credit",
+                ReasonForAdjustment = "Certification credit note",
                 InvoiceHeader = new InvoiceHeaderDto
                 {
                     InvoiceNumber = "CERT-CDN-001",
@@ -188,7 +189,7 @@ public sealed class MraCertificationRunner : IDisposable
                 .ConfigureAwait(false);
             Assert.True(result.Success);
             return (200, JsonSerializer.Serialize(result.Data, MraJson.SerializerOptions),
-                result.Data?.ResolveFiscalSignature(), null, JsonSerializer.Serialize(note, MraJson.SerializerOptions));
+                result.Data?.ValidationUrl, null, JsonSerializer.Serialize(note, MraJson.SerializerOptions));
         }, cancellationToken).ConfigureAwait(false);
 
         document.CompletedUtc = DateTime.UtcNow;

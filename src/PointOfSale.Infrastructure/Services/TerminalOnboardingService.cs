@@ -228,7 +228,7 @@ public sealed class TerminalOnboardingService
         var tac = request.TerminalActivationCode.Trim();
 
         var response = await _apiClient
-            .PostAsync<TerminalActivatedConfirmationRequest, TerminalActivatedConfirmationResponseData>(
+            .PostAsync<TerminalActivatedConfirmationRequest, bool>(
                 "onboarding/terminal-activated-confirmation",
                 body,
                 new MraRequestContext
@@ -240,12 +240,13 @@ public sealed class TerminalOnboardingService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        if (!response.IsSuccess)
+        if (!response.IsSuccess || !response.Data)
         {
             _logger.LogWarning(
-                "terminal-activated-confirmation failed. statusCode={StatusCode}, remark={Remark}, errors={Errors}",
+                "terminal-activated-confirmation failed. statusCode={StatusCode}, remark={Remark}, data={Data}, errors={Errors}",
                 response.StatusCode,
                 response.Remark ?? "(null)",
+                response.Data,
                 response.Errors is null
                     ? "(none)"
                     : JsonSerializer.Serialize(response.Errors, MraJson.SerializerOptions));

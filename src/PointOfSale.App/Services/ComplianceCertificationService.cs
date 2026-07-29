@@ -106,20 +106,22 @@ public sealed class ComplianceCertificationService : IComplianceCertificationSer
             return (200, JsonSerializer.Serialize(new { success = true, remark = result.Remark }), null, null);
         }, Log, cancellationToken).ConfigureAwait(false);
 
-        await RunStepAsync(document, "Initial Inventory Staging/Upload", "stock/upload-initial-inventory", async () =>
+        await RunStepAsync(document, "Initial Inventory Staging/Upload", "utilities/taxpayer-initial-inventory-upload", async () =>
         {
             var items = new List<InitialInventoryItemDto>
             {
                 new()
                 {
-                    ProductCode = "CERT-SKU-001",
+                    BarCode = "CERT-SKU-001",
                     ProductName = "Certification Item",
+                    ProductDescription = "Certification Item",
                     UnitPrice = 100m,
-                    OpeningStockQuantity = 10,
-                    TaxRateId = "A"
+                    QuantityInStock = 10,
+                    CostPrice = 100m,
+                    SellingPrice = 100m
                 }
             };
-            var result = await stock.UploadInitialInventoryInBatchesAsync(items, cancellationToken).ConfigureAwait(false);
+            var result = await stock.UploadInitialInventoryInBatchesAsync(items, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (!result.Success)
             {
                 throw new InvalidOperationException(result.Remark ?? "Initial inventory upload failed.");
@@ -183,8 +185,7 @@ public sealed class ComplianceCertificationService : IComplianceCertificationSer
             var original = lastSale ?? BuildSale($"CERT-CDN-SRC-{DateTime.UtcNow:yyyyMMddHHmmss}");
             var note = new ProcessCreditDebitNoteRequest
             {
-                OriginalInvoiceNumber = original.InvoiceHeader.InvoiceNumber,
-                NoteType = "Credit",
+                ReasonForAdjustment = "Certification credit note",
                 InvoiceHeader = new InvoiceHeaderDto
                 {
                     InvoiceNumber = $"CERT-CDN-{DateTime.UtcNow:yyyyMMddHHmmss}",
@@ -209,7 +210,7 @@ public sealed class ComplianceCertificationService : IComplianceCertificationSer
             return (
                 200,
                 JsonSerializer.Serialize(result.Data, MraJson.SerializerOptions),
-                result.Data?.ResolveFiscalSignature(),
+                result.Data?.ValidationUrl,
                 null);
         }, Log, cancellationToken).ConfigureAwait(false);
 

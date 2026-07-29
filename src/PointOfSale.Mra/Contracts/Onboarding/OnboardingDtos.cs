@@ -3,6 +3,7 @@ using PointOfSale.Mra.Contracts.Configuration;
 
 namespace PointOfSale.Mra.Contracts.Onboarding;
 
+/// <summary>Maps EIS <c>UnActivatedTerminal</c>.</summary>
 public sealed class ActivateTerminalRequest
 {
     [JsonPropertyName("terminalActivationCode")]
@@ -12,6 +13,7 @@ public sealed class ActivateTerminalRequest
     public required TerminalEnvironmentDto Environment { get; init; }
 }
 
+/// <summary>Maps EIS <c>TerminalRuntimeEnvironment</c>.</summary>
 public sealed class TerminalEnvironmentDto
 {
     [JsonPropertyName("platform")]
@@ -21,6 +23,7 @@ public sealed class TerminalEnvironmentDto
     public required PosEnvironmentDto Pos { get; init; }
 }
 
+/// <summary>Maps EIS <c>Platform</c>.</summary>
 public sealed class PlatformEnvironmentDto
 {
     [JsonPropertyName("osName")]
@@ -36,6 +39,7 @@ public sealed class PlatformEnvironmentDto
     public required string MacAddress { get; init; }
 }
 
+/// <summary>Maps EIS <c>POS</c>.</summary>
 public sealed class PosEnvironmentDto
 {
     [JsonPropertyName("productID")]
@@ -45,6 +49,7 @@ public sealed class PosEnvironmentDto
     public required string ProductVersion { get; init; }
 }
 
+/// <summary>Maps EIS <c>TerminalActivationResponse</c>.</summary>
 public sealed class ActivateTerminalResponseData
 {
     [JsonPropertyName("activatedTerminal")]
@@ -54,6 +59,7 @@ public sealed class ActivateTerminalResponseData
     public EisConfigurationBundleDto? Configuration { get; set; }
 }
 
+/// <summary>Maps EIS <c>ActivatedTerminal</c>.</summary>
 public sealed class ActivatedTerminalDto
 {
     [JsonPropertyName("terminalId")]
@@ -62,6 +68,9 @@ public sealed class ActivatedTerminalDto
     [JsonPropertyName("terminalPosition")]
     public int? TerminalPosition { get; set; }
 
+    [JsonPropertyName("taxpayerId")]
+    public long? TaxpayerId { get; set; }
+
     [JsonPropertyName("activationDate")]
     public DateTimeOffset? ActivationDate { get; set; }
 
@@ -69,6 +78,7 @@ public sealed class ActivatedTerminalDto
     public TerminalCredentialsDto? TerminalCredentials { get; set; }
 }
 
+/// <summary>Maps EIS <c>TerminalCredentials</c>.</summary>
 public sealed class TerminalCredentialsDto
 {
     [JsonPropertyName("jwtToken")]
@@ -78,17 +88,9 @@ public sealed class TerminalCredentialsDto
     public string? SecretKey { get; set; }
 }
 
+/// <summary>Maps EIS <c>ActivatedTerminalConfirmation</c>.</summary>
 public sealed class TerminalActivatedConfirmationRequest
 {
     [JsonPropertyName("terminalId")]
     public required string TerminalId { get; init; }
-}
-
-public sealed class TerminalActivatedConfirmationResponseData
-{
-    [JsonPropertyName("terminalId")]
-    public string? TerminalId { get; set; }
-
-    [JsonPropertyName("isActivated")]
-    public bool IsActivated { get; set; }
 }
