@@ -113,17 +113,32 @@ public sealed class OfflineSalesQueueService
 
     public async Task<bool> ProcessNextFifoAsync(CancellationToken cancellationToken = default)
     {
+        var result = await ProcessNextFifoWithComplianceAsync(
+                prepareAndValidate: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return result is not null;
+    }
+
+    /// <summary>
+    /// FIFO claim → optional compliance/signing preparation → MRA upload.
+    /// Returns null when the queue has no eligible work.
+    /// </summary>
+    public async Task<SaleQueueResult?> ProcessNextFifoWithComplianceAsync(
+        Func<SubmitSalesTransactionRequest, DateTime, CancellationToken, Task<OfflineUploadPreparationResult>>? prepareAndValidate,
+        CancellationToken cancellationToken = default)
+    {
         await EnsureOfflineSequenceContinuityAsync(cancellationToken).ConfigureAwait(false);
 
         var next = await _queueRepository.GetNextFifoEligibleAsync(cancellationToken).ConfigureAwait(false);
         if (next is null)
         {
-            return false;
+            return null;
         }
 
         if (!await _queueRepository.TryMarkSyncingAsync(next.Id, cancellationToken).ConfigureAwait(false))
         {
-            return false;
+            return null;
         }
 
         SubmitSalesTransactionRequest payload;
@@ -137,16 +152,70 @@ public sealed class OfflineSalesQueueService
             await _queueRepository
                 .MarkQuarantinedAsync(next.Id, TruncateError($"Invalid payload: {ex.Message}"), cancellationToken)
                 .ConfigureAwait(false);
-            return true;
+            return SaleQueueResult.Quarantined(next.Id, string.Empty, ex.Message);
         }
 
-        await TrySubmitQueuedAsync(
+        if (prepareAndValidate is not null)
+        {
+            OfflineUploadPreparationResult prepared;
+            try
+            {
+                prepared = await prepareAndValidate(payload, next.CreatedAt, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await _queueRepository
+                    .MarkQuarantinedAsync(
+                        next.Id,
+                        TruncateError($"Offline compliance preparation failed: {ex.Message}"),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return SaleQueueResult.Quarantined(
+                    next.Id,
+                    payload.InvoiceHeader.InvoiceNumber,
+                    ex.Message);
+            }
+
+            payload = prepared.Request;
+            if (!prepared.Accepted)
+            {
+                var remark = TruncateError(
+                    prepared.RejectionRemark ?? "Offline transaction failed compliance validation.");
+                await _queueRepository
+                    .MarkQuarantinedAsync(next.Id, remark, cancellationToken)
+                    .ConfigureAwait(false);
+                await LogComplianceAsync(
+                        ComplianceAuditCategories.OfflineQueue,
+                        "OfflineComplianceQuarantine",
+                        $"Queue {next.Id}: {remark}",
+                        success: false,
+                        correlationId: next.Id.ToString(),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return SaleQueueResult.Quarantined(next.Id, payload.InvoiceHeader.InvoiceNumber, remark);
+            }
+
+            // Persist refreshed offlineSignature / normalized payload before upload.
+            try
+            {
+                var refreshedJson = JsonSerializer.Serialize(payload, MraJson.SerializerOptions);
+                await _queueRepository
+                    .UpdatePayloadJsonAsync(next.Id, refreshedJson, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to persist refreshed offline payload for queue {QueueId}.", next.Id);
+            }
+        }
+
+        return await TrySubmitQueuedAsync(
             next.Id,
             payload,
             next.RetryCount,
             cancellationToken,
             triggerAutoPrintOnSuccess: true).ConfigureAwait(false);
-        return true;
     }
 
     public async Task<SaleQueueResult?> ForceSyncQueueItemAsync(int queueId, CancellationToken cancellationToken = default)

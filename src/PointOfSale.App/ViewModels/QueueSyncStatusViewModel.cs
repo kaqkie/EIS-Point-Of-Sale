@@ -17,6 +17,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 {
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly OfflineSalesQueueService _offlineSalesQueueService;
+    private readonly OfflineTransactionSyncService _offlineTransactionSyncService;
     private readonly SalesTransactionService _salesTransactionService;
     private readonly IReceiptPrintingService _receiptPrintingService;
     private readonly IPosConfigurationService _posConfigurationService;
@@ -27,12 +28,14 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     public QueueSyncStatusViewModel(
         IOfflineInvoiceQueueRepository queueRepository,
         OfflineSalesQueueService offlineSalesQueueService,
+        OfflineTransactionSyncService offlineTransactionSyncService,
         SalesTransactionService salesTransactionService,
         IReceiptPrintingService receiptPrintingService,
         IPosConfigurationService posConfigurationService)
     {
         _queueRepository = queueRepository;
         _offlineSalesQueueService = offlineSalesQueueService;
+        _offlineTransactionSyncService = offlineTransactionSyncService;
         _salesTransactionService = salesTransactionService;
         _receiptPrintingService = receiptPrintingService;
         _posConfigurationService = posConfigurationService;
@@ -166,10 +169,23 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 
         try
         {
-            var processed = await _offlineSalesQueueService.ProcessNextFifoAsync().ConfigureAwait(true);
-            StatusMessage = processed
-                ? "Processed next FIFO queue item (auto-print runs when MRA returns fiscal data)."
-                : "No eligible queue item.";
+            if (!_offlineTransactionSyncService.CanUploadNow())
+            {
+                StatusMessage = "MRA is unreachable — offline sync will resume automatically when connectivity is restored.";
+                await RefreshAsync().ConfigureAwait(true);
+                return;
+            }
+
+            var result = await _offlineTransactionSyncService
+                .ProcessNextCompliantAsync()
+                .ConfigureAwait(true);
+            StatusMessage = result is null
+                ? "No eligible queue item."
+                : result.IsQuarantined
+                    ? $"Queue item quarantined: {result.Remark}"
+                    : result.SubmittedOnline
+                        ? $"Uploaded offline sale {result.InvoiceNumber} to MRA (offlineSignature transmitted)."
+                        : $"Processed queue item {result.QueueId}.";
             await RefreshAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -256,14 +272,21 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     /// </summary>
     private async Task DrainFifoQueueAsync(int maxItems = 25)
     {
-        for (var i = 0; i < maxItems; i++)
+        if (!_offlineTransactionSyncService.CanUploadNow())
         {
-            var processed = await _offlineSalesQueueService.ProcessNextFifoAsync().ConfigureAwait(true);
-            if (!processed)
-            {
-                break;
-            }
+            StatusMessage = "MRA is unreachable — queue drain paused until connectivity returns.";
+            return;
         }
+
+        var drain = await _offlineTransactionSyncService.DrainPendingAsync().ConfigureAwait(true);
+        if (drain.ProcessedCount == 0)
+        {
+            return;
+        }
+
+        StatusMessage =
+            $"Drained {drain.ProcessedCount} offline sale(s) " +
+            $"(submitted={drain.SubmittedCount}, quarantined={drain.QuarantinedCount}).";
     }
 
     private static string FormatSyncResult(int queueId, string invoiceNumber, SaleQueueResult? result, string prefix)

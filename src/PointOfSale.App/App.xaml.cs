@@ -184,6 +184,7 @@ public partial class App : Application
 
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<IConnectionStatusService, ConnectionStatusService>();
+                services.AddSingleton<IMraConnectivityMonitor, ConnectionStatusMraConnectivityMonitor>();
                 services.AddSingleton<IPosConfigurationService, PosConfigurationService>();
                 services.AddTransient<IMraFiscalCheckoutService, MraFiscalCheckoutService>();
                 services.AddSingleton<IMraReceiptLayoutService, MraReceiptLayoutService>();

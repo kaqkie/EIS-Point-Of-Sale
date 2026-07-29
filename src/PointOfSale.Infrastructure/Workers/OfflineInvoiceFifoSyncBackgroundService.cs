@@ -9,38 +9,58 @@ namespace PointOfSale.Infrastructure.Workers;
 
 /// <summary>
 /// Background FIFO synchronizer for dbo.OfflineInvoiceQueue (Albert Retail Terminal).
+/// Monitors MRA connectivity and drains signed offline sales when the network is restored.
 /// </summary>
 public sealed class OfflineInvoiceFifoSyncBackgroundService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IMraConnectivityMonitor _connectivity;
     private readonly OfflineSyncOptions _options;
     private readonly ILogger<OfflineInvoiceFifoSyncBackgroundService> _logger;
+    private readonly object _wakeGate = new();
+    private TaskCompletionSource _wakeSignal = NewWakeSignal();
 
     public OfflineInvoiceFifoSyncBackgroundService(
         IServiceScopeFactory scopeFactory,
         IOptions<OfflineSyncOptions> options,
-        ILogger<OfflineInvoiceFifoSyncBackgroundService> logger)
+        ILogger<OfflineInvoiceFifoSyncBackgroundService> logger,
+        IMraConnectivityMonitor? connectivity = null)
     {
         _scopeFactory = scopeFactory;
         _options = options.Value;
         _logger = logger;
+        _connectivity = connectivity ?? new AlwaysReachableMraConnectivityMonitor();
+        _connectivity.ReachabilityChanged += OnReachabilityChanged;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "Offline invoice FIFO sync worker started (interval {Interval}s). Auto-print is handled after successful MRA sync.",
-            _options.PollIntervalSeconds);
+            "Offline invoice FIFO sync worker started (interval {Interval}s, requireConnectivity={RequireConnectivity}).",
+            _options.PollIntervalSeconds,
+            _options.RequireMraConnectivity);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var processedAny = await ProcessPendingBatchAsync(stoppingToken).ConfigureAwait(false);
-                if (!processedAny)
+                if (_options.RequireMraConnectivity && !_connectivity.IsMraReachable)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(_options.PollIntervalSeconds), stoppingToken)
-                        .ConfigureAwait(false);
+                    _logger.LogDebug("Offline sync idle — waiting for MRA connectivity.");
+                    await WaitForWakeOrDelayAsync(stoppingToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                OfflineSyncDrainResult drain;
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var sync = scope.ServiceProvider.GetRequiredService<OfflineTransactionSyncService>();
+                    drain = await sync.DrainPendingAsync(stoppingToken).ConfigureAwait(false);
+                }
+
+                if (drain.ProcessedCount == 0 || drain.ConnectivityPaused)
+                {
+                    await WaitForWakeOrDelayAsync(stoppingToken).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -50,28 +70,44 @@ public sealed class OfflineInvoiceFifoSyncBackgroundService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Offline FIFO sync worker iteration failed.");
-                await Task.Delay(TimeSpan.FromSeconds(_options.PollIntervalSeconds), stoppingToken)
-                    .ConfigureAwait(false);
+                await WaitForWakeOrDelayAsync(stoppingToken).ConfigureAwait(false);
             }
         }
     }
 
-    private async Task<bool> ProcessPendingBatchAsync(CancellationToken cancellationToken)
+    public override void Dispose()
     {
-        var processed = false;
-        while (true)
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var queueService = scope.ServiceProvider.GetRequiredService<OfflineSalesQueueService>();
-            var didProcess = await queueService.ProcessNextFifoAsync(cancellationToken).ConfigureAwait(false);
-            if (!didProcess)
-            {
-                break;
-            }
+        _connectivity.ReachabilityChanged -= OnReachabilityChanged;
+        base.Dispose();
+    }
 
-            processed = true;
+    private void OnReachabilityChanged(object? sender, EventArgs e)
+    {
+        if (!_connectivity.IsMraReachable)
+        {
+            return;
         }
 
-        return processed;
+        _logger.LogInformation("MRA connectivity restored — waking offline sync worker.");
+        lock (_wakeGate)
+        {
+            _wakeSignal.TrySetResult();
+            _wakeSignal = NewWakeSignal();
+        }
     }
+
+    private async Task WaitForWakeOrDelayAsync(CancellationToken stoppingToken)
+    {
+        Task wakeTask;
+        lock (_wakeGate)
+        {
+            wakeTask = _wakeSignal.Task;
+        }
+
+        var delayTask = Task.Delay(TimeSpan.FromSeconds(Math.Max(1, _options.PollIntervalSeconds)), stoppingToken);
+        await Task.WhenAny(wakeTask, delayTask).ConfigureAwait(false);
+    }
+
+    private static TaskCompletionSource NewWakeSignal() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 }

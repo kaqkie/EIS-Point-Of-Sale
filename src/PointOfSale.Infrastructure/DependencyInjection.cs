@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using PointOfSale.Core.Compliance;
 using PointOfSale.Infrastructure.Data;
@@ -87,6 +88,9 @@ public static class DependencyInjection
         services.AddScoped<Vat5CertificateValidationService>();
         services.AddScoped<TerminalBlockingMessageService>();
         services.AddScoped<OfflineReceiptSignatureService>();
+        services.AddSingleton<IOfflineTransactionComplianceValidator, OfflineTransactionComplianceValidator>();
+        services.TryAddSingleton<IMraConnectivityMonitor, AlwaysReachableMraConnectivityMonitor>();
+        services.AddScoped<OfflineTransactionSyncService>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();
