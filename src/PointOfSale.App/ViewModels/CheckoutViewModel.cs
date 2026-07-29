@@ -903,6 +903,15 @@ public partial class CheckoutViewModel : ObservableObject
                 return;
             }
 
+            if (result.QueueId <= 0 && !result.SubmittedOnline)
+            {
+                var limitMessage = CashierOperatorMessages.OfflineLimitExceeded(result.Remark);
+                ShowOperatorDialog(limitMessage);
+                StatusMessage = limitMessage.Title;
+                await RefreshQueueBadgeAsync().ConfigureAwait(true);
+                return;
+            }
+
             if (result.SubmittedOnline && result.Response is not null)
             {
                 var fiscal = FiscalReceiptEnricher.EnsurePrintableFiscalPayload(

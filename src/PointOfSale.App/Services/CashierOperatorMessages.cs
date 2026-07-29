@@ -117,6 +117,13 @@ public static class CashierOperatorMessages
             OperatorMessageSeverity.Error,
             SuggestOfflineFallback: false);
 
+    public static OperatorMessage OfflineLimitExceeded(string? remark) =>
+        new(
+            "Offline limit reached",
+            Truncate(remark ?? "This terminal cannot take more offline sales until it reconnects and syncs with MRA."),
+            OperatorMessageSeverity.Error,
+            SuggestOfflineFallback: false);
+
     public static OperatorMessage QueuedOffline(string invoiceNumber, bool forcedOffline) =>
         new(
             forcedOffline ? "Sale saved offline" : "Sale queued for sync",

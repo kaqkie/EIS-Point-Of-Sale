@@ -192,7 +192,11 @@ public sealed class OfflineTransactionSyncService
             };
         }
 
-        var compliance = _complianceValidator.ValidateForUpload(prepared, offlineLimit, queuedAtUtc);
+        var compliance = _complianceValidator.ValidateForUpload(
+            prepared,
+            offlineLimit,
+            queuedAtUtc,
+            pendingOfflineCumulativeAmount: 0m);
         if (!compliance.IsCompliant)
         {
             return OfflineUploadPreparationResult.Reject(

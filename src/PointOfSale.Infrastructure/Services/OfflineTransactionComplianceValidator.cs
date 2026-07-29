@@ -4,7 +4,7 @@ using PointOfSale.Mra.Contracts.Sales;
 namespace PointOfSale.Infrastructure.Services;
 
 /// <summary>
-/// Pre-upload compliance checks for offline queue items (transaction age + offlineSignature).
+/// Offline threshold checks (transaction age + cumulative amount) per MRA terminal OfflineLimit.
 /// </summary>
 public interface IOfflineTransactionComplianceValidator
 {
@@ -12,6 +12,18 @@ public interface IOfflineTransactionComplianceValidator
         SubmitSalesTransactionRequest request,
         OfflineLimitDto? offlineLimit,
         DateTime queuedAtUtc,
+        DateTime? asOfUtc = null,
+        decimal pendingOfflineCumulativeAmount = 0m);
+
+    /// <summary>
+    /// Gate for starting/continuing offline sales: age of existing pending work + cumulative amount
+    /// including the prospective sale must stay within terminal OfflineLimit.
+    /// </summary>
+    OfflineTransactionComplianceResult ValidateCanContinueOffline(
+        decimal prospectiveInvoiceTotal,
+        OfflineLimitDto? offlineLimit,
+        decimal pendingOfflineCumulativeAmount,
+        DateTime? oldestPendingQueuedAtUtc,
         DateTime? asOfUtc = null);
 }
 
@@ -23,7 +35,8 @@ public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionC
         SubmitSalesTransactionRequest request,
         OfflineLimitDto? offlineLimit,
         DateTime queuedAtUtc,
-        DateTime? asOfUtc = null)
+        DateTime? asOfUtc = null,
+        decimal pendingOfflineCumulativeAmount = 0m)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -33,32 +46,31 @@ public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionC
 
         // Age is measured from the earlier of invoice time vs queue insert (conservative).
         var transactionMoment = invoiceMoment <= queuedMoment ? invoiceMoment : queuedMoment;
-        var maxAgeHours = offlineLimit?.MaxTransactionAgeInHours > 0
-            ? offlineLimit.MaxTransactionAgeInHours
-            : FallbackMaxTransactionAgeInHours;
+        var maxAgeHours = ResolveMaxAgeHours(offlineLimit);
         var maxAge = TimeSpan.FromHours((double)maxAgeHours);
         var age = now - transactionMoment;
 
         if (age > maxAge)
         {
-            return OfflineTransactionComplianceResult.Quarantine(
+            return OfflineTransactionComplianceResult.Reject(
                 $"Offline transaction exceeded allowed age ({age.TotalHours:0.#}h > {maxAgeHours}h). " +
-                "MRA will reject over-age offline sales — contact supervisor / MRA before retry.");
+                "Reconnect to the MRA server and sync before continuing offline sales.");
         }
 
         if (string.IsNullOrWhiteSpace(request.InvoiceSummary.OfflineSignature))
         {
-            return OfflineTransactionComplianceResult.Quarantine(
+            return OfflineTransactionComplianceResult.Reject(
                 "Offline queue item is missing invoiceSummary.offlineSignature. " +
                 "MRA requires the HMAC offline signature for cryptographic validation on upload.");
         }
 
-        if (offlineLimit?.MaxCummulativeAmount > 0
-            && request.InvoiceSummary.InvoiceTotal > offlineLimit.MaxCummulativeAmount)
+        var amountCheck = ValidateCumulativeAmount(
+            request.InvoiceSummary.InvoiceTotal,
+            offlineLimit,
+            pendingOfflineCumulativeAmount);
+        if (amountCheck is not null)
         {
-            return OfflineTransactionComplianceResult.Quarantine(
-                $"Invoice total {request.InvoiceSummary.InvoiceTotal:0.##} exceeds terminal offline cumulative limit " +
-                $"{offlineLimit.MaxCummulativeAmount:0.##}.");
+            return amountCheck;
         }
 
         return OfflineTransactionComplianceResult.Ok(
@@ -66,6 +78,81 @@ public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionC
             age,
             request.InvoiceSummary.OfflineSignature);
     }
+
+    public OfflineTransactionComplianceResult ValidateCanContinueOffline(
+        decimal prospectiveInvoiceTotal,
+        OfflineLimitDto? offlineLimit,
+        decimal pendingOfflineCumulativeAmount,
+        DateTime? oldestPendingQueuedAtUtc,
+        DateTime? asOfUtc = null)
+    {
+        var now = (asOfUtc ?? DateTime.UtcNow).ToUniversalTime();
+        var maxAgeHours = ResolveMaxAgeHours(offlineLimit);
+        var maxAge = TimeSpan.FromHours((double)maxAgeHours);
+
+        if (oldestPendingQueuedAtUtc is DateTime oldest)
+        {
+            var oldestUtc = NormalizeUtc(oldest);
+            var pendingAge = now - oldestUtc;
+            if (pendingAge > maxAge)
+            {
+                return OfflineTransactionComplianceResult.Reject(
+                    $"Offline queue already exceeds allowed age ({pendingAge.TotalHours:0.#}h > {maxAgeHours}h). " +
+                    "Reconnect to the MRA server and sync pending sales before taking more offline transactions.");
+            }
+        }
+
+        var amountCheck = ValidateCumulativeAmount(
+            prospectiveInvoiceTotal,
+            offlineLimit,
+            pendingOfflineCumulativeAmount);
+        if (amountCheck is not null)
+        {
+            return amountCheck;
+        }
+
+        return OfflineTransactionComplianceResult.Ok(
+            (int)Math.Ceiling(maxAgeHours),
+            age: TimeSpan.Zero,
+            offlineSignature: string.Empty);
+    }
+
+    private static OfflineTransactionComplianceResult? ValidateCumulativeAmount(
+        decimal prospectiveInvoiceTotal,
+        OfflineLimitDto? offlineLimit,
+        decimal pendingOfflineCumulativeAmount)
+    {
+        if (offlineLimit?.MaxCummulativeAmount is not > 0)
+        {
+            return null;
+        }
+
+        var limit = offlineLimit.MaxCummulativeAmount;
+        var pending = Math.Max(0m, pendingOfflineCumulativeAmount);
+        var projected = pending + Math.Max(0m, prospectiveInvoiceTotal);
+
+        if (prospectiveInvoiceTotal > limit)
+        {
+            return OfflineTransactionComplianceResult.Reject(
+                $"Invoice total {prospectiveInvoiceTotal:0.##} exceeds this terminal's offline amount limit " +
+                $"{limit:0.##}. Connect to the MRA server to continue.");
+        }
+
+        if (projected > limit)
+        {
+            return OfflineTransactionComplianceResult.Reject(
+                $"Offline cumulative amount {projected:0.##} (pending {pending:0.##} + this sale {prospectiveInvoiceTotal:0.##}) " +
+                $"would exceed the terminal offline limit {limit:0.##}. " +
+                "Reconnect and sync with MRA before continuing offline.");
+        }
+
+        return null;
+    }
+
+    private static decimal ResolveMaxAgeHours(OfflineLimitDto? offlineLimit) =>
+        offlineLimit?.MaxTransactionAgeInHours > 0
+            ? offlineLimit.MaxTransactionAgeInHours
+            : FallbackMaxTransactionAgeInHours;
 
     private static DateTime NormalizeUtc(DateTime value) =>
         value.Kind switch
@@ -99,7 +186,7 @@ public sealed class OfflineTransactionComplianceResult
             Remark = "Offline transaction is within age limit and carries offlineSignature."
         };
 
-    public static OfflineTransactionComplianceResult Quarantine(string remark) =>
+    public static OfflineTransactionComplianceResult Reject(string remark) =>
         new()
         {
             IsCompliant = false,
@@ -107,6 +194,13 @@ public sealed class OfflineTransactionComplianceResult
             Remark = remark
         };
 
+    /// <summary>Backward-compatible alias for <see cref="Reject"/>.</summary>
+    public static OfflineTransactionComplianceResult Quarantine(string remark) => Reject(remark);
+
     private static string TruncateSig(string signature) =>
-        signature.Length <= 16 ? signature : signature[..16] + "…";
+        string.IsNullOrEmpty(signature)
+            ? string.Empty
+            : signature.Length <= 16
+                ? signature
+                : signature[..16] + "…";
 }

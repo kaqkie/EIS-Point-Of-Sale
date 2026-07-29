@@ -86,6 +86,44 @@ public sealed class OfflineTransactionSyncTests
     }
 
     [Fact]
+    public void ComplianceValidator_Rejects_WhenCumulativeOfflineAmountExceeded()
+    {
+        var validator = new OfflineTransactionComplianceValidator();
+        var sale = SalePayloadFactory.Create("INV-BIG");
+        sale = sale with
+        {
+            InvoiceSummary = sale.InvoiceSummary with
+            {
+                OfflineSignature = "sig",
+                InvoiceTotal = 100_000m
+            }
+        };
+
+        var result = validator.ValidateForUpload(
+            sale,
+            new OfflineLimitDto { MaxTransactionAgeInHours = 72, MaxCummulativeAmount = 750_000m },
+            queuedAtUtc: DateTime.UtcNow,
+            pendingOfflineCumulativeAmount: 700_000m);
+
+        Assert.False(result.IsCompliant);
+        Assert.Contains("cumulative", result.Remark, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ComplianceValidator_BlocksNewOffline_WhenPendingAgeExceeded()
+    {
+        var validator = new OfflineTransactionComplianceValidator();
+        var result = validator.ValidateCanContinueOffline(
+            prospectiveInvoiceTotal: 1_000m,
+            offlineLimit: new OfflineLimitDto { MaxTransactionAgeInHours = 72, MaxCummulativeAmount = 750_000m },
+            pendingOfflineCumulativeAmount: 10_000m,
+            oldestPendingQueuedAtUtc: DateTime.UtcNow.AddHours(-80));
+
+        Assert.False(result.IsCompliant);
+        Assert.Contains("exceeds allowed age", result.Remark, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task DrainPending_Pauses_WhenMraUnreachable()
     {
         using var mock = new MockMraServer();

@@ -41,6 +41,7 @@ public sealed class OfflineSalesQueueService
     private readonly IComplianceAuditLogger? _complianceAudit;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
     private readonly IMraEisResponseEvaluator _responseEvaluator;
+    private readonly IOfflineTransactionComplianceValidator _offlineComplianceValidator;
     private readonly OfflineSyncOptions _options;
     private readonly ILogger<OfflineSalesQueueService> _logger;
 
@@ -57,7 +58,8 @@ public sealed class OfflineSalesQueueService
         TerminalOnboardingService? terminalOnboardingService = null,
         TerminalBlockingMessageService? terminalBlockingMessageService = null,
         OfflineReceiptSignatureService? offlineReceiptSignatureService = null,
-        IMraEisResponseEvaluator? responseEvaluator = null)
+        IMraEisResponseEvaluator? responseEvaluator = null,
+        IOfflineTransactionComplianceValidator? offlineComplianceValidator = null)
     {
         _queueRepository = queueRepository;
         _salesTransactionService = salesTransactionService;
@@ -73,6 +75,7 @@ public sealed class OfflineSalesQueueService
         _offlineReceiptSignatureService = offlineReceiptSignatureService;
         _responseEvaluator = responseEvaluator ?? new MraEisResponseEvaluator(
             NullLogger<MraEisResponseEvaluator>.Instance);
+        _offlineComplianceValidator = offlineComplianceValidator ?? new OfflineTransactionComplianceValidator();
     }
 
     public async Task<SaleQueueResult> EnqueueAndTrySubmitAsync(
@@ -85,6 +88,32 @@ public sealed class OfflineSalesQueueService
 
         await _salesTransactionService.ValidateSaleAgainstInventoryAsync(request, cancellationToken)
             .ConfigureAwait(false);
+
+        if (forceOffline)
+        {
+            var capacity = await EvaluateOfflineCapacityAsync(
+                    request.InvoiceSummary.InvoiceTotal,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!capacity.IsCompliant)
+            {
+                _logger.LogWarning(
+                    "Refusing offline sale {InvoiceNumber}: {Remark}",
+                    request.InvoiceHeader.InvoiceNumber,
+                    capacity.Remark);
+                await LogComplianceAsync(
+                        ComplianceAuditCategories.OfflineQueue,
+                        "OfflineLimitExceeded",
+                        capacity.Remark ?? "Offline limit exceeded.",
+                        success: false,
+                        correlationId: request.InvoiceHeader.InvoiceNumber,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return SaleQueueResult.Rejected(
+                    request.InvoiceHeader.InvoiceNumber,
+                    capacity.Remark ?? "Offline transaction limit exceeded. Connect to MRA to continue.");
+            }
+        }
 
         var payload = await PreparePayloadAsync(request, forceOffline, cancellationToken).ConfigureAwait(false);
         var payloadJson = JsonSerializer.Serialize(payload, MraJson.SerializerOptions);
@@ -1144,6 +1173,95 @@ public sealed class OfflineSalesQueueService
         return await RefreshOfflineSignatureAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task<OfflineTransactionComplianceResult> EvaluateOfflineCapacityAsync(
+        decimal prospectiveInvoiceTotal,
+        CancellationToken cancellationToken)
+    {
+        var offlineLimit = await LoadTerminalOfflineLimitAsync(cancellationToken).ConfigureAwait(false);
+        var (pendingTotal, oldestQueuedAt) = await SummarizeOpenOfflineQueueAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return _offlineComplianceValidator.ValidateCanContinueOffline(
+            prospectiveInvoiceTotal,
+            offlineLimit,
+            pendingTotal,
+            oldestQueuedAt);
+    }
+
+    private async Task<OfflineLimitDto?> LoadTerminalOfflineLimitAsync(CancellationToken cancellationToken)
+    {
+        if (_configurationRepository is null)
+        {
+            return null;
+        }
+
+        var json = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TerminalConfiguration, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            var terminal = JsonSerializer.Deserialize<TerminalConfigurationDto>(json, MraJson.SerializerOptions);
+            return terminal?.OfflineLimit;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize terminal OfflineLimit for capacity check.");
+            return null;
+        }
+    }
+
+    private async Task<(decimal PendingTotal, DateTime? OldestQueuedAtUtc)> SummarizeOpenOfflineQueueAsync(
+        CancellationToken cancellationToken)
+    {
+        var open = await _queueRepository
+            .GetItemsAsync(statusFilter: null, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+
+        decimal pendingTotal = 0m;
+        DateTime? oldest = null;
+
+        foreach (var item in open)
+        {
+            if (!string.Equals(item.Status, OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(item.Status, OfflineQueueStatuses.Syncing, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (oldest is null || item.CreatedAt < oldest)
+            {
+                oldest = item.CreatedAt;
+            }
+
+            pendingTotal += TryReadInvoiceTotal(item.PayloadJson);
+        }
+
+        return (pendingTotal, oldest);
+    }
+
+    private static decimal TryReadInvoiceTotal(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return 0m;
+        }
+
+        try
+        {
+            var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(payloadJson, MraJson.SerializerOptions);
+            return payload?.InvoiceSummary.InvoiceTotal ?? 0m;
+        }
+        catch (JsonException)
+        {
+            return 0m;
+        }
+    }
+
     private async Task<SubmitSalesTransactionRequest> RefreshOfflineSignatureAsync(
         SubmitSalesTransactionRequest request,
         CancellationToken cancellationToken)
@@ -1395,6 +1513,16 @@ public sealed class SaleQueueResult
     public bool TerminalBlocked { get; init; }
     public string? OfficialBlockingMessage { get; init; }
     public DateTime? TerminalBlockedAt { get; init; }
+
+    public static SaleQueueResult Rejected(string invoiceNumber, string remark) =>
+        new()
+        {
+            QueueId = 0,
+            InvoiceNumber = invoiceNumber,
+            SubmittedOnline = false,
+            IsQuarantined = false,
+            Remark = remark
+        };
 
     public static SaleQueueResult Submitted(
         int queueId,
