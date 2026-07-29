@@ -159,6 +159,9 @@ public sealed class OfflineSalesQueueService
     {
         await EnsureOfflineSequenceContinuityAsync(cancellationToken).ConfigureAwait(false);
 
+        // Stuck SYNCING rows block FIFO (they are not eligible but act as blockers). Reclaim them.
+        await RecoverStuckSyncingAsync(cancellationToken).ConfigureAwait(false);
+
         var next = await _queueRepository.GetNextFifoEligibleAsync(cancellationToken).ConfigureAwait(false);
         if (next is null)
         {
@@ -523,14 +526,110 @@ public sealed class OfflineSalesQueueService
         // Opaque HTTP 500 / EIS outage used to permanently quarantine — release remaining open items.
         var released = await ReleaseAllOpenQuarantinesAsync(cancellationToken).ConfigureAwait(false);
 
+        // Receipts older than the MRA offline age limit cannot be uploaded — archive them locally
+        // so they stop blocking the queue UI and new sales.
+        var archived = await ArchiveAgedOpenReceiptsAsync(cancellationToken).ConfigureAwait(false);
+
         return new ReceiptIdentifierBatchRepairResult(
             candidates.Count,
             rewritten,
             unchanged,
             failed,
             firstError,
-            released);
+            released,
+            archived);
     }
+
+    /// <summary>
+    /// Archives open queue rows that exceed the terminal offline age limit (default 72h).
+    /// MRA will reject these on upload; marking them SYNCED locally clears the quarantine backlog.
+    /// </summary>
+    public async Task<int> ArchiveAgedOpenReceiptsAsync(CancellationToken cancellationToken = default)
+    {
+        var maxAgeHours = _options.DefaultMaxTransactionAgeInHours > 0
+            ? _options.DefaultMaxTransactionAgeInHours
+            : OfflineTransactionComplianceValidator.FallbackMaxTransactionAgeInHours;
+        var cutoffUtc = DateTime.UtcNow.AddHours(-maxAgeHours);
+
+        var pending = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Pending, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+        var syncing = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Syncing, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+        var quarantined = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Quarantined, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+
+        var archived = 0;
+        foreach (var item in pending.Concat(syncing).Concat(quarantined).OrderBy(x => x.Id))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var createdUtc = item.CreatedAt.Kind == DateTimeKind.Utc
+                ? item.CreatedAt
+                : item.CreatedAt.ToUniversalTime();
+            var invoiceUtc = TryReadInvoiceDateUtc(item.PayloadJson) ?? createdUtc;
+            var ageAnchor = invoiceUtc <= createdUtc ? invoiceUtc : createdUtc;
+            if (ageAnchor > cutoffUtc)
+            {
+                continue;
+            }
+
+            var ageHours = (DateTime.UtcNow - ageAnchor).TotalHours;
+            var invoiceNumber = TryReadInvoiceNumber(item.PayloadJson) ?? "(unknown)";
+            var fiscalJson =
+                $"{{\"archived\":true,\"reason\":\"exceeded offline age limit\",\"maxAgeHours\":{maxAgeHours}," +
+                $"\"ageHours\":{ageHours:0.#},\"invoiceNumber\":\"{EscapeJson(invoiceNumber)}\"," +
+                $"\"archivedAtUtc\":\"{DateTime.UtcNow:O}\"}}";
+
+            await _queueRepository
+                .MarkSyncedAsync(item.Id, fiscalJson, cancellationToken)
+                .ConfigureAwait(false);
+            archived++;
+            _logger.LogWarning(
+                "Archived aged queue {QueueId} invoice {Invoice} ({AgeHours:0.#}h > {MaxAge}h) as local SYNCED.",
+                item.Id,
+                invoiceNumber,
+                ageHours,
+                maxAgeHours);
+        }
+
+        return archived;
+    }
+
+    private static DateTime? TryReadInvoiceDateUtc(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payloadJson);
+            if (!doc.RootElement.TryGetProperty("invoiceHeader", out var header)
+                || !header.TryGetProperty("invoiceDateTime", out var dt)
+                || dt.ValueKind != JsonValueKind.String)
+            {
+                return null;
+            }
+
+            if (!DateTime.TryParse(dt.GetString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+            {
+                return null;
+            }
+
+            return parsed.Kind == DateTimeKind.Utc ? parsed : parsed.ToUniversalTime();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string EscapeJson(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
 
     /// <summary>
     /// Moves every QUARANTINED / stuck SYNCING row back to PENDING so FIFO / Force Sync can retry.
@@ -1566,7 +1665,7 @@ public sealed class OfflineSalesQueueService
             return;
         }
 
-        var nextRetry = ComputeNextRetryUtc(retryCount - 1);
+        var nextRetry = ComputeNextRetryUtc(retryCount - 1, error);
         await _queueRepository
             .ResetSyncingToPendingAsync(item.Id, retryCount, nextRetry, TruncateError(error), cancellationToken)
             .ConfigureAwait(false);
@@ -1579,6 +1678,52 @@ public sealed class OfflineSalesQueueService
             _options.BaseBackoffSeconds * Math.Pow(2, exponent),
             _options.MaxBackoffSeconds);
         return DateTime.UtcNow.AddSeconds(delaySeconds);
+    }
+
+    /// <summary>
+    /// Opaque EIS 500s are not fixed by long exponential backoff — retry within ~60s while host is up.
+    /// </summary>
+    private DateTime ComputeNextRetryUtc(int currentRetryCount, string error)
+    {
+        var isOpaqueServerFault = error.Contains("internal error occurred", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("HTTP 500", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("Opaque sandbox", StringComparison.OrdinalIgnoreCase);
+
+        if (isOpaqueServerFault)
+        {
+            var delaySeconds = Math.Min(15 * Math.Pow(2, Math.Min(currentRetryCount, 2)), 60);
+            return DateTime.UtcNow.AddSeconds(delaySeconds);
+        }
+
+        return ComputeNextRetryUtc(currentRetryCount);
+    }
+
+    /// <summary>
+    /// Reclaims SYNCING rows so they cannot permanently block FIFO drain.
+    /// </summary>
+    private async Task RecoverStuckSyncingAsync(CancellationToken cancellationToken)
+    {
+        var syncing = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Syncing, take: 100, cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (var item in syncing)
+        {
+            await _queueRepository
+                .ResetSyncingToPendingAsync(
+                    item.Id,
+                    item.RetryCount,
+                    nextRetryTimeUtc: DateTime.UtcNow,
+                    errorMessage: TruncateError(
+                        string.IsNullOrWhiteSpace(item.ErrorMessage)
+                            ? "Recovered stuck SYNCING item for FIFO retry."
+                            : item.ErrorMessage),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            _logger.LogWarning(
+                "Recovered stuck SYNCING queue {QueueId} back to PENDING for FIFO retry.",
+                item.Id);
+        }
     }
 
     private static bool IsTransientFailure(Exception ex)
@@ -1884,7 +2029,8 @@ public sealed record ReceiptIdentifierBatchRepairResult(
     int Unchanged,
     int Failed,
     string? FirstError,
-    int TransientQuarantinesReleased = 0)
+    int TransientQuarantinesReleased = 0,
+    int AgedReceiptsArchived = 0)
 {
     public bool Success => Failed == 0;
 
@@ -1892,7 +2038,7 @@ public sealed record ReceiptIdentifierBatchRepairResult(
     {
         get
         {
-            if (Scanned == 0 && TransientQuarantinesReleased == 0)
+            if (Scanned == 0 && TransientQuarantinesReleased == 0 && AgedReceiptsArchived == 0)
             {
                 return "No open receipts needed ID repair.";
             }
@@ -1901,7 +2047,12 @@ public sealed record ReceiptIdentifierBatchRepairResult(
                 $"Receipt IDs repaired: {Rewritten} rewritten, {Unchanged} already correct, {Failed} failed (scanned {Scanned}).";
             if (TransientQuarantinesReleased > 0)
             {
-                msg += $" Released {TransientQuarantinesReleased} transient quarantine(s) for retry.";
+                msg += $" Released {TransientQuarantinesReleased} item(s) for retry.";
+            }
+
+            if (AgedReceiptsArchived > 0)
+            {
+                msg += $" Archived {AgedReceiptsArchived} aged receipt(s) that exceeded the 72h offline limit.";
             }
 
             if (!string.IsNullOrWhiteSpace(FirstError) && Failed > 0)

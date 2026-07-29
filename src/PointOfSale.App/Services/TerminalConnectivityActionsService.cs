@@ -166,7 +166,8 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
                 var repair = await offlineSales
                     .RepairAllReceiptIdentifiersAsync(cancellationToken)
                     .ConfigureAwait(false);
-                if (repair.Rewritten > 0 || repair.Failed > 0 || repair.TransientQuarantinesReleased > 0)
+                if (repair.Rewritten > 0 || repair.Failed > 0 || repair.TransientQuarantinesReleased > 0
+                    || repair.AgedReceiptsArchived > 0)
                 {
                     repairRemark = repair.SummaryMessage;
                 }

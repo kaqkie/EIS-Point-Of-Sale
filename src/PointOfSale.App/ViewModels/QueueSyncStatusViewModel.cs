@@ -568,7 +568,8 @@ public sealed class QueueItemViewModel
 
     public bool CanForceSync =>
         Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase) ||
-        Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase);
+        Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase) ||
+        Status.Equals(OfflineQueueStatuses.Syncing, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Print is available whenever a local sale payload exists (synced fiscal receipt or offline placeholder).

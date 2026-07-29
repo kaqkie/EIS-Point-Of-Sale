@@ -59,7 +59,7 @@
                     Command="{Binding FixReceiptIdsCommand}"
                     Padding="10,8"
                     FontWeight="SemiBold"
-                    ToolTip="Rewrite placeholder/mismatched MRA invoice numbers on all open queue receipts using the activated TIN" />
+                    ToolTip="Rewrite bad invoice numbers, release stuck/quarantined items, and archive receipts older than the 72h offline limit" />
         </StackPanel>
 
         <!--

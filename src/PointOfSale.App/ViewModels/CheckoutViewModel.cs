@@ -571,15 +571,16 @@ public partial class CheckoutViewModel : ObservableObject
 
         if (IsCashPayment)
         {
-            // Enter cash tender workflow: keep any amount already typed, ready keypad for change calc.
-            if (AmountTendered <= 0m && CartGrandTotal > 0m)
+            // Match card UX: default to exact tender so Paid is enabled immediately.
+            // Cashier can still change the amount on the keypad for change calculation.
+            if (CartGrandTotal > 0m)
             {
-                AmountTenderedText = "0";
-                AmountTendered = 0m;
+                AmountTendered = CartGrandTotal;
+                AmountTenderedText = CartGrandTotal.ToString("N2", CultureInfo.CurrentCulture);
             }
 
             StatusMessage = CartGrandTotal > 0m
-                ? $"Cash selected — enter tender on the keypad (total {CartGrandTotal:N2}). Change calculates automatically."
+                ? $"Cash selected — tender set to exact {CartGrandTotal:N2}. Adjust on keypad for change, then press Paid."
                 : "Cash selected — add items, then enter tender on the keypad.";
             TenderInputFocusRequested?.Invoke(this, EventArgs.Empty);
             return;

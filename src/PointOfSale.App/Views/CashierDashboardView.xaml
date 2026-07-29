@@ -268,7 +268,7 @@
                                 Command="{Binding SelectPaymentMethodCommand}"
                                 CommandParameter="Cash"
                                 Click="PaymentMethodButton_OnClick"
-                                ToolTip="Cash tender — focus keypad and calculate change" />
+                                ToolTip="Cash — sets exact tender; adjust keypad for change, then Paid" />
                         <Button Content="Credit" Style="{StaticResource Art.Pos.PayCredit}"
                                 Command="{Binding SelectPaymentMethodCommand}"
                                 CommandParameter="Credit"

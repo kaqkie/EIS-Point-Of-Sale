@@ -60,20 +60,23 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
                 $"Detail: {sync.Remark ?? "opaque EIS error"}");
         }
 
-        if (PosConfigurationService.IsPlaceholderTaxpayerTin(context.SellerTin)
-            || string.IsNullOrWhiteSpace(context.SellerTin))
+        // Sandbox/trial may use the developer seed TIN; Production must have a real TIN.
+        if (string.IsNullOrWhiteSpace(context.SellerTin))
+        {
+            throw new InvalidOperationException(
+                "Cannot submit to MRA: sellerTIN is missing. " +
+                "Set TerminalDeployment:TaxpayerTin or complete terminal activation.");
+        }
+
+        if (!context.AllowSandboxDeveloperTin
+            && (PosConfigurationService.IsPlaceholderTaxpayerTin(context.SellerTin)
+                || (MraInvoiceNumberGenerator.TryParseTaxpayerId(context.SellerTin, out var tinCheck)
+                    && MraInvoiceNumberGenerator.IsSandboxPlaceholderTaxpayerId(tinCheck))))
         {
             throw new InvalidOperationException(
                 "Cannot submit to MRA: sellerTIN is missing or still the sandbox placeholder 1234567890. " +
                 "Complete terminal activation and confirm get-latest-configs succeeds so invoice numbers " +
-                "encode the real Taxpayer ID (not BJlgLS).");
-        }
-
-        if (MraInvoiceNumberGenerator.TryParseTaxpayerId(context.SellerTin, out var tinCheck)
-            && MraInvoiceNumberGenerator.IsSandboxPlaceholderTaxpayerId(tinCheck))
-        {
-            throw new InvalidOperationException(
-                "Cannot submit to MRA: sellerTIN resolves to sandbox placeholder 1234567890.");
+                "encode the real Taxpayer ID (not BJlgZ).");
         }
 
         if (string.IsNullOrWhiteSpace(context.FiscalSiteId)
