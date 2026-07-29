@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using PointOfSale.Core.Constants;
 using PointOfSale.Infrastructure.Repositories;
+using PointOfSale.Mra.Billing;
 using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Http;
@@ -52,13 +53,91 @@ public sealed class SalesTransactionService
             cancellationToken);
 
     /// <summary>
-    /// <c>POST /api/v1/sales/last-submitted-offline-transaction</c> — same JWT-only auth model as online.
+    /// <c>POST /api/v1/sales/last-submitted-offline-transaction</c> —
+    /// empty body, <c>Accept: text/plain</c>, <c>Authorization: Bearer {jwt}</c>, no x-signature.
+    /// Used to verify offline invoice sequence continuity before syncing queued sales.
     /// </summary>
-    public Task<SalesResult<SubmittedTransactionData>> GetLastSubmittedOfflineTransactionAsync(
-        CancellationToken cancellationToken = default) =>
-        PostJwtOnlyAsync<SubmittedTransactionData>(
-            "sales/last-submitted-offline-transaction",
-            cancellationToken);
+    public async Task<SalesResult<SubmittedTransactionData>> GetLastSubmittedOfflineTransactionAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var context = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
+        var response = await _apiClient
+            .PostEmptyAsync<SubmittedTransactionData>(
+                "sales/last-submitted-offline-transaction",
+                new MraRequestContext
+                {
+                    JwtToken = context.JwtToken,
+                    UseBearerAuthorization = true,
+                    AcceptHeader = "text/plain"
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var result = ToResult(response);
+        if (!result.Success)
+        {
+            var errorsJson = result.Errors is null
+                ? "(no errors array)"
+                : JsonSerializer.Serialize(result.Errors, MraJson.SerializerOptions);
+            _logger.LogWarning(
+                "MRA EIS last-submitted-offline-transaction returned success=false. Remark={Remark}. Errors={Errors}. statusCode={StatusCode}",
+                result.Remark ?? "(null)",
+                errorsJson,
+                response.StatusCode);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Last submitted offline transaction: invoice={Invoice} submitted={SubmittedUtc}",
+                result.Data?.InvoiceHeader?.InvoiceNumber ?? "(null)",
+                result.Data?.DateSubmitted);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Queries MRA for the last offline fiscal invoice and raises the local daily sequence floor
+    /// when the remote counter is ahead — preventing duplicate transaction counts on sync.
+    /// </summary>
+    public async Task<OfflineSequenceContinuityResult> VerifyOfflineSequenceContinuityAsync(
+        CancellationToken cancellationToken = default)
+    {
+        SalesResult<SubmittedTransactionData> lookup;
+        try
+        {
+            lookup = await GetLastSubmittedOfflineTransactionAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unable to query last-submitted-offline-transaction for sequence check.");
+            return OfflineSequenceContinuityResult.Unavailable(ex.Message);
+        }
+
+        if (!lookup.Success || lookup.Data is null)
+        {
+            // No prior offline sale (or soft failure) — safe to sync local queue from current counters.
+            return OfflineSequenceContinuityResult.NoRemoteBaseline(lookup.Remark);
+        }
+
+        var invoiceNumber = lookup.Data.InvoiceHeader?.InvoiceNumber;
+        if (!MraInvoiceNumberGenerator.TryParseComposite(invoiceNumber, out var parts))
+        {
+            _logger.LogWarning(
+                "Last offline invoice {Invoice} is not a parseable MRA composite; skipping sequence alignment.",
+                invoiceNumber);
+            return OfflineSequenceContinuityResult.Unparseable(invoiceNumber, lookup.Remark);
+        }
+
+        return OfflineSequenceContinuityResult.Aligned(
+            invoiceNumber!,
+            parts.TaxpayerId,
+            parts.TerminalPosition,
+            parts.JulianDate,
+            parts.TransactionCount,
+            lookup.Data.DateSubmitted,
+            lookup.Remark);
+    }
 
     public Task<SalesResult<SalesInvoiceSnapshotDto>> GetInvoiceByNumberAsync(
         InvoiceNumberQueryRequest request,
@@ -281,4 +360,55 @@ public sealed class SalesResult<T>
 
     public static SalesResult<T> Failed(int statusCode, string? remark, IReadOnlyList<EisApiError>? errors) =>
         new() { Success = false, StatusCode = statusCode, Remark = remark, Errors = errors };
+}
+
+/// <summary>
+/// Outcome of comparing the MRA last-submitted-offline invoice against local daily sequence state.
+/// </summary>
+public sealed class OfflineSequenceContinuityResult
+{
+    public bool RemoteBaselineAvailable { get; init; }
+    public bool Parsed { get; init; }
+    public string? LastInvoiceNumber { get; init; }
+    public long? LastTransactionCount { get; init; }
+    public long? TaxpayerId { get; init; }
+    public int? TerminalPosition { get; init; }
+    public int? JulianDate { get; init; }
+    public DateTime? DateSubmittedUtc { get; init; }
+    public string? Remark { get; init; }
+
+    public static OfflineSequenceContinuityResult Unavailable(string? remark) =>
+        new() { Remark = remark };
+
+    public static OfflineSequenceContinuityResult NoRemoteBaseline(string? remark) =>
+        new() { Remark = remark ?? "No last offline transaction returned by MRA." };
+
+    public static OfflineSequenceContinuityResult Unparseable(string? invoiceNumber, string? remark) =>
+        new()
+        {
+            RemoteBaselineAvailable = true,
+            LastInvoiceNumber = invoiceNumber,
+            Remark = remark
+        };
+
+    public static OfflineSequenceContinuityResult Aligned(
+        string invoiceNumber,
+        long taxpayerId,
+        int terminalPosition,
+        int julianDate,
+        long transactionCount,
+        DateTime? dateSubmitted,
+        string? remark) =>
+        new()
+        {
+            RemoteBaselineAvailable = true,
+            Parsed = true,
+            LastInvoiceNumber = invoiceNumber,
+            TaxpayerId = taxpayerId,
+            TerminalPosition = terminalPosition,
+            JulianDate = julianDate,
+            LastTransactionCount = transactionCount,
+            DateSubmittedUtc = dateSubmitted,
+            Remark = remark
+        };
 }

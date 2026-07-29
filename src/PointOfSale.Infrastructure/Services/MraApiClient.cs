@@ -126,12 +126,20 @@ public sealed class MraApiClient
     {
         if (context?.JwtToken is { Length: > 0 } jwt)
         {
-            // MRA samples use the raw JWT string — never "Bearer {token}".
             var normalized = MraJwtClaims.NormalizeAuthorizationToken(jwt);
             if (normalized.Length > 0)
             {
-                request.Headers.TryAddWithoutValidation("Authorization", normalized);
+                var authorization = context.UseBearerAuthorization
+                    ? $"Bearer {normalized}"
+                    : normalized;
+                request.Headers.TryAddWithoutValidation("Authorization", authorization);
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(context?.AcceptHeader))
+        {
+            request.Headers.Remove("Accept");
+            request.Headers.TryAddWithoutValidation("Accept", context.AcceptHeader.Trim());
         }
 
         if (context?.VendorAccessKey is { Length: > 0 } accessKey)
@@ -165,6 +173,27 @@ public sealed class MraApiClient
             var signature = ComputeSignature(jsonBody, payloadSecret);
             HmacSignatureService.ApplyXSignatureHeader(request, signature);
         }
+    }
+
+    /// <summary>
+    /// POST with an empty body (<c>-d ''</c>), optional Accept header, JWT Authorization, no x-signature.
+    /// Used by <c>sales/last-submitted-offline-transaction</c> (and online twin when required).
+    /// </summary>
+    public async Task<EisApiResponse<TResponse>> PostEmptyAsync<TResponse>(
+        string relativePath,
+        MraRequestContext context,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        using var request = new HttpRequestMessage(HttpMethod.Post, relativePath)
+        {
+            // curl -d '' → empty body (not "{}")
+            Content = new StringContent(string.Empty, Encoding.UTF8, "text/plain")
+        };
+
+        ApplyContext(request, context, signaturePlainText: null, jsonBody: null);
+        return await SendAsync<TResponse>(request, auditRequestBody: string.Empty, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<EisApiResponse<TResponse>> SendAsync<TResponse>(
@@ -464,4 +493,15 @@ public sealed class MraRequestContext
     /// (<c>x-access-key</c> header). Never set for sandbox calls.
     /// </summary>
     public string? VendorAccessKey { get; init; }
+
+    /// <summary>
+    /// When true, Authorization is sent as <c>Bearer {jwt}</c>.
+    /// Default false preserves historical MRA raw-token samples used by most EIS endpoints.
+    /// </summary>
+    public bool UseBearerAuthorization { get; init; }
+
+    /// <summary>
+    /// Optional HTTP <c>Accept</c> header (e.g. <c>text/plain</c> for last-submitted-* queries).
+    /// </summary>
+    public string? AcceptHeader { get; init; }
 }

@@ -150,13 +150,39 @@ public static class MraInvoiceNumberGenerator
     public static bool TryGetEncodedTaxpayerId(string? invoiceNumber, out long taxpayerId)
     {
         taxpayerId = 0;
+        if (!TryParseComposite(invoiceNumber, out var parts))
+        {
+            return false;
+        }
+
+        taxpayerId = parts.TaxpayerId;
+        return taxpayerId > 0;
+    }
+
+    /// <summary>
+    /// Parses all four Base64 segments of an MRA composite invoice number.
+    /// </summary>
+    public static bool TryParseComposite(
+        string? invoiceNumber,
+        out (long TaxpayerId, int TerminalPosition, int JulianDate, long TransactionCount) parts)
+    {
+        parts = default;
         if (!IsMraCompositeInvoiceNumber(invoiceNumber))
         {
             return false;
         }
 
-        var tinSegment = invoiceNumber!.Trim().Split('-', 2)[0];
-        return TryBase64ToBase10(tinSegment, out taxpayerId) && taxpayerId > 0;
+        var segments = invoiceNumber!.Trim().Split('-', StringSplitOptions.RemoveEmptyEntries);
+        if (!TryBase64ToBase10(segments[0], out var tin) || tin <= 0
+            || !TryBase64ToBase10(segments[1], out var terminal) || terminal <= 0 || terminal > int.MaxValue
+            || !TryBase64ToBase10(segments[2], out var julian) || julian <= 0 || julian > int.MaxValue
+            || !TryBase64ToBase10(segments[3], out var count) || count < 0)
+        {
+            return false;
+        }
+
+        parts = (tin, (int)terminal, (int)julian, count);
+        return true;
     }
 
     /// <summary>

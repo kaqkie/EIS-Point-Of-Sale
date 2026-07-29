@@ -26,6 +26,10 @@ public sealed class OfflineSalesQueueService
     private static MraFiscalIdentityOverlay? _liveConfigOverlayCache;
     private static readonly TimeSpan LiveConfigRefreshTtl = TimeSpan.FromSeconds(90);
 
+    private static readonly object OfflineSequenceGate = new();
+    private static DateTime _offlineSequenceCheckUtc = DateTime.MinValue;
+    private static readonly TimeSpan OfflineSequenceCheckTtl = TimeSpan.FromSeconds(90);
+
     private readonly IOfflineInvoiceQueueRepository _queueRepository;
     private readonly SalesTransactionService _salesTransactionService;
     private readonly IConfigurationRepository? _configurationRepository;
@@ -103,6 +107,8 @@ public sealed class OfflineSalesQueueService
 
     public async Task<bool> ProcessNextFifoAsync(CancellationToken cancellationToken = default)
     {
+        await EnsureOfflineSequenceContinuityAsync(cancellationToken).ConfigureAwait(false);
+
         var next = await _queueRepository.GetNextFifoEligibleAsync(cancellationToken).ConfigureAwait(false);
         if (next is null)
         {
@@ -700,6 +706,61 @@ public sealed class OfflineSalesQueueService
         SubmitSalesTransactionRequest request,
         MraFiscalIdentityOverlay? identity = null) =>
         MraFiscalPayloadNormalizer.Normalize(request, identity);
+
+    /// <summary>
+    /// Queries MRA last-submitted-offline-transaction and raises the local daily sequence floor
+    /// when the remote counter is ahead — called before FIFO offline sync.
+    /// </summary>
+    private async Task EnsureOfflineSequenceContinuityAsync(CancellationToken cancellationToken)
+    {
+        lock (OfflineSequenceGate)
+        {
+            if (DateTime.UtcNow - _offlineSequenceCheckUtc < OfflineSequenceCheckTtl)
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            var continuity = await _salesTransactionService
+                .VerifyOfflineSequenceContinuityAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (continuity.Parsed
+                && continuity.JulianDate is int julian
+                && continuity.LastTransactionCount is long remoteCount
+                && _invoiceSequenceService is not null)
+            {
+                await _invoiceSequenceService
+                    .EnsureMinimumDailyCountAsync(julian, remoteCount, cancellationToken)
+                    .ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "Offline sequence continuity OK. lastInvoice={Invoice} remoteCount={Count} julian={Julian}",
+                    continuity.LastInvoiceNumber,
+                    remoteCount,
+                    julian);
+            }
+            else if (continuity.RemoteBaselineAvailable)
+            {
+                _logger.LogInformation(
+                    "Offline sequence check: remote baseline present but not aligned ({Remark}).",
+                    continuity.Remark ?? continuity.LastInvoiceNumber);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Offline sequence continuity check failed; continuing with local counters.");
+        }
+        finally
+        {
+            lock (OfflineSequenceGate)
+            {
+                _offlineSequenceCheckUtc = DateTime.UtcNow;
+            }
+        }
+    }
 
     private async Task<MraFiscalIdentityOverlay?> LoadFiscalIdentityOverlayAsync(CancellationToken cancellationToken)
     {

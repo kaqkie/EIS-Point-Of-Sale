@@ -22,6 +22,15 @@ public interface IMraInvoiceSequenceService
         int terminalPosition,
         DateTime transactionUtc,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ensures the persisted daily counter is at least <paramref name="minimumCount"/>
+    /// (e.g. after learning the last MRA offline transaction count).
+    /// </summary>
+    Task EnsureMinimumDailyCountAsync(
+        int julianDate,
+        long minimumCount,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class MraInvoiceSequenceService : IMraInvoiceSequenceService
@@ -71,6 +80,70 @@ public sealed class MraInvoiceSequenceService : IMraInvoiceSequenceService
         {
             ReservationGate.Release();
         }
+    }
+
+    public async Task EnsureMinimumDailyCountAsync(
+        int julianDate,
+        long minimumCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (julianDate <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(julianDate));
+        }
+
+        if (minimumCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minimumCount));
+        }
+
+        await ReservationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var configRepo = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
+            var sequenceKey = $"{MraConfigurationKeys.DailyInvoiceSequencePrefix}{julianDate}";
+            var current = await ReadCurrentDailyCountAsync(configRepo, sequenceKey, cancellationToken)
+                .ConfigureAwait(false);
+            if (minimumCount > current)
+            {
+                await PersistDailyCountAsync(configRepo, sequenceKey, minimumCount, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            ReservationGate.Release();
+        }
+    }
+
+    private static async Task<long> ReadCurrentDailyCountAsync(
+        IConfigurationRepository configRepo,
+        string sequenceKey,
+        CancellationToken cancellationToken)
+    {
+        var json = await configRepo.GetJsonAsync(sequenceKey, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return 0;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("count", out var countElement) &&
+                countElement.TryGetInt64(out var count) &&
+                count >= 0)
+            {
+                return count;
+            }
+        }
+        catch (JsonException)
+        {
+            // Reset corrupt counter path via next reserve.
+        }
+
+        return 0;
     }
 
     private static async Task<long> ReadNextDailyCountAsync(
