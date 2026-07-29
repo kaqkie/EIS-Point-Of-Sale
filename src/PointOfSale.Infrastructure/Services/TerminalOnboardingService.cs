@@ -1,15 +1,18 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PointOfSale.Core.Constants;
 using PointOfSale.Core.Entities;
 using PointOfSale.Core.Models;
+using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Contracts.Onboarding;
 using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Options;
 using PointOfSale.Mra.Security;
 using PointOfSale.Mra.Serialization;
+using PointOfSale.Mra.Services;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Security;
 
@@ -21,6 +24,7 @@ public sealed class TerminalOnboardingService
     private readonly ITerminalRepository _terminalRepository;
     private readonly IConfigurationRepository _configurationRepository;
     private readonly ISecretProtector _secretProtector;
+    private readonly IMraEisResponseEvaluator _responseEvaluator;
     private readonly MraApiOptions _options;
     private readonly ILogger<TerminalOnboardingService> _logger;
 
@@ -30,7 +34,8 @@ public sealed class TerminalOnboardingService
         IConfigurationRepository configurationRepository,
         ISecretProtector secretProtector,
         IOptions<MraApiOptions> options,
-        ILogger<TerminalOnboardingService> logger)
+        ILogger<TerminalOnboardingService> logger,
+        IMraEisResponseEvaluator? responseEvaluator = null)
     {
         _apiClient = apiClient;
         _terminalRepository = terminalRepository;
@@ -38,12 +43,24 @@ public sealed class TerminalOnboardingService
         _secretProtector = secretProtector;
         _options = options.Value;
         _logger = logger;
+        _responseEvaluator = responseEvaluator
+            ?? new MraEisResponseEvaluator(NullLogger<MraEisResponseEvaluator>.Instance);
     }
 
     public async Task<TerminalActivationResult> ActivateTerminalAsync(
         TerminalActivationRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!MraVendorAccessKeyPolicy.TryResolveForActivateTerminal(_options, out var accessKey, out var accessKeyError))
+        {
+            _logger.LogError("Production activate-terminal blocked: {Error}", accessKeyError);
+            return TerminalActivationResult.Failed(
+                accessKeyError,
+                errors: null,
+                statusCode: MraEisStatusCodes.AuthenticationFailure,
+                operatorMessage: accessKeyError);
+        }
+
         var apiRequest = new ActivateTerminalRequest
         {
             TerminalActivationCode = request.TerminalActivationCode.Trim(),
@@ -64,28 +81,89 @@ public sealed class TerminalOnboardingService
             }
         };
 
-        var response = await _apiClient
-            .PostAsync<ActivateTerminalRequest, ActivateTerminalResponseData>(
-                "onboarding/activate-terminal",
-                apiRequest,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-
-        if (!response.IsSuccess || response.Data?.ActivatedTerminal?.TerminalCredentials is null)
+        EisApiResponse<ActivateTerminalResponseData> response;
+        try
         {
-            return TerminalActivationResult.Failed(response.Remark, response.Errors);
+            response = await _apiClient
+                .PostAsync<ActivateTerminalRequest, ActivateTerminalResponseData>(
+                    "onboarding/activate-terminal",
+                    apiRequest,
+                    context: new MraRequestContext { VendorAccessKey = accessKey },
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (MraApiException ex)
+        {
+            var evaluation = _responseEvaluator.EvaluateException(ex);
+            _logger.LogWarning(
+                ex,
+                "activate-terminal HTTP failure. category={Category} action={Action} http={HttpStatus}",
+                evaluation.Category,
+                evaluation.RecommendedAction,
+                ex.HttpStatusCode);
+            return TerminalActivationResult.FailedFromEvaluation(evaluation);
+        }
+
+        var logical = _responseEvaluator.Evaluate(response);
+        if (!logical.IsSuccess
+            || response.Data?.ActivatedTerminal?.TerminalCredentials is null)
+        {
+            _logger.LogWarning(
+                "activate-terminal logical failure. statusCode={StatusCode} category={Category} remark={Remark}",
+                response.StatusCode,
+                logical.Category,
+                response.Remark ?? "(null)");
+            return TerminalActivationResult.FailedFromEvaluation(logical);
         }
 
         var activated = response.Data.ActivatedTerminal;
         var credentials = activated.TerminalCredentials!;
-        var terminalId = activated.TerminalId
-            ?? throw new InvalidOperationException("MRA activation response did not include terminalId.");
+        var terminalId = activated.TerminalId;
+        if (string.IsNullOrWhiteSpace(terminalId))
+        {
+            return TerminalActivationResult.Failed(
+                "MRA activation response did not include terminalId.",
+                response.Errors,
+                response.StatusCode,
+                "MRA activation response was incomplete (missing terminalId). Contact MRA support or retry.");
+        }
 
         if (string.IsNullOrWhiteSpace(credentials.SecretKey) || string.IsNullOrWhiteSpace(credentials.JwtToken))
         {
-            throw new InvalidOperationException("MRA activation response missing jwtToken or secretKey.");
+            return TerminalActivationResult.Failed(
+                "MRA activation response missing jwtToken or secretKey.",
+                response.Errors,
+                response.StatusCode,
+                "MRA activation response was incomplete (missing JWT or secret key). Do not proceed — retry activation.");
         }
 
+        await PersistActivationSecretsAsync(
+                terminalId,
+                request,
+                credentials,
+                activated.TerminalPosition,
+                response.Data.Configuration,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Terminal {TerminalId} activated pending MRA confirmation (productionAccessKey={UsedAccessKey}).",
+            terminalId,
+            accessKey is not null);
+        return TerminalActivationResult.Succeeded(terminalId, response.Remark, response.Data.Configuration);
+    }
+
+    /// <summary>
+    /// DPAPI-protects JWT + pending secret key and caches optional config bundle from activation.
+    /// </summary>
+    private async Task PersistActivationSecretsAsync(
+        string terminalId,
+        TerminalActivationRequest request,
+        TerminalCredentialsDto credentials,
+        int? terminalPosition,
+        EisConfigurationBundleDto? configuration,
+        CancellationToken cancellationToken)
+    {
         await _terminalRepository.UpsertPendingActivationAsync(
             new Terminal
             {
@@ -103,12 +181,12 @@ public sealed class TerminalOnboardingService
 
         await _configurationRepository.UpsertProtectedSecretAsync(
             MraConfigurationKeys.JwtToken,
-            credentials.JwtToken,
+            credentials.JwtToken!,
             cancellationToken).ConfigureAwait(false);
 
         await _configurationRepository.UpsertProtectedSecretAsync(
             MraConfigurationKeys.PendingSecretKey,
-            credentials.SecretKey,
+            credentials.SecretKey!,
             cancellationToken).ConfigureAwait(false);
 
         await _configurationRepository.UpsertJsonAsync(
@@ -116,24 +194,20 @@ public sealed class TerminalOnboardingService
             JsonSerializer.Serialize(new { code = request.TerminalActivationCode.Trim() }, MraJson.SerializerOptions),
             cancellationToken).ConfigureAwait(false);
 
-        if (activated.TerminalPosition is int terminalPosition && terminalPosition > 0)
+        if (terminalPosition is > 0)
         {
             await _configurationRepository.UpsertJsonAsync(
                     MraConfigurationKeys.TerminalPosition,
-                    JsonSerializer.Serialize(new { position = terminalPosition }, MraJson.SerializerOptions),
+                    JsonSerializer.Serialize(new { position = terminalPosition.Value }, MraJson.SerializerOptions),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        if (response.Data.Configuration is not null)
+        if (configuration is not null)
         {
-            await CacheConfigurationBundleAsync(response.Data.Configuration, cancellationToken)
+            await CacheConfigurationBundleAsync(configuration, cancellationToken)
                 .ConfigureAwait(false);
         }
-
-        _logger.LogInformation("Terminal {TerminalId} activated pending MRA confirmation.", terminalId);
-
-        return TerminalActivationResult.Succeeded(terminalId, response.Remark, response.Data.Configuration);
     }
 
     public async Task<TerminalConfirmationResult> ConfirmTerminalActivationAsync(
@@ -551,6 +625,8 @@ public sealed class TerminalActivationResult
     public bool Success { get; init; }
     public string? TerminalId { get; init; }
     public string? Remark { get; init; }
+    public int StatusCode { get; init; }
+    public string? OperatorMessage { get; init; }
     public EisConfigurationBundleDto? Configuration { get; init; }
     public IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? Errors { get; init; }
 
@@ -558,12 +634,38 @@ public sealed class TerminalActivationResult
         string terminalId,
         string? remark,
         EisConfigurationBundleDto? configuration) =>
-        new() { Success = true, TerminalId = terminalId, Remark = remark, Configuration = configuration };
+        new()
+        {
+            Success = true,
+            TerminalId = terminalId,
+            Remark = remark,
+            StatusCode = 1,
+            Configuration = configuration
+        };
 
     public static TerminalActivationResult Failed(
         string? remark,
-        IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? errors) =>
-        new() { Success = false, Remark = remark, Errors = errors };
+        IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? errors,
+        int statusCode = 0,
+        string? operatorMessage = null) =>
+        new()
+        {
+            Success = false,
+            Remark = remark,
+            Errors = errors,
+            StatusCode = statusCode,
+            OperatorMessage = operatorMessage ?? remark
+        };
+
+    public static TerminalActivationResult FailedFromEvaluation(MraEisResponseEvaluation evaluation) =>
+        new()
+        {
+            Success = false,
+            Remark = evaluation.Remark ?? evaluation.TechnicalDetail,
+            Errors = evaluation.Errors.Count == 0 ? null : evaluation.Errors,
+            StatusCode = evaluation.StatusCode,
+            OperatorMessage = evaluation.OperatorMessage
+        };
 }
 
 public sealed class TerminalConfirmationResult

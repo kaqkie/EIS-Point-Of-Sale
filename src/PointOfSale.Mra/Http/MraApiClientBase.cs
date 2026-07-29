@@ -41,6 +41,7 @@ public abstract class MraApiClientBase
         string? jwtToken = null,
         string? xSignaturePlainText = null,
         string? secretKeyForSignature = null,
+        string? vendorAccessKey = null,
         CancellationToken cancellationToken = default)
     {
         var json = JsonSerializer.Serialize(body, MraJson.SerializerOptions);
@@ -50,6 +51,13 @@ public abstract class MraApiClientBase
         };
 
         ApplyAuthorization(request, jwtToken);
+
+        if (!string.IsNullOrWhiteSpace(vendorAccessKey))
+        {
+            request.Headers.TryAddWithoutValidation(
+                Security.MraVendorAccessKeyPolicy.HeaderName,
+                vendorAccessKey.Trim());
+        }
 
         if (!string.IsNullOrWhiteSpace(xSignaturePlainText) &&
             !string.IsNullOrWhiteSpace(secretKeyForSignature))

@@ -57,6 +57,12 @@ public sealed class MraApiOptions
 
     public string VerificationBaseUrl { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Vendor <c>x-access-key</c> issued by MRA after system certification.
+    /// Required only for Production <c>onboarding/activate-terminal</c>; leave empty in Sandbox.
+    /// </summary>
+    public string VendorAccessKey { get; set; } = string.Empty;
+
     public string ResolveBaseUrl()
     {
         if (!string.IsNullOrWhiteSpace(BaseUrl) && !IsLegacyUnreachableHost(BaseUrl))

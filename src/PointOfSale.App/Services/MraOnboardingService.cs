@@ -146,7 +146,9 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 return await TrySandboxFallbackOrFailAsync(
                         scope,
                         normalized,
-                        result.Remark ?? "MRA activate-terminal rejected the activation key.",
+                        result.OperatorMessage
+                            ?? result.Remark
+                            ?? "MRA activate-terminal rejected the activation key.",
                         confirm: false,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -287,7 +289,7 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 if (IsLiveProductionEnvironment())
                 {
                     return MraOnboardingResult.Fail(
-                        activate.Remark ?? "MRA rejected the activation key.",
+                        activate.OperatorMessage ?? activate.Remark ?? "MRA rejected the activation key.",
                         upstreamDiagnostic: activate.Remark);
                 }
 

@@ -134,6 +134,16 @@ public sealed class MraApiClient
             }
         }
 
+        if (context?.VendorAccessKey is { Length: > 0 } accessKey)
+        {
+            request.Headers.TryAddWithoutValidation(MraVendorAccessKeyPolicy.HeaderName, accessKey.Trim());
+            _logger.LogDebug(
+                "Attached {Header} for {Method} {Path}",
+                MraVendorAccessKeyPolicy.HeaderName,
+                request.Method,
+                request.RequestUri);
+        }
+
         // Confirmation: HMAC-SHA512(TAC, secretKey). Sales/other POSTs: HMAC over JSON body.
         if (context?.SecretKey is { Length: > 0 } secretKey &&
             !string.IsNullOrWhiteSpace(signaturePlainText))
@@ -448,4 +458,10 @@ public sealed class MraRequestContext
     /// <c>POST onboarding/terminal-activated-confirmation</c> (HMAC-SHA512 → Base64 x-signature).
     /// </summary>
     public bool IsActivationConfirmationSignature { get; init; }
+
+    /// <summary>
+    /// Production-only vendor access key for <c>onboarding/activate-terminal</c>
+    /// (<c>x-access-key</c> header). Never set for sandbox calls.
+    /// </summary>
+    public string? VendorAccessKey { get; init; }
 }
