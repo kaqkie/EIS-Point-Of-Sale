@@ -476,7 +476,14 @@ public sealed class StockManagementService
     public IReadOnlyList<InventoryUploadBatch<T>> PlanInitialInventoryUploadBatches<T>(IReadOnlyList<T> items) =>
         InventoryUploadBatchPlanner.CreateBatches(items, _inventoryUploadBatchSize);
 
-    public async Task<StockResult<int>> UploadInitialInventoryInBatchesAsync(
+    /// <summary>
+    /// <c>POST /api/v1/utilities/taxpayer-initial-inventory-upload</c> —
+    /// phased batches (≤ configured product limit). Items stage until <c>isLastBatch</c>;
+    /// EIS classifies mapped vs unmapped. Upload does <b>not</b> put stock in the warehouse —
+    /// the taxpayer must map (if needed) and Synchronize Now in the MRA portal, then await approval.
+    /// One-time per taxpayer: a successful last batch is persisted locally and blocks re-upload.
+    /// </summary>
+    public async Task<StockResult<InitialInventoryUploadSummary>> UploadInitialInventoryInBatchesAsync(
         IReadOnlyList<InitialInventoryItemDto> items,
         string? tin = null,
         CancellationToken cancellationToken = default)
@@ -484,13 +491,26 @@ public sealed class StockManagementService
         ArgumentNullException.ThrowIfNull(items);
         if (items.Count == 0)
         {
-            return StockResult<int>.Succeeded(0, "No inventory items to upload.");
+            return StockResult<InitialInventoryUploadSummary>.Succeeded(
+                new InitialInventoryUploadSummary { UploadedItemCount = 0, BatchCount = 0 },
+                "No inventory items to upload.");
+        }
+
+        var prior = await ReadInitialInventoryUploadStateAsync(cancellationToken).ConfigureAwait(false);
+        if (prior?.Completed == true)
+        {
+            return StockResult<InitialInventoryUploadSummary>.Failed(
+                "Initial inventory upload is a one-time MRA operation and was already completed"
+                + (prior.CompletedUtc is { } utc ? $" on {utc:u}." : ".")
+                + " Map/synchronize remaining items in the MRA portal (Inventory Management → Initial Inventory Mapper).",
+                errors: null);
         }
 
         var taxpayerTin = await ResolveTaxpayerTinAsync(tin, cancellationToken).ConfigureAwait(false);
         var batches = InventoryUploadBatchPlanner.CreateBatches(items, _inventoryUploadBatchSize);
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
         var uploaded = 0;
+        InitialInventoryUploadBatchResponseData? finalBatch = null;
 
         foreach (var batch in batches)
         {
@@ -509,16 +529,100 @@ public sealed class StockManagementService
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            var result = ToResult(response);
-            if (!result.Success)
+            // Staging batches may omit classification data; only require EIS success.
+            if (!response.IsSuccess)
             {
-                return StockResult<int>.Failed(result.Remark, result.Errors);
+                _logger.LogWarning(
+                    "taxpayer-initial-inventory-upload failed on batch {Batch}/{Total}. Remark={Remark}",
+                    batch.BatchNumber,
+                    batches.Count,
+                    response.Remark ?? "(null)");
+                return StockResult<InitialInventoryUploadSummary>.Failed(response.Remark, response.Errors);
             }
 
             uploaded += batch.Items.Count;
+            if (batch.IsLastBatch && response.Data is not null)
+            {
+                finalBatch = response.Data;
+            }
         }
 
-        return StockResult<int>.Succeeded(uploaded, $"Uploaded {uploaded} inventory item(s) in {batches.Count} batch(es).");
+        var summary = new InitialInventoryUploadSummary
+        {
+            UploadedItemCount = uploaded,
+            BatchCount = batches.Count,
+            FinalBatch = finalBatch
+        };
+
+        await PersistInitialInventoryUploadStateAsync(summary, cancellationToken).ConfigureAwait(false);
+
+        var mapped = finalBatch?.MappedItems;
+        var unmapped = finalBatch?.UnmappedItems;
+        var classification = finalBatch is null
+            ? string.Empty
+            : $" Mapped={mapped}, unmapped={unmapped}.";
+        var portalHint = unmapped is > 0
+            ? " Manually map unmapped products in MRA portal Inventory Management → Initial Inventory Mapper, then click Synchronize Now."
+            : " In MRA portal Inventory Management → Initial Inventory Mapper, click Synchronize Now (no manual mapping needed if all items mapped).";
+
+        var remark =
+            $"Staged {uploaded} inventory item(s) in {batches.Count} batch(es).{classification}"
+            + " Uploaded products are not in warehouse stock until portal synchronize + approval."
+            + portalHint
+            + " This initial inventory upload cannot be repeated.";
+
+        _logger.LogInformation(
+            "Initial inventory upload complete: uploaded={Uploaded} batches={Batches} mapped={Mapped} unmapped={Unmapped}",
+            uploaded,
+            batches.Count,
+            mapped,
+            unmapped);
+
+        return StockResult<InitialInventoryUploadSummary>.Succeeded(summary, remark);
+    }
+
+    private async Task<InitialInventoryUploadStateSnapshot?> ReadInitialInventoryUploadStateAsync(
+        CancellationToken cancellationToken)
+    {
+        var json = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.InitialInventoryUploadState, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<InitialInventoryUploadStateSnapshot>(json, MraJson.SerializerOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unable to parse initial inventory upload state.");
+            return null;
+        }
+    }
+
+    private Task PersistInitialInventoryUploadStateAsync(
+        InitialInventoryUploadSummary summary,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = new InitialInventoryUploadStateSnapshot
+        {
+            Completed = true,
+            CompletedUtc = DateTime.UtcNow,
+            UploadedItemCount = summary.UploadedItemCount,
+            BatchCount = summary.BatchCount,
+            MappedItems = summary.FinalBatch?.MappedItems,
+            UnmappedItems = summary.FinalBatch?.UnmappedItems,
+            IsPartialUpload = summary.FinalBatch?.IsPartialUpload,
+            SkippedItems = summary.FinalBatch?.SkippedItems
+        };
+
+        return _configurationRepository.UpsertJsonAsync(
+            MraConfigurationKeys.InitialInventoryUploadState,
+            JsonSerializer.Serialize(snapshot, MraJson.SerializerOptions),
+            cancellationToken);
     }
 
     private async Task ValidateAddProductAgainstLocalRulesAsync(
@@ -742,4 +846,26 @@ public sealed class StockResult<T>
 
     public static StockResult<T> Failed(string? remark, IReadOnlyList<EisApiError>? errors) =>
         new() { Success = false, Remark = remark, Errors = errors };
+}
+
+/// <summary>Outcome of a phased <c>taxpayer-initial-inventory-upload</c> run.</summary>
+public sealed class InitialInventoryUploadSummary
+{
+    public int UploadedItemCount { get; init; }
+    public int BatchCount { get; init; }
+    public InitialInventoryUploadBatchResponseData? FinalBatch { get; init; }
+
+    public bool HasUnmappedItems => (FinalBatch?.UnmappedItems ?? 0) > 0;
+}
+
+public sealed class InitialInventoryUploadStateSnapshot
+{
+    public bool Completed { get; set; }
+    public DateTime? CompletedUtc { get; set; }
+    public int UploadedItemCount { get; set; }
+    public int BatchCount { get; set; }
+    public int? MappedItems { get; set; }
+    public int? UnmappedItems { get; set; }
+    public bool? IsPartialUpload { get; set; }
+    public IReadOnlyList<string>? SkippedItems { get; set; }
 }

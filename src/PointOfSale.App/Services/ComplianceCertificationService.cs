@@ -141,7 +141,14 @@ public sealed class ComplianceCertificationService : IComplianceCertificationSer
                 throw new InvalidOperationException(result.Remark ?? "Initial inventory upload failed.");
             }
 
-            return (200, JsonSerializer.Serialize(new { uploaded = result.Data }), null, null);
+            return (200, JsonSerializer.Serialize(new
+            {
+                uploaded = result.Data?.UploadedItemCount,
+                batches = result.Data?.BatchCount,
+                mapped = result.Data?.FinalBatch?.MappedItems,
+                unmapped = result.Data?.FinalBatch?.UnmappedItems,
+                remark = result.Remark
+            }), null, null);
         }, Log, cancellationToken).ConfigureAwait(false);
 
         SubmitSalesTransactionRequest? lastSale = null;

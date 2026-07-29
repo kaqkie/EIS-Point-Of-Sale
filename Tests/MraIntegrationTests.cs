@@ -236,7 +236,10 @@ public sealed class MraIntegrationTests
 
         var result = await harness.StockService.UploadInitialInventoryInBatchesAsync(items);
         Assert.True(result.Success);
-        Assert.Equal(120, result.Data);
+        Assert.Equal(120, result.Data!.UploadedItemCount);
+        Assert.Equal(3, result.Data.BatchCount);
+        Assert.NotNull(result.Data.FinalBatch);
+        Assert.Contains("Synchronize Now", result.Remark, StringComparison.OrdinalIgnoreCase);
 
         var bodies = mock.InitialInventoryRequests
             .Select(x => x.Body!)
@@ -249,6 +252,11 @@ public sealed class MraIntegrationTests
         Assert.True(last.RootElement.GetProperty("isLastBatch").GetBoolean());
         Assert.Equal(50, first.RootElement.GetProperty("products").GetArrayLength());
         Assert.Equal(20, last.RootElement.GetProperty("products").GetArrayLength());
+
+        // One-time: second attempt must be rejected locally.
+        var second = await harness.StockService.UploadInitialInventoryInBatchesAsync(items.Take(1).ToList());
+        Assert.False(second.Success);
+        Assert.Contains("one-time", second.Remark, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

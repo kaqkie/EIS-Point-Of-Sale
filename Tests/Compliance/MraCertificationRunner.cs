@@ -99,9 +99,15 @@ public sealed class MraCertificationRunner : IDisposable
             var result = await _harness.StockService.UploadInitialInventoryInBatchesAsync(items, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             Assert.True(result.Success);
-            Assert.Equal(55, result.Data);
+            Assert.Equal(55, result.Data!.UploadedItemCount);
             Assert.True(_mock.InitialInventoryRequests.Count >= 2);
-            return (200, JsonSerializer.Serialize(new { uploaded = result.Data, batches = _mock.InitialInventoryRequests.Count }), null, null,
+            return (200, JsonSerializer.Serialize(new
+            {
+                uploaded = result.Data.UploadedItemCount,
+                batches = _mock.InitialInventoryRequests.Count,
+                mapped = result.Data.FinalBatch?.MappedItems,
+                unmapped = result.Data.FinalBatch?.UnmappedItems
+            }), null, null,
                 JsonSerializer.Serialize(new { itemCount = 55 }));
         }, cancellationToken).ConfigureAwait(false);
 

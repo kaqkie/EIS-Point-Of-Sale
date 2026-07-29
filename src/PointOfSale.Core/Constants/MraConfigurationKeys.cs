@@ -16,6 +16,7 @@ public static class MraConfigurationKeys
     public const string TerminalSiteProductsCachePrefix = "mra.utilities.terminalSiteProducts.";
     public const string Vat5CertificateBalancePrefix = "mra.utilities.vat5.balance.";
     public const string TerminalBlockingState = "mra.utilities.terminalBlocking.state";
+    public const string InitialInventoryUploadState = "mra.utilities.initialInventoryUpload.state";
 }
 
 public static class TerminalActivationStates

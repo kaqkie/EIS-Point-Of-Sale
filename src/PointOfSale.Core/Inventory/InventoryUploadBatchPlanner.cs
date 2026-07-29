@@ -2,6 +2,7 @@ namespace PointOfSale.Core.Inventory;
 
 /// <summary>
 /// Splits large initial-inventory uploads into MRA-compliant batches (default max 50 items per batch).
+/// Products remain in EIS staging until the last batch; warehouse stock requires portal Synchronize Now + approval.
 /// </summary>
 public static class InventoryUploadBatchPlanner
 {
