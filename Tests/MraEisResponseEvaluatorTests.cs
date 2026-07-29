@@ -137,6 +137,21 @@ public sealed class MraEisResponseEvaluatorTests
     }
 
     [Fact]
+    public void EvaluateException_OpaqueSandboxInternalError_RetriesNotQuarantines()
+    {
+        var ex = new MraApiException(
+            "MRA EIS HTTP 500: Internal Server Error — An internal error occurred",
+            500,
+            """{"message":"An internal error occurred"}""");
+
+        var result = _evaluator.EvaluateException(ex);
+
+        Assert.Equal(MraEisFailureCategory.ServerError, result.Category);
+        Assert.Equal(MraEisRecommendedAction.RetryLater, result.RecommendedAction);
+        Assert.False(result.ShouldQuarantine);
+    }
+
+    [Fact]
     public void CashierOperatorMessages_FromEvaluation_MapsTitles()
     {
         var evaluation = _evaluator.Evaluate(MraEisStatusCodes.OutdatedConfiguration, "stale", null);

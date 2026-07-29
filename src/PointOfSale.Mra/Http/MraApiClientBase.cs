@@ -225,8 +225,9 @@ public sealed class MraApiException : Exception
 
     /// <summary>
     /// True when the HTTP failure looks like a permanent payload/validation rejection
-    /// (including sandbox 500s that embed field validation in the body, and opaque
-    /// ASP.NET <c>{"message":"An internal error occurred"}</c> responses that retrying will not fix).
+    /// (including sandbox 500s that embed field validation in the body).
+    /// Opaque ASP.NET <c>{"message":"An internal error occurred"}</c> is treated as transient —
+    /// MRA sandbox often returns that for host/auth outages, so the queue should retry with backoff.
     /// </summary>
     public bool LooksLikeValidationOrClientError()
     {
@@ -245,7 +246,8 @@ public sealed class MraApiException : Exception
             return false;
         }
 
-        return HasValidationSignals(ResponseBody) || IsOpaqueSandboxInternalError(ResponseBody);
+        // Real field validation embedded in a 500 body → permanent. Opaque internal errors → retry.
+        return HasValidationSignals(ResponseBody);
     }
 
     /// <summary>

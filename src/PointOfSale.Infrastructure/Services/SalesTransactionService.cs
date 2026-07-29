@@ -55,7 +55,7 @@ public sealed class SalesTransactionService
 
     /// <summary>
     /// <c>POST /api/v1/sales/last-submitted-online-transaction</c> —
-    /// empty body, <c>Accept: text/plain</c>, <c>Authorization: Bearer {jwt}</c>, no x-signature.
+    /// empty body, <c>Accept: text/plain</c>, Authorization = raw JWT (no Bearer prefix), no x-signature.
     /// Used to verify online invoice sequence integrity against the MRA server.
     /// </summary>
     public Task<SalesResult<SubmittedTransactionData>> GetLastSubmittedOnlineTransactionAsync(
@@ -67,7 +67,7 @@ public sealed class SalesTransactionService
 
     /// <summary>
     /// <c>POST /api/v1/sales/last-submitted-offline-transaction</c> —
-    /// empty body, <c>Accept: text/plain</c>, <c>Authorization: Bearer {jwt}</c>, no x-signature.
+    /// empty body, <c>Accept: text/plain</c>, Authorization = raw JWT (no Bearer prefix), no x-signature.
     /// Used to verify offline invoice sequence continuity before syncing queued sales.
     /// </summary>
     public Task<SalesResult<SubmittedTransactionData>> GetLastSubmittedOfflineTransactionAsync(
@@ -89,7 +89,8 @@ public sealed class SalesTransactionService
                 new MraRequestContext
                 {
                     JwtToken = context.JwtToken,
-                    UseBearerAuthorization = true,
+                    // Match utilities/ping + MRA samples: raw JWT, not "Bearer {jwt}".
+                    UseBearerAuthorization = false,
                     AcceptHeader = "text/plain"
                 },
                 cancellationToken)

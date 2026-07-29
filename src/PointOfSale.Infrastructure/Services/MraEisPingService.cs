@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using PointOfSale.Core.Constants;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Mra.Contracts.Utilities;
+using PointOfSale.Mra.Http;
 
 namespace PointOfSale.Infrastructure.Services;
 
@@ -93,6 +94,19 @@ public sealed class MraEisPingService
             sw.Stop();
             _logger.LogWarning(ex, "utilities/ping HTTP failure after {ElapsedMs} ms", sw.ElapsedMilliseconds);
             return MraPingResult.Unreachable((int)sw.ElapsedMilliseconds, ex.Message);
+        }
+        catch (MraApiException ex) when (ex.HttpStatusCode is >= 400)
+        {
+            // EIS host answered (auth reject / 5xx). Treat as reachable so FIFO can keep retrying
+            // and the banner does not falsely say the network/MRA probe failed as unreachable.
+            sw.Stop();
+            var elapsedMs = (int)sw.ElapsedMilliseconds;
+            _logger.LogWarning(
+                ex,
+                "utilities/ping host responded HTTP {Status} after {ElapsedMs} ms",
+                ex.HttpStatusCode,
+                elapsedMs);
+            return MraPingResult.HostReached(elapsedMs, ex.HttpStatusCode, ex.Message);
         }
         catch (Exception ex)
         {

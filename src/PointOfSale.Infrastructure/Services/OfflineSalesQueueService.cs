@@ -494,12 +494,61 @@ public sealed class OfflineSalesQueueService
             unchanged,
             failed);
 
+        // Opaque HTTP 500 / EIS outage used to permanently quarantine — release those for retry.
+        var released = await ReleaseTransientQuarantinesAsync(cancellationToken).ConfigureAwait(false);
+
         return new ReceiptIdentifierBatchRepairResult(
             candidates.Count,
             rewritten,
             unchanged,
             failed,
-            firstError);
+            firstError,
+            released);
+    }
+
+    /// <summary>
+    /// Moves quarantine rows caused by opaque/transient MRA failures back to PENDING so FIFO can retry.
+    /// Leaves true validation quarantines alone.
+    /// </summary>
+    public async Task<int> ReleaseTransientQuarantinesAsync(CancellationToken cancellationToken = default)
+    {
+        var quarantined = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Quarantined, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+
+        var released = 0;
+        foreach (var item in quarantined.OrderBy(x => x.Id))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!LooksLikeTransientQuarantine(item.ErrorMessage))
+            {
+                continue;
+            }
+
+            if (await _queueRepository.RetryQuarantinedAsync(item.Id, cancellationToken).ConfigureAwait(false))
+            {
+                released++;
+                _logger.LogInformation(
+                    "Released transient quarantine for queue {QueueId} back to PENDING.",
+                    item.Id);
+            }
+        }
+
+        return released;
+    }
+
+    private static bool LooksLikeTransientQuarantine(string? errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(errorMessage))
+        {
+            return false;
+        }
+
+        return errorMessage.Contains("internal error occurred", StringComparison.OrdinalIgnoreCase)
+            || errorMessage.Contains("Opaque sandbox", StringComparison.OrdinalIgnoreCase)
+            || errorMessage.Contains("HTTP 500", StringComparison.OrdinalIgnoreCase)
+            || errorMessage.Contains("MRA communication error", StringComparison.OrdinalIgnoreCase)
+            || errorMessage.Contains("temporary MRA", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<SaleQueueResult> TrySubmitQueuedAsync(
@@ -661,8 +710,9 @@ public sealed class OfflineSalesQueueService
             || _responseEvaluator.EvaluateException(ex).ShouldQuarantine)
         {
             var evaluation = _responseEvaluator.EvaluateException(ex);
-            // HTTP 400, HttpClient lifetime faults, sandbox validation 500s, and opaque
-            // {"message":"An internal error occurred"} — quarantine instead of retry storm.
+            // HTTP 400, HttpClient lifetime faults, and sandbox 500s with field validation —
+            // quarantine instead of retry storm. Opaque {"message":"An internal error occurred"}
+            // is treated as transient and retried via IsTransientFailure.
             var detail = TruncateError(
                 string.IsNullOrWhiteSpace(evaluation.TechnicalDetail)
                     ? ex.Message
@@ -1101,7 +1151,7 @@ public sealed class OfflineSalesQueueService
                     {
                         var cached = _liveConfigOverlayCache;
                         return new MraFiscalIdentityOverlay(
-                            SellerTin: FirstNonEmpty(cached.SellerTin, sellerTin),
+                            SellerTin: FirstNonPlaceholderTin(cached.SellerTin, sellerTin, jwtTin),
                             SiteId: FirstNonEmpty(cached.SiteId, siteId),
                             GlobalConfigVersion: cached.GlobalConfigVersion ?? ToConfigVersion(global?.VersionNo),
                             TaxpayerConfigVersion: cached.TaxpayerConfigVersion ?? ToConfigVersion(taxpayer?.VersionNo),
@@ -1135,10 +1185,14 @@ public sealed class OfflineSalesQueueService
                             refreshedTaxpayer?.ActivatedTaxRateIds);
 
                         var refreshedSiteId = FirstNonEmpty(refreshedTerminal?.TerminalSite?.SiteId);
-                        var refreshedSellerTin = FirstNonEmpty(refreshedTaxpayer?.Tin, jwtTin);
+                        // Never let cached placeholder TIN overwrite a real JWT / prior seller TIN.
+                        var refreshedSellerTin = FirstNonPlaceholderTin(
+                            refreshedTaxpayer?.Tin,
+                            jwtTin,
+                            sellerTin);
 
                         var overlay = new MraFiscalIdentityOverlay(
-                            SellerTin: refreshedSellerTin ?? sellerTin,
+                            SellerTin: refreshedSellerTin,
                             SiteId: refreshedSiteId ?? siteId,
                             GlobalConfigVersion: ToConfigVersion(refreshedGlobal?.VersionNo ?? global?.VersionNo) ?? 1,
                             TaxpayerConfigVersion: ToConfigVersion(refreshedTaxpayer?.VersionNo ?? taxpayer?.VersionNo) ?? 1,
@@ -1275,6 +1329,32 @@ public sealed class OfflineSalesQueueService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Prefers a non-placeholder TIN. Falls back to the first non-empty value (including
+    /// <c>1234567890</c>) only when no real TIN is available.
+    /// </summary>
+    private static string? FirstNonPlaceholderTin(params string?[] values)
+    {
+        const string sandboxPlaceholderTin = "1234567890";
+        string? firstNonEmpty = null;
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var trimmed = value.Trim();
+            firstNonEmpty ??= trimmed;
+            if (!trimmed.Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
+            {
+                return trimmed;
+            }
+        }
+
+        return firstNonEmpty;
     }
 
     private async Task<SubmitSalesTransactionRequest> PreparePayloadAsync(
@@ -1735,7 +1815,8 @@ public sealed record ReceiptIdentifierBatchRepairResult(
     int Rewritten,
     int Unchanged,
     int Failed,
-    string? FirstError)
+    string? FirstError,
+    int TransientQuarantinesReleased = 0)
 {
     public bool Success => Failed == 0;
 
@@ -1743,13 +1824,18 @@ public sealed record ReceiptIdentifierBatchRepairResult(
     {
         get
         {
-            if (Scanned == 0)
+            if (Scanned == 0 && TransientQuarantinesReleased == 0)
             {
                 return "No open receipts needed ID repair.";
             }
 
             var msg =
                 $"Receipt IDs repaired: {Rewritten} rewritten, {Unchanged} already correct, {Failed} failed (scanned {Scanned}).";
+            if (TransientQuarantinesReleased > 0)
+            {
+                msg += $" Released {TransientQuarantinesReleased} transient quarantine(s) for retry.";
+            }
+
             if (!string.IsNullOrWhiteSpace(FirstError) && Failed > 0)
             {
                 msg += $" First error: {FirstError}";

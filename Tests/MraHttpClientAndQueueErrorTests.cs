@@ -35,7 +35,7 @@ public sealed class MraHttpClientAndQueueErrorTests
     }
 
     [Fact]
-    public void LooksLikeValidationOrClientError_True_ForOpaqueSandboxInternalError()
+    public void LooksLikeValidationOrClientError_False_ForOpaqueSandboxInternalError()
     {
         var ex = new MraApiException(
             "MRA EIS HTTP 500: Internal Server Error — An internal error occurred",
@@ -43,7 +43,8 @@ public sealed class MraHttpClientAndQueueErrorTests
             """{"message":"An internal error occurred"}""");
 
         Assert.True(MraApiException.IsOpaqueSandboxInternalError(ex.ResponseBody));
-        Assert.True(ex.LooksLikeValidationOrClientError());
+        // Opaque sandbox 500s are transient EIS failures — queue should retry, not quarantine.
+        Assert.False(ex.LooksLikeValidationOrClientError());
     }
 
     [Fact]

@@ -30,13 +30,13 @@ public sealed class LastSubmittedOfflineTransactionTests
     }
 
     [Fact]
-    public async Task GetLastSubmittedOfflineTransaction_PostsEmptyBody_WithBearerAndAcceptTextPlain() =>
+    public async Task GetLastSubmittedOfflineTransaction_PostsEmptyBody_WithRawJwtAndAcceptTextPlain() =>
         await AssertLastSubmittedPostsEmptyBodyAsync(
             invoke: s => s.GetLastSubmittedOfflineTransactionAsync(),
             pathSegment: "last-submitted-offline-transaction");
 
     [Fact]
-    public async Task GetLastSubmittedOnlineTransaction_PostsEmptyBody_WithBearerAndAcceptTextPlain() =>
+    public async Task GetLastSubmittedOnlineTransaction_PostsEmptyBody_WithRawJwtAndAcceptTextPlain() =>
         await AssertLastSubmittedPostsEmptyBodyAsync(
             invoke: s => s.GetLastSubmittedOnlineTransactionAsync(),
             pathSegment: "last-submitted-online-transaction");
@@ -104,7 +104,7 @@ public sealed class LastSubmittedOfflineTransactionTests
         Assert.Contains(pathSegment, captured.RequestUri!.ToString(), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(string.Empty, capturedBody);
         Assert.True(captured.Headers.TryGetValues("Authorization", out var authValues));
-        Assert.Equal("Bearer raw-jwt-token", Assert.Single(authValues));
+        Assert.Equal("raw-jwt-token", Assert.Single(authValues));
         Assert.True(captured.Headers.TryGetValues("Accept", out var acceptValues));
         Assert.Equal("text/plain", Assert.Single(acceptValues));
     }
