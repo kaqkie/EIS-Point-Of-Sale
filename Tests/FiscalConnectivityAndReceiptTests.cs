@@ -128,7 +128,7 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains("MALAWI REVENUE AUTHORITY", text, StringComparison.Ordinal);
         Assert.Contains("Albert Retail", text, StringComparison.Ordinal);
         Assert.Contains("City Center", text, StringComparison.Ordinal);
-        Assert.Contains("Tel: +265 1 234 567", text, StringComparison.Ordinal);
+        Assert.Contains("MOB: +265 1 234 567", text, StringComparison.Ordinal);
         Assert.Contains("Email: shop@albertretail.mw", text, StringComparison.Ordinal);
         Assert.Contains("Merchant TIN: 2007123456", text, StringComparison.Ordinal);
         Assert.Contains("FISCAL RECEIPT NUMBER: CV-WEB-JY4+-C", text, StringComparison.Ordinal);
@@ -215,7 +215,7 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains("PAYMENT METHOD: CARD", text, StringComparison.Ordinal);
         Assert.Contains("OFFLINE", text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", text, StringComparison.Ordinal);
-        Assert.Contains("Tel: NOT CONFIGURED", text, StringComparison.Ordinal);
+        Assert.Contains("MOB: NOT CONFIGURED", text, StringComparison.Ordinal);
         Assert.Contains("Email: NOT CONFIGURED", text, StringComparison.Ordinal);
     }
 

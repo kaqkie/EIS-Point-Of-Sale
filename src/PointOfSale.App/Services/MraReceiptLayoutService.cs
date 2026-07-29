@@ -94,7 +94,7 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         }
 
         header.Add(Center(
-            Truncate($"Tel: {FormatConfiguredValue(request.ContactPhone)}", charactersPerLine),
+            Truncate($"MOB: {FormatConfiguredValue(request.ContactPhone)}", charactersPerLine),
             charactersPerLine));
         header.Add(Center(
             Truncate($"Email: {FormatConfiguredValue(request.ContactEmail)}", charactersPerLine),

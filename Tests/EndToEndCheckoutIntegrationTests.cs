@@ -91,7 +91,7 @@ public sealed class EndToEndCheckoutIntegrationTests
         var ascii = System.Text.Encoding.ASCII.GetString(escPos);
         Assert.Contains("VAT", ascii, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Merchant TIN: 2007123456", ascii, StringComparison.Ordinal);
-        Assert.Contains("Tel: +265 1 234 567", ascii, StringComparison.Ordinal);
+        Assert.Contains("MOB: +265 1 234 567", ascii, StringComparison.Ordinal);
         Assert.DoesNotContain("Scan to verify", ascii, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", ascii, StringComparison.Ordinal);
         Assert.DoesNotContain("Verification URL", ascii, StringComparison.Ordinal);
