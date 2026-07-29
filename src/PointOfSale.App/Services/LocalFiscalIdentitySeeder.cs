@@ -99,7 +99,7 @@ public static class LocalFiscalIdentitySeeder
             {
                 VersionNo = 1,
                 Tin = resolvedTin,
-                IsVatRegistered = true,
+                IsVatRegistered = false,
                 TaxOfficeCode = "SBX",
                 ActivatedTaxRateIds = ["A"]
             };
@@ -223,7 +223,7 @@ public static class LocalFiscalIdentitySeeder
                         Name = "VAT-A",
                         ChargeMode = "G",
                         Ordinal = 1,
-                        Rate = 17.5m
+                        Rate = PosTaxCalculator.MalawiStandardVatRatePercent
                     }
                 ]
             };

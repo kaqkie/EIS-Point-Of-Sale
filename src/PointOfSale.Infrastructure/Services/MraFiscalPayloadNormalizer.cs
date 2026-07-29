@@ -77,20 +77,23 @@ public static partial class MraFiscalPayloadNormalizer
 
             var vat = PosTaxCalculator.RoundMoney(Math.Max(0m, line.TotalVat));
 
-            // Re-align VAT to the configured rate when the line is on the standard tier
-            // and the stored VAT does not match (prevents sandbox 500 from rate drift).
-            var ratePercent = MraTaxRateCodes.ResolveRatePercent(taxRateId, configuredRates);
-            if (ratePercent > 0m)
+            // Re-align VAT only when MRA global config supplies an explicit rate for this id.
+            // Do not use the statutory fallback here — that was overwriting live EIS rates
+            // (sample A @ 16.5%) with 17.5% whenever get-latest-configs was unavailable.
+            if (TryGetConfiguredRatePercent(taxRateId, configuredRates, out var ratePercent))
             {
-                var expectedVat = PosTaxCalculator.CalculateVatAmount(net, ratePercent);
-                if (Math.Abs(expectedVat - vat) > 0.02m)
+                if (ratePercent <= 0m)
                 {
-                    vat = expectedVat;
+                    vat = 0m;
                 }
-            }
-            else
-            {
-                vat = 0m;
+                else
+                {
+                    var expectedVat = PosTaxCalculator.CalculateVatAmount(net, ratePercent);
+                    if (Math.Abs(expectedVat - vat) > 0.02m)
+                    {
+                        vat = expectedVat;
+                    }
+                }
             }
 
             lines.Add(new InvoiceLineItemDto
@@ -126,11 +129,17 @@ public static partial class MraFiscalPayloadNormalizer
 
         var totalVat = PosTaxCalculator.RoundMoney(lines.Sum(x => x.TotalVat));
         var invoiceTotal = PosTaxCalculator.RoundMoney(lines.Sum(x => x.Total) + totalVat);
-        var amountTendered = PosTaxCalculator.RoundMoney(
-            request.InvoiceSummary.AmountTendered > 0
-                ? request.InvoiceSummary.AmountTendered
-                : invoiceTotal);
-        if (amountTendered < invoiceTotal)
+        var previousTotal = PosTaxCalculator.RoundMoney(request.InvoiceSummary.InvoiceTotal);
+        var amountTendered = PosTaxCalculator.RoundMoney(request.InvoiceSummary.AmountTendered);
+        // Exact-tender sales (amountTendered == prior invoiceTotal) must follow recalculated totals
+        // after VAT/site identity repairs; otherwise leftover 17.5% tender amounts fail EIS checks.
+        if (amountTendered <= 0m
+            || previousTotal <= 0m
+            || Math.Abs(amountTendered - previousTotal) <= 0.02m)
+        {
+            amountTendered = invoiceTotal;
+        }
+        else if (amountTendered < invoiceTotal)
         {
             amountTendered = invoiceTotal;
         }
@@ -228,6 +237,48 @@ public static partial class MraFiscalPayloadNormalizer
         }
 
         return MraTaxRateCodes.StandardVat;
+    }
+
+    private static bool TryGetConfiguredRatePercent(
+        string? taxRateId,
+        IReadOnlyList<(string Id, decimal Rate)>? configuredRates,
+        out decimal ratePercent)
+    {
+        ratePercent = 0m;
+        if (configuredRates is not { Count: > 0 })
+        {
+            return false;
+        }
+
+        var id = taxRateId?.Trim() ?? string.Empty;
+        foreach (var rate in configuredRates)
+        {
+            if (string.IsNullOrWhiteSpace(rate.Id) || rate.Rate < 0m)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(id)
+                && rate.Id.Equals(id, StringComparison.OrdinalIgnoreCase))
+            {
+                ratePercent = rate.Rate;
+                return true;
+            }
+        }
+
+        if (MraTaxRateCodes.IsStandardVatTier(id))
+        {
+            foreach (var rate in configuredRates)
+            {
+                if (MraTaxRateCodes.IsStandardVatTier(rate.Id) && rate.Rate > 0m)
+                {
+                    ratePercent = rate.Rate;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static decimal RoundQuantity(decimal quantity) =>

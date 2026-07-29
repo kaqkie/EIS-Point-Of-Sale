@@ -5,7 +5,7 @@ namespace PointOfSale.Core.Pricing;
 /// </summary>
 public static class PosTaxCalculator
 {
-    public const decimal MalawiStandardVatRatePercent = 17.5m;
+    public const decimal MalawiStandardVatRatePercent = 16.5m;
 
     public static decimal RoundMoney(decimal value) =>
         Math.Round(value, 2, MidpointRounding.AwayFromZero);
@@ -23,7 +23,7 @@ public static class PosTaxCalculator
     }
 
     /// <summary>
-    /// Applies a taxable-net discount, then recalculates VAT so totals stay aligned with 17.5% rounding.
+    /// Applies a taxable-net discount, then recalculates VAT so totals stay aligned with rate rounding.
     /// </summary>
     public static (decimal NetAfterDiscount, decimal Vat, decimal Gross, decimal DiscountApplied) ApplyNetDiscount(
         decimal unitPrice,

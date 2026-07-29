@@ -284,6 +284,14 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
             SelectedQueueItem = item;
             var result = await _offlineSalesQueueService.ForceSyncQueueItemAsync(item.Id).ConfigureAwait(true);
             StatusMessage = FormatSyncResult(item.Id, item.InvoiceNumber, result, prefix: "Force sync");
+            if (result is not null
+                && !result.SubmittedOnline
+                && result.Remark?.Contains("HTTP 500", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                StatusMessage +=
+                    " MRA sandbox auth appears unhealthy (even utilities/ping returns 500). " +
+                    "Re-activate this terminal with a fresh MRA code for TIN 20122074, or switch to Production if the EIS Portal receipt is live.";
+            }
             await DrainFifoQueueAsync().ConfigureAwait(true);
             await RefreshAsync().ConfigureAwait(true);
         }

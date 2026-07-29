@@ -1264,9 +1264,9 @@ public sealed class OfflineSalesQueueService
                 taxpayer?.ActivatedTaxRateIds);
 
             var siteId = FirstNonEmpty(
-                terminal?.TerminalSite?.SiteId,
-                ExtractConfiguredString(siteOverride));
-            var sellerTin = FirstNonEmpty(
+                ExtractConfiguredString(siteOverride),
+                terminal?.TerminalSite?.SiteId);
+            var sellerTin = FirstNonPlaceholderTin(
                 taxpayer?.Tin,
                 ExtractConfiguredString(tinOverride));
 
@@ -1319,12 +1319,14 @@ public sealed class OfflineSalesQueueService
                         var cached = _liveConfigOverlayCache;
                         return new MraFiscalIdentityOverlay(
                             SellerTin: FirstNonPlaceholderTin(cached.SellerTin, sellerTin, jwtTin),
-                            SiteId: FirstNonEmpty(cached.SiteId, siteId),
+                            SiteId: FirstNonEmpty(siteId, cached.SiteId),
                             GlobalConfigVersion: cached.GlobalConfigVersion ?? ToConfigVersion(global?.VersionNo),
                             TaxpayerConfigVersion: cached.TaxpayerConfigVersion ?? ToConfigVersion(taxpayer?.VersionNo),
                             TerminalConfigVersion: cached.TerminalConfigVersion ?? ToConfigVersion(terminal?.VersionNo),
                             StandardTaxRateId: cached.StandardTaxRateId ?? standardId,
-                            ConfiguredTaxRates: cached.ConfiguredTaxRates ?? rates);
+                            ConfiguredTaxRates: cached.ConfiguredTaxRates is { Count: > 0 }
+                                ? cached.ConfiguredTaxRates
+                                : rates);
                     }
                 }
 
@@ -1351,12 +1353,16 @@ public sealed class OfflineSalesQueueService
                             refreshedRates?.Select(r => r),
                             refreshedTaxpayer?.ActivatedTaxRateIds);
 
-                        var refreshedSiteId = FirstNonEmpty(refreshedTerminal?.TerminalSite?.SiteId);
+                        var refreshedSiteId = FirstNonEmpty(siteId, refreshedTerminal?.TerminalSite?.SiteId);
                         // Never let cached placeholder TIN overwrite a real JWT / prior seller TIN.
                         var refreshedSellerTin = FirstNonPlaceholderTin(
                             refreshedTaxpayer?.Tin,
                             jwtTin,
                             sellerTin);
+                        var effectiveRates = refreshedRates is { Count: > 0 } ? refreshedRates : rates;
+                        var effectiveStandardId = refreshedRates is { Count: > 0 }
+                            ? refreshedStandardId
+                            : standardId;
 
                         var overlay = new MraFiscalIdentityOverlay(
                             SellerTin: refreshedSellerTin,
@@ -1364,8 +1370,8 @@ public sealed class OfflineSalesQueueService
                             GlobalConfigVersion: ToConfigVersion(refreshedGlobal?.VersionNo ?? global?.VersionNo) ?? 1,
                             TaxpayerConfigVersion: ToConfigVersion(refreshedTaxpayer?.VersionNo ?? taxpayer?.VersionNo) ?? 1,
                             TerminalConfigVersion: ToConfigVersion(refreshedTerminal?.VersionNo ?? terminal?.VersionNo) ?? 1,
-                            StandardTaxRateId: refreshedStandardId,
-                            ConfiguredTaxRates: refreshedRates);
+                            StandardTaxRateId: effectiveStandardId,
+                            ConfiguredTaxRates: effectiveRates);
 
                         if (latest.Success)
                         {

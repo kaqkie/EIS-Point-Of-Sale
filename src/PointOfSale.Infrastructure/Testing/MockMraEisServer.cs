@@ -121,7 +121,7 @@ public class MockMraEisServer : IDisposable
                     {
                         errorCode = 42210,
                         fieldName = "invoiceSummary.totalVat",
-                        errorMessage = "VAT amount must equal 17.5% of taxable base (Malawi standard rate)."
+                        errorMessage = "VAT amount must equal configured rate A of taxable base."
                     }
                 }
             }));
@@ -222,7 +222,7 @@ public class MockMraEisServer : IDisposable
                     remark = "Configs",
                     data = new
                     {
-                        globalConfiguration = new { versionNo = 1, taxRates = new[] { new { id = "A", name = "VAT-A", rate = 17.5 } } },
+                        globalConfiguration = new { versionNo = 1, taxRates = new[] { new { id = "A", name = "VAT-A", rate = 16.5 } } },
                         terminalConfiguration = new
                         {
                             versionNo = 1,

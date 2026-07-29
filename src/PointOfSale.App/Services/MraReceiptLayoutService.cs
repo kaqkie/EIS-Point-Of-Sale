@@ -143,16 +143,16 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             });
         }
 
-        // ---- 4. Tax summary: taxable, VAT rate 17.5%, total VAT, grand total ----
+        // ---- 4. Tax summary: taxable + VAT (EIS sample: TAXABLE A-16.5% / VAT A-16.5%) ----
         var taxLines = new List<string> { Separator('-', charactersPerLine) };
         if (request.TaxBreakdown.Count == 0)
         {
             taxLines.Add(Columns(
-                $"TAXABLE AMOUNT A-{StatutoryVatPercentLabel}",
+                $"TAXABLE A-{StatutoryVatPercentLabel}",
                 $"{request.ResolveSubtotalNet():N2}",
                 charactersPerLine));
             taxLines.Add(Columns(
-                $"VAT RATE A={StatutoryVatPercentLabel}",
+                $"VAT A-{StatutoryVatPercentLabel}",
                 $"{request.ResolveTotalVat():N2}",
                 charactersPerLine));
         }
@@ -161,13 +161,13 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             foreach (var tax in request.TaxBreakdown)
             {
                 var rateId = string.IsNullOrWhiteSpace(tax.RateId) ? "A" : tax.RateId.Trim().ToUpperInvariant();
-                var rateLabel = FormatStatutoryRateLabel(rateId);
+                var rateLabel = FormatRatePercentLabel(rateId, tax.TaxableAmount, tax.TaxAmount);
                 taxLines.Add(Columns(
-                    $"TAXABLE AMOUNT {rateId}-{rateLabel}",
+                    $"TAXABLE {rateId}-{rateLabel}",
                     $"{tax.TaxableAmount:N2}",
                     charactersPerLine));
                 taxLines.Add(Columns(
-                    $"VAT RATE {rateId}={rateLabel}",
+                    $"VAT {rateId}-{rateLabel}",
                     $"{tax.TaxAmount:N2}",
                     charactersPerLine));
             }
@@ -311,11 +311,22 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         return matrix;
     }
 
-    /// <summary>Rate A always prints as 17.5%; other rate ids keep their code label.</summary>
-    private static string FormatStatutoryRateLabel(string rateId) =>
-        string.Equals(rateId, "A", StringComparison.OrdinalIgnoreCase)
+    /// <summary>Prefer the rate implied by taxable/VAT amounts; else statutory configured percent.</summary>
+    private static string FormatRatePercentLabel(string rateId, decimal taxableAmount, decimal taxAmount)
+    {
+        if (taxableAmount > 0m && taxAmount >= 0m)
+        {
+            var implied = Math.Round(taxAmount * 100m / taxableAmount, 1, MidpointRounding.AwayFromZero);
+            if (implied is >= 0m and <= 100m)
+            {
+                return $"{implied.ToString("0.0", CultureInfo.InvariantCulture)}%";
+            }
+        }
+
+        return string.Equals(rateId, "A", StringComparison.OrdinalIgnoreCase)
             ? StatutoryVatPercentLabel
             : StatutoryVatPercentLabel;
+    }
 
     /// <summary>Column header for qty / description / amount itemization.</summary>
     internal static string ItemHeaderLine(int width) =>

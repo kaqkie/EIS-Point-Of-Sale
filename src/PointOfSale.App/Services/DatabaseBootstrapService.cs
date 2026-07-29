@@ -984,9 +984,9 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 ON target.ConfigKey = source.ConfigKey
                 WHEN NOT MATCHED THEN
                     INSERT (ConfigKey, ConfigJson, UpdatedAt)
-                    VALUES (N'Fiscal.StandardVatRatePercent', N'17.5', GETUTCDATE())
+                    VALUES (N'Fiscal.StandardVatRatePercent', N'16.5', GETUTCDATE())
                 WHEN MATCHED THEN
-                    UPDATE SET ConfigJson = N'17.5', UpdatedAt = GETUTCDATE();
+                    UPDATE SET ConfigJson = N'16.5', UpdatedAt = GETUTCDATE();
 
                 MERGE dbo.Configurations AS target
                 USING (SELECT N'Ui.ThemeMode' AS ConfigKey) AS source
@@ -1101,7 +1101,7 @@ public sealed class DatabaseBootstrapService : IDatabaseBootstrapService
                 ON target.ConfigKey = source.ConfigKey
                 WHEN NOT MATCHED THEN
                     INSERT (ConfigKey, ConfigJson, UpdatedAt)
-                    VALUES (N'Fiscal.StandardVatRatePercent', N'17.5', GETUTCDATE());
+                    VALUES (N'Fiscal.StandardVatRatePercent', N'16.5', GETUTCDATE());
 
                 INSERT INTO dbo.Configurations (ConfigKey, ConfigJson, UpdatedAt)
                 VALUES (N'Schema.Phase35Applied', N'true', GETUTCDATE());

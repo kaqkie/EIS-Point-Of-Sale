@@ -7,12 +7,12 @@ namespace PointOfSale.Tests;
 public sealed class TaxReconciliationTests
 {
     [Fact]
-    public void StandardVat_ExpectedMatchesPosTaxCalculator_17_5Percent()
+    public void StandardVat_ExpectedMatchesPosTaxCalculator_EisSampleRate()
     {
         const decimal taxable = 1000m;
         var expected = PosTaxCalculator.CalculateVatAmount(taxable, PosTaxCalculator.MalawiStandardVatRatePercent);
-        Assert.Equal(175.00m, expected);
-        Assert.Equal(0m, PosTaxCalculator.RoundMoney(expected - 175m));
+        Assert.Equal(165.00m, expected);
+        Assert.Equal(0m, PosTaxCalculator.RoundMoney(expected - 165m));
     }
 
     [Fact]

@@ -1,21 +1,16 @@
 /*
-    Repair fiscal identity for already-activated terminal.
-    Set @TaxpayerTin to the registered MRA TIN before running.
-    Never leave the sandbox placeholder 1234567890 on legal receipts.
+    Repair fiscal identity to match live EIS sample receipt:
+    LUCHENZA MUNICIPALITY COUNCIL / TIN 20122074 / VAT A @ 16.5% / not VAT registered.
 */
 SET NOCOUNT ON;
 
 DECLARE @TaxpayerTin NVARCHAR(32) = N'20122074';
-DECLARE @SiteId NVARCHAR(128) = N'City Center';
-DECLARE @BranchId NVARCHAR(128) = N'Lilongwe';
-DECLARE @TradingName NVARCHAR(256) = N'Till 7';
-DECLARE @TerminalId NVARCHAR(64) = N'ART-SBX-B61182AD';
-
-IF (LEN(LTRIM(RTRIM(@TaxpayerTin))) = 0 OR @TaxpayerTin = N'1234567890')
-BEGIN
-    RAISERROR('Set @TaxpayerTin to the registered MRA taxpayer TIN before running this script.', 16, 1);
-    RETURN;
-END;
+DECLARE @SiteId NVARCHAR(128) = N'Luchenza';
+DECLARE @BranchId NVARCHAR(128) = N'Luchenza';
+DECLARE @TradingName NVARCHAR(256) = N'LUCHENZA MUNICIPALITY COUNCIL';
+DECLARE @TerminalLabel NVARCHAR(256) = N'GOVERNMENT COMPLIANCE UNIT';
+DECLARE @Phone NVARCHAR(64) = N'0988712686';
+DECLARE @Email NVARCHAR(128) = N'emilynkhata@yahoo.com';
 
 DECLARE @TinJson NVARCHAR(MAX) = N'{"tin":"' + STRING_ESCAPE(@TaxpayerTin, 'json') + N'"}';
 
@@ -37,14 +32,33 @@ ON t.ConfigKey = s.ConfigKey
 WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
 WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
-DECLARE @Taxpayer NVARCHAR(MAX) = N'{"versionNo":1,"tin":"' + STRING_ESCAPE(@TaxpayerTin, 'json') + N'","isVATRegistered":true,"taxOfficeCode":"SBX","activatedTaxRateIds":["A"]}';
+MERGE dbo.Configurations AS t
+USING (SELECT N'deployment.merchant.address' AS ConfigKey, N'["Luchenza"]' AS ConfigJson) AS s
+ON t.ConfigKey = s.ConfigKey
+WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
+WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
+
+MERGE dbo.Configurations AS t
+USING (SELECT N'deployment.merchant.phone' AS ConfigKey, @Phone AS ConfigJson) AS s
+ON t.ConfigKey = s.ConfigKey
+WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
+WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
+
+MERGE dbo.Configurations AS t
+USING (SELECT N'deployment.merchant.email' AS ConfigKey, @Email AS ConfigJson) AS s
+ON t.ConfigKey = s.ConfigKey
+WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
+WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
+
+DECLARE @Taxpayer NVARCHAR(MAX) = N'{"versionNo":1,"tin":"' + STRING_ESCAPE(@TaxpayerTin, 'json')
+    + N'","isVATRegistered":false,"taxOfficeCode":"SBX","activatedTaxRateIds":["A"]}';
 MERGE dbo.Configurations AS t
 USING (SELECT N'mra.configuration.taxpayer' AS ConfigKey, @Taxpayer AS ConfigJson) AS s
 ON t.ConfigKey = s.ConfigKey
 WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
 WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
-DECLARE @Terminal NVARCHAR(MAX) = N'{"versionNo":1,"terminalLabel":"' + STRING_ESCAPE(@TerminalId, 'json')
+DECLARE @Terminal NVARCHAR(MAX) = N'{"versionNo":1,"terminalLabel":"' + STRING_ESCAPE(@TerminalLabel, 'json')
     + N'","isActiveTerminal":true,"tradingName":"' + STRING_ESCAPE(@TradingName, 'json')
     + N'","terminalSite":{"siteId":"' + STRING_ESCAPE(@SiteId, 'json')
     + N'","siteName":"' + STRING_ESCAPE(@SiteId, 'json')
@@ -55,14 +69,14 @@ ON t.ConfigKey = s.ConfigKey
 WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
 WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
-DECLARE @Global NVARCHAR(MAX) = N'{"id":1,"versionNo":1,"taxrates":[{"id":"A","name":"Standard VAT","chargeMode":"VAT","ordinal":1,"rate":17.5}]}';
+DECLARE @Global NVARCHAR(MAX) = N'{"id":1,"versionNo":1,"taxrates":[{"id":"A","name":"Standard VAT","chargeMode":"VAT","ordinal":1,"rate":16.5}]}';
 MERGE dbo.Configurations AS t
 USING (SELECT N'mra.configuration.global' AS ConfigKey, @Global AS ConfigJson) AS s
 ON t.ConfigKey = s.ConfigKey
 WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
 WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
-SELECT ConfigKey, LEFT(ConfigJson, 140) AS Preview
+SELECT ConfigKey, LEFT(ConfigJson, 160) AS Preview
 FROM dbo.Configurations
 WHERE ConfigKey IN (
     N'deployment.taxpayer.tin',

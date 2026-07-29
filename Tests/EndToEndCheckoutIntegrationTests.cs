@@ -34,7 +34,7 @@ public sealed class EndToEndCheckoutIntegrationTests
         // 2) Calculate mandatory 17.5% Malawi VAT
         const decimal qty = 2m;
         const decimal rate = PosTaxCalculator.MalawiStandardVatRatePercent;
-        Assert.Equal(17.5m, rate);
+        Assert.Equal(16.5m, rate);
         var (net, vat, gross) = PosTaxCalculator.MapUnitPriceLine(product.UnitPrice, qty, rate);
         Assert.Equal(PosTaxCalculator.CalculateVatAmount(net, rate), vat);
         Assert.Equal(net + vat, gross);

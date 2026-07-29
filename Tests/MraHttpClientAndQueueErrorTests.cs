@@ -342,4 +342,61 @@ public sealed class MraHttpClientAndQueueErrorTests
         Assert.Equal(223.25m, normalized.InvoiceSummary.InvoiceTotal);
         Assert.Equal(223.25m, normalized.InvoiceSummary.AmountTendered);
     }
+
+    [Fact]
+    public void NormalizeQueuedPayload_PreservesConfiguredVat_WhenOverlayRatesMissing()
+    {
+        // EIS sample uses A @ 16.5%. Without live rates, do not overwrite with statutory fallback.
+        var request = new SubmitSalesTransactionRequest
+        {
+            InvoiceHeader = new InvoiceHeaderDto
+            {
+                InvoiceNumber = "BMwna-B-JY5D-D",
+                InvoiceDateTime = DateTime.UtcNow,
+                SellerTin = "20122074",
+                SiteId = "SITE-LUCHENZA",
+                PaymentMethod = "Cash",
+                GlobalConfigVersion = 1,
+                TaxpayerConfigVersion = 1,
+                TerminalConfigVersion = 1
+            },
+            InvoiceLineItems =
+            [
+                new InvoiceLineItemDto
+                {
+                    Id = 1,
+                    ProductCode = "ART-OIL-1L",
+                    Description = "Cooking Oil 1L",
+                    TaxRateId = "A",
+                    Quantity = 1,
+                    UnitPrice = 5200m,
+                    Discount = 0,
+                    Total = 5200m,
+                    TotalVat = 858m
+                }
+            ],
+            InvoiceSummary = new InvoiceSummaryDto
+            {
+                TaxBreakDown =
+                [
+                    new TaxBreakDownDto { RateId = "A", TaxableAmount = 5200m, TaxAmount = 858m }
+                ],
+                TotalVat = 858m,
+                InvoiceTotal = 6058m,
+                AmountTendered = 6058m
+            }
+        };
+
+        var normalized = OfflineSalesQueueService.NormalizeQueuedPayloadForResubmit(
+            request,
+            new MraFiscalIdentityOverlay(
+                SellerTin: "20122074",
+                SiteId: "Luchenza",
+                StandardTaxRateId: "A"));
+
+        Assert.Equal(858m, normalized.InvoiceLineItems[0].TotalVat);
+        Assert.Equal(6058m, normalized.InvoiceSummary.InvoiceTotal);
+        Assert.Equal(6058m, normalized.InvoiceSummary.AmountTendered);
+        Assert.Equal("SITE-LUCHENZA", normalized.InvoiceHeader.SiteId);
+    }
 }
