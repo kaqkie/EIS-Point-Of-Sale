@@ -280,6 +280,47 @@ public class MockMraEisServer : IDisposable
             });
         }
 
+        if (path.Contains("get-terminal-site-products", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateJsonResponse(HttpStatusCode.OK, new
+            {
+                statusCode = 1,
+                remark = "Success",
+                data = new object[]
+                {
+                    new
+                    {
+                        productCode = "1234567890123",
+                        productName = "Coca Cola 500ml",
+                        description = "Carbonated soft drink",
+                        quantity = 120m,
+                        unitOfMeasure = "Bottle",
+                        price = 1500m,
+                        siteId = "SITE-001",
+                        productExpiryDate = "2025-12-31T00:00:00.000Z",
+                        minimumStockLevel = 10m,
+                        taxRateId = "A",
+                        isProduct = true
+                    },
+                    new
+                    {
+                        productCode = "SRV001",
+                        productName = "Car Wash Service",
+                        description = "Standard car wash",
+                        quantity = 0m,
+                        unitOfMeasure = "Service",
+                        price = 10000m,
+                        siteId = "SITE-001",
+                        productExpiryDate = (string?)null,
+                        minimumStockLevel = 0m,
+                        taxRateId = "E",
+                        isProduct = false
+                    }
+                },
+                errors = Array.Empty<object>()
+            });
+        }
+
         if (path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
         {
             return await _inventoryResponder(request, body).ConfigureAwait(false);

@@ -8,6 +8,7 @@ using PointOfSale.Core.Entities;
 using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Contracts.Stock;
+using PointOfSale.Mra.Contracts.Utilities;
 using PointOfSale.Mra.Serialization;
 using PointOfSale.Infrastructure.Repositories;
 
@@ -121,6 +122,158 @@ public sealed class StockManagementService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// <c>POST /api/v1/utilities/get-terminal-site-products</c> —
+    /// <c>Accept: text/plain</c>, JSON body with <c>tin</c>/<c>siteId</c>,
+    /// <c>Authorization: Bearer {jwt}</c>. Caches the catalog and reconciles local inventory.
+    /// </summary>
+    public async Task<StockResult<IReadOnlyList<TerminalSiteProductDto>>> GetTerminalSiteProductsAsync(
+        GetTerminalSiteProductsRequest request,
+        bool reconcileLocalInventory = true,
+        bool preserveLocalStock = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Tin);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SiteId);
+
+        var payload = new GetTerminalSiteProductsRequest
+        {
+            Tin = request.Tin.Trim(),
+            SiteId = request.SiteId.Trim()
+        };
+
+        var signed = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
+        var context = new MraRequestContext
+        {
+            JwtToken = signed.JwtToken,
+            SecretKey = signed.SecretKey,
+            UseBearerAuthorization = true,
+            AcceptHeader = "text/plain"
+        };
+
+        var response = await _apiClient
+            .PostAsync<GetTerminalSiteProductsRequest, IReadOnlyList<TerminalSiteProductDto>>(
+                "utilities/get-terminal-site-products",
+                payload,
+                context,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!response.IsSuccess)
+        {
+            _logger.LogWarning(
+                "get-terminal-site-products failed for tin={Tin} siteId={SiteId}. Remark={Remark}",
+                payload.Tin,
+                payload.SiteId,
+                response.Remark ?? "(null)");
+            return StockResult<IReadOnlyList<TerminalSiteProductDto>>.Failed(response.Remark, response.Errors);
+        }
+
+        IReadOnlyList<TerminalSiteProductDto> catalog = response.Data ?? Array.Empty<TerminalSiteProductDto>();
+        var result = StockResult<IReadOnlyList<TerminalSiteProductDto>>.Succeeded(catalog, response.Remark);
+
+        var cacheKey = BuildTerminalSiteProductsCacheKey(payload.Tin, payload.SiteId);
+        await CacheReferenceDataAsync(cacheKey, catalog, cancellationToken).ConfigureAwait(false);
+
+        if (reconcileLocalInventory)
+        {
+            var reconciled = await ReconcileTerminalSiteProductsAsync(
+                    catalog,
+                    preserveLocalStock,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            _logger.LogInformation(
+                "Cached {Count} MRA site product(s) for tin={Tin} siteId={SiteId}; reconciled={Reconciled}",
+                catalog.Count,
+                payload.Tin,
+                payload.SiteId,
+                reconciled);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Cached {Count} MRA site product(s) for tin={Tin} siteId={SiteId} (local reconcile skipped)",
+                catalog.Count,
+                payload.Tin,
+                payload.SiteId);
+        }
+
+        return result;
+    }
+
+    public static string BuildTerminalSiteProductsCacheKey(string tin, string siteId) =>
+        MraConfigurationKeys.TerminalSiteProductsCachePrefix
+        + tin.Trim()
+        + "."
+        + siteId.Trim();
+
+    public async Task<int> ReconcileTerminalSiteProductsAsync(
+        IReadOnlyList<TerminalSiteProductDto> products,
+        bool preserveLocalStock = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(products);
+        var upserted = 0;
+        var syncedAt = DateTime.UtcNow;
+
+        foreach (var product in products)
+        {
+            var code = product.ResolveProductCode();
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                _logger.LogWarning("Skipping MRA site product with missing productCode/barcode.");
+                continue;
+            }
+
+            var name = product.ResolveName();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name = code;
+            }
+
+            var item = new LocalInventoryItem
+            {
+                ProductId = code,
+                ProductCode = code,
+                Name = name,
+                UnitPrice = product.Price,
+                StockQuantity = product.Quantity,
+                UnitOfMeasure = product.UnitOfMeasure?.Trim(),
+                TaxRateId = product.TaxRateId?.Trim(),
+                HsCode = product.HsCode?.Trim(),
+                CatalogSource = "MraEis",
+                HeadOfficeRevisionUtc = syncedAt,
+                LastReplicatedAtUtc = syncedAt,
+                MinReorderQty = product.MinimumStockLevel
+            };
+
+            if (preserveLocalStock)
+            {
+                var existing = await _inventoryRepository
+                    .GetByProductCodeAsync(code, cancellationToken)
+                    .ConfigureAwait(false);
+                if (existing is not null)
+                {
+                    item.StockQuantity = existing.StockQuantity;
+                    item.AverageUnitCost = existing.AverageUnitCost;
+                    item.MarkupPercent = existing.MarkupPercent;
+                    item.SupplierCode = existing.SupplierCode;
+                    item.SupplierName = existing.SupplierName;
+                    if (existing.MaxStockCapacity > 0)
+                    {
+                        item.MaxStockCapacity = existing.MaxStockCapacity;
+                    }
+                }
+            }
+
+            await _inventoryRepository.UpsertAsync(item, cancellationToken).ConfigureAwait(false);
+            upserted++;
+        }
+
+        return upserted;
     }
 
     public async Task<StockResult<IReadOnlyList<StockAdjustmentReasonDto>>> GetStockAdjustmentReasonsAsync(
