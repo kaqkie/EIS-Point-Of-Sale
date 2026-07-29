@@ -279,6 +279,10 @@ public sealed class FirstRunBootstrapService : IFirstRunBootstrapService
             var terminalId = PosConfigurationService.ExtractConfiguredString(terminalIdJson)
                 ?? InstallerConfiguration.ComputeHardwareFingerprintSha256()[..8];
 
+            var deployment = _configuration
+                .GetSection(TerminalDeploymentOptions.SectionName)
+                .Get<TerminalDeploymentOptions>() ?? new TerminalDeploymentOptions();
+
             await LocalFiscalIdentitySeeder.SeedAsync(
                     config,
                     terminalId,
@@ -286,7 +290,10 @@ public sealed class FirstRunBootstrapService : IFirstRunBootstrapService
                     request.SiteId,
                     request.TaxpayerTin,
                     request.TerminalDisplayName.Trim(),
-                    cancellationToken)
+                    cancellationToken,
+                    addressLines: deployment.MerchantAddressLines,
+                    contactPhone: deployment.ContactPhone,
+                    contactEmail: deployment.ContactEmail)
                 .ConfigureAwait(false);
 
             await EnsureStatutoryVatAsync(cancellationToken).ConfigureAwait(false);

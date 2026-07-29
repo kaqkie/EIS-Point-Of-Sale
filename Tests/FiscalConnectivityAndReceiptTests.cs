@@ -70,7 +70,7 @@ public sealed class FiscalConnectivityAndReceiptTests
     }
 
     [Fact]
-    public void MraReceiptLayout_UsesExplicitVat175_AndQrWhenSynced()
+    public void MraReceiptLayout_UsesExplicitVat175_WithoutSignatureOrQr()
     {
         var layout = new MraReceiptLayoutService().Build(
             new ReceiptPrintRequest
@@ -147,20 +147,21 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains("TRANSACTION DATE/TIME: 2026-07-24 09:00:00", text, StringComparison.Ordinal);
         Assert.Contains("Date/Time: 2026-07-24 09:00:00", text, StringComparison.Ordinal);
         Assert.False(layout.FiscalStatus.IsOfflinePending);
-        Assert.True(layout.FiscalStatus.IncludeQrCode);
-        Assert.NotNull(layout.FiscalStatus.QrModuleMatrix);
-        Assert.NotNull(layout.FiscalStatus.QrCodeImage);
-        // QR placeholder sits immediately above the END banner.
-        var qrIndex = layout.OrderedTextLines.ToList().IndexOf(MraReceiptLayoutService.QrPlaceholderMarker);
-        var endIndex = layout.OrderedTextLines.ToList().FindIndex(l => l.Contains("END OF LEGAL RECEIPT", StringComparison.Ordinal));
-        Assert.True(qrIndex >= 0 && endIndex > qrIndex);
+        Assert.False(layout.FiscalStatus.IncludeQrCode);
+        Assert.Null(layout.FiscalStatus.QrModuleMatrix);
+        Assert.Null(layout.FiscalStatus.QrCodeImage);
+        Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Verification URL", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Scan to verify", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
+        Assert.DoesNotContain("eis-portal.mra.mw", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void FormatSellerTin_HandlesEmptyAndConfiguredValues()
     {
         Assert.Equal("NOT CONFIGURED", MraReceiptLayoutService.FormatSellerTin(" "));
-        Assert.Equal("1234567890", MraReceiptLayoutService.FormatSellerTin("1234567890"));
+        Assert.Equal("NOT CONFIGURED", MraReceiptLayoutService.FormatSellerTin("1234567890"));
         Assert.Equal("2007123456", MraReceiptLayoutService.FormatSellerTin("2007123456"));
     }
 
@@ -213,6 +214,9 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains("VAT RATE A=17.5%", text, StringComparison.Ordinal);
         Assert.Contains("PAYMENT METHOD: CARD", text, StringComparison.Ordinal);
         Assert.Contains("OFFLINE", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", text, StringComparison.Ordinal);
+        Assert.Contains("Tel: NOT CONFIGURED", text, StringComparison.Ordinal);
+        Assert.Contains("Email: NOT CONFIGURED", text, StringComparison.Ordinal);
     }
 
     [Fact]

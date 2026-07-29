@@ -544,7 +544,10 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 PosConfigurationService.NormalizeTaxpayerTin(tinOverride, allowSandboxDeveloperTin: true)
                     ?? PosConfigurationService.NormalizeTaxpayerTin(_deployment.TaxpayerTin, allowSandboxDeveloperTin: true),
                 displayName ?? _deployment.FallbackTradingName,
-                cancellationToken)
+                cancellationToken,
+                addressLines: _deployment.MerchantAddressLines,
+                contactPhone: _deployment.ContactPhone,
+                contactEmail: _deployment.ContactEmail)
             .ConfigureAwait(false);
 
         await MarkOnboardingCompleteFlagAsync(scope, cancellationToken).ConfigureAwait(false);

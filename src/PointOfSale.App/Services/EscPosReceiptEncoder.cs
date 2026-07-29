@@ -5,7 +5,7 @@ using System.Text;
 namespace PointOfSale.App.Services;
 
 /// <summary>
-/// Builds ESC/POS byte streams for 58mm/80mm thermal receipts including QR verification codes.
+/// Builds ESC/POS byte streams for 58mm/80mm thermal receipts.
 /// Layout text comes from <see cref="MraReceiptLayoutService"/> so FlowDocument and ESC/POS stay aligned.
 /// </summary>
 public static class EscPosReceiptEncoder

@@ -20,7 +20,10 @@ public static class LocalFiscalIdentitySeeder
         string? siteId,
         string? taxpayerTin,
         string? tradingName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<string>? addressLines = null,
+        string? contactPhone = null,
+        string? contactEmail = null)
     {
         var resolvedSiteName = PosConfigurationService.NormalizeConfiguredValue(siteId)
             ?? PosConfigurationService.NormalizeConfiguredValue(branchId)
@@ -33,6 +36,12 @@ public static class LocalFiscalIdentitySeeder
         var resolvedName = string.IsNullOrWhiteSpace(tradingName)
             ? "Albert Retail Terminal"
             : tradingName.Trim();
+        var resolvedAddress = addressLines?
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .Select(a => a.Trim())
+            .ToList() ?? [];
+        var resolvedPhone = PosConfigurationService.NormalizeConfiguredValue(contactPhone);
+        var resolvedEmail = PosConfigurationService.NormalizeConfiguredValue(contactEmail);
 
         await config.UpsertJsonAsync(
                 DeploymentConfigurationKeys.BranchId,
@@ -51,6 +60,33 @@ public static class LocalFiscalIdentitySeeder
             await config.UpsertJsonAsync(
                     DeploymentConfigurationKeys.TaxpayerTin,
                     JsonSerializer.Serialize(new { tin = resolvedTin }, MraJson.SerializerOptions),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (resolvedAddress.Count > 0)
+        {
+            await config.UpsertJsonAsync(
+                    DeploymentConfigurationKeys.MerchantAddress,
+                    JsonSerializer.Serialize(resolvedAddress, MraJson.SerializerOptions),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (resolvedPhone is not null)
+        {
+            await config.UpsertJsonAsync(
+                    DeploymentConfigurationKeys.MerchantPhone,
+                    resolvedPhone,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (resolvedEmail is not null)
+        {
+            await config.UpsertJsonAsync(
+                    DeploymentConfigurationKeys.MerchantEmail,
+                    resolvedEmail,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -105,6 +141,9 @@ public static class LocalFiscalIdentitySeeder
                 TerminalLabel = terminalId,
                 IsActiveTerminal = true,
                 TradingName = resolvedName,
+                PhoneNumber = resolvedPhone,
+                EmailAddress = resolvedEmail,
+                AddressLines = resolvedAddress.Count > 0 ? resolvedAddress : null,
                 TerminalSite = new TerminalSiteDto
                 {
                     SiteId = resolvedSite,
@@ -121,6 +160,50 @@ public static class LocalFiscalIdentitySeeder
                     JsonSerializer.Serialize(terminal, MraJson.SerializerOptions),
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+        else
+        {
+            // Backfill merchant header fields onto an existing terminal cache when they were never set.
+            try
+            {
+                var existing = JsonSerializer.Deserialize<TerminalConfigurationDto>(
+                    existingTerminal,
+                    MraJson.SerializerOptions);
+                if (existing is not null)
+                {
+                    var dirty = false;
+                    if ((existing.AddressLines is null || existing.AddressLines.Count == 0) && resolvedAddress.Count > 0)
+                    {
+                        existing.AddressLines = resolvedAddress;
+                        dirty = true;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(existing.PhoneNumber) && resolvedPhone is not null)
+                    {
+                        existing.PhoneNumber = resolvedPhone;
+                        dirty = true;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(existing.EmailAddress) && resolvedEmail is not null)
+                    {
+                        existing.EmailAddress = resolvedEmail;
+                        dirty = true;
+                    }
+
+                    if (dirty)
+                    {
+                        await config.UpsertJsonAsync(
+                                MraConfigurationKeys.TerminalConfiguration,
+                                JsonSerializer.Serialize(existing, MraJson.SerializerOptions),
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Leave malformed cache alone.
+            }
         }
 
         var existingGlobal = await config.GetJsonAsync(MraConfigurationKeys.GlobalConfiguration, cancellationToken)

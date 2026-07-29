@@ -31,4 +31,13 @@ public sealed class TerminalDeploymentOptions
 
     /// <summary>Operator-facing trading name printed on receipts when MRA terminal config is unavailable.</summary>
     public string FallbackTradingName { get; set; } = "Albert Retail Terminal";
+
+    /// <summary>Merchant street / site address lines printed on legal receipts when MRA terminal config omits them.</summary>
+    public string[] MerchantAddressLines { get; set; } = [];
+
+    /// <summary>Merchant contact phone printed on legal receipts when MRA terminal config omits it.</summary>
+    public string ContactPhone { get; set; } = string.Empty;
+
+    /// <summary>Merchant contact email printed on legal receipts when MRA terminal config omits it.</summary>
+    public string ContactEmail { get; set; } = string.Empty;
 }

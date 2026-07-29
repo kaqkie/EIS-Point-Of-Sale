@@ -127,6 +127,33 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
     }
 
     [Fact]
+    public void PosRuntimeContext_ResolvesMerchantHeaderFromDeploymentFallbacks()
+    {
+        var ctx = new PosRuntimeContext(
+            Global: null,
+            Terminal: null,
+            Taxpayer: new PointOfSale.Mra.Contracts.Configuration.TaxpayerConfigurationDto
+            {
+                Tin = "2007123456"
+            },
+            Deployment: new PointOfSale.App.Options.TerminalDeploymentOptions
+            {
+                BranchId = "Lilongwe",
+                SiteId = "SITE-CITY-CENTER",
+                TaxpayerTin = "2007123456",
+                MerchantAddressLines = ["City Center", "Lilongwe"],
+                ContactPhone = "+265 1 234 567",
+                ContactEmail = "shop@albertretail.mw"
+            },
+            DeploymentBranchId: "Lilongwe",
+            AllowSandboxDeveloperTin: false);
+
+        Assert.Equal(["City Center", "Lilongwe"], ctx.AddressLines);
+        Assert.Equal("+265 1 234 567", ctx.ContactPhone);
+        Assert.Equal("shop@albertretail.mw", ctx.ContactEmail);
+    }
+
+    [Fact]
     public void PosRuntimeContext_Production_IgnoresSandboxPlaceholderTin()
     {
         var ctx = new PosRuntimeContext(

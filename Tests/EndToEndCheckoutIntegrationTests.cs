@@ -61,7 +61,7 @@ public sealed class EndToEndCheckoutIntegrationTests
         Assert.Equal(OfflineQueueStatuses.Pending, pending.Status);
         Assert.Contains("E2E-P34-CHECKOUT-001", pending.PayloadJson, StringComparison.Ordinal);
 
-        // 4) ESC/POS receipt formatting with MRA verification URL (high-density QR)
+        // 4) ESC/POS receipt formatting (merchant header + VAT totals; no portal QR/signature block)
         var fiscalResponse = new SubmitSalesTransactionResponseData
         {
             InvoiceNumber = "E2E-P34-CHECKOUT-001",
@@ -71,8 +71,10 @@ public sealed class EndToEndCheckoutIntegrationTests
         var receiptRequest = new ReceiptPrintRequest
         {
             TradingName = "Albert Retail Terminal",
-            SellerTin = "1234567890",
+            SellerTin = "2007123456",
             AddressLines = ["Lilongwe"],
+            ContactPhone = "+265 1 234 567",
+            ContactEmail = "shop@albertretail.mw",
             InvoiceNumber = "E2E-P34-CHECKOUT-001",
             InvoiceDateTime = DateTime.UtcNow,
             LineItems = sale.InvoiceLineItems,
@@ -88,11 +90,11 @@ public sealed class EndToEndCheckoutIntegrationTests
         Assert.Equal(0x40, escPos[1]);
         var ascii = System.Text.Encoding.ASCII.GetString(escPos);
         Assert.Contains("VAT", ascii, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("MRA EIS", ascii, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Scan to verify", ascii, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains((byte)0x08, escPos); // high-density module size
-        Assert.Contains((byte)0x33, escPos); // ECC H
-
+        Assert.Contains("Merchant TIN: 2007123456", ascii, StringComparison.Ordinal);
+        Assert.Contains("Tel: +265 1 234 567", ascii, StringComparison.Ordinal);
+        Assert.DoesNotContain("Scan to verify", ascii, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", ascii, StringComparison.Ordinal);
+        Assert.DoesNotContain("Verification URL", ascii, StringComparison.Ordinal);
         // 5) Recover into synced state (offline → online sync)
         Assert.True(await harness.OfflineQueue.ProcessNextFifoAsync());
         var synced = await harness.Queue.GetByIdAsync(queued.QueueId);

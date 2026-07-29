@@ -65,6 +65,16 @@ public sealed class PosConfigurationService : IPosConfigurationService
                 DeploymentConfigurationKeys.BranchId,
                 cancellationToken)
             .ConfigureAwait(false);
+        var merchantAddressOverride = await ReadDeploymentAddressLinesAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var merchantPhoneOverride = await ReadDeploymentStringAsync(
+                DeploymentConfigurationKeys.MerchantPhone,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var merchantEmailOverride = await ReadDeploymentStringAsync(
+                DeploymentConfigurationKeys.MerchantEmail,
+                cancellationToken)
+            .ConfigureAwait(false);
         var terminalPosition = await ReadTerminalPositionAsync(cancellationToken).ConfigureAwait(false);
 
         string? jwtTin = null;
@@ -91,7 +101,43 @@ public sealed class PosConfigurationService : IPosConfigurationService
             AllowSandboxDeveloperTin: IsSandboxOrTrialEnvironment(_mraOptions.Environment),
             HostEnvironmentName: ResolveHostEnvironmentName(),
             JwtTaxpayerTin: jwtTin,
-            TerminalPosition: terminalPosition);
+            TerminalPosition: terminalPosition,
+            DeploymentMerchantAddressLines: merchantAddressOverride,
+            DeploymentContactPhone: merchantPhoneOverride,
+            DeploymentContactEmail: merchantEmailOverride);
+    }
+
+    private async Task<IReadOnlyList<string>?> ReadDeploymentAddressLinesAsync(CancellationToken cancellationToken)
+    {
+        var raw = await _configurationRepository
+            .GetJsonAsync(DeploymentConfigurationKeys.MerchantAddress, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                var lines = doc.RootElement.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => NormalizeConfiguredValue(e.GetString()))
+                    .Where(v => v is not null)
+                    .Select(v => v!)
+                    .ToList();
+                return lines.Count == 0 ? null : lines;
+            }
+        }
+        catch (JsonException)
+        {
+            // Fall through to single-string extraction.
+        }
+
+        var single = ExtractConfiguredString(raw);
+        return single is null ? null : [single];
     }
 
     private async Task<int> ReadTerminalPositionAsync(CancellationToken cancellationToken)
@@ -269,7 +315,10 @@ public sealed record PosRuntimeContext(
     bool AllowSandboxDeveloperTin = false,
     string? HostEnvironmentName = null,
     string? JwtTaxpayerTin = null,
-    int TerminalPosition = 1)
+    int TerminalPosition = 1,
+    IReadOnlyList<string>? DeploymentMerchantAddressLines = null,
+    string? DeploymentContactPhone = null,
+    string? DeploymentContactEmail = null)
 {
     public string TradingName =>
         Terminal?.TradingName
@@ -361,5 +410,66 @@ public sealed record PosRuntimeContext(
         return PointOfSale.Core.Pricing.MraTaxRateCodes.ResolveRatePercent(taxRateId, rates);
     }
 
-    public IReadOnlyList<string> AddressLines => Terminal?.AddressLines ?? Array.Empty<string>();
+    /// <summary>
+    /// Merchant address for legal receipts: MRA terminal config, then DB deployment override,
+    /// then appsettings <see cref="TerminalDeploymentOptions.MerchantAddressLines"/>,
+    /// then site/branch labels.
+    /// </summary>
+    public IReadOnlyList<string> AddressLines
+    {
+        get
+        {
+            var fromTerminal = Terminal?.AddressLines?
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Select(a => a.Trim())
+                .ToList();
+            if (fromTerminal is { Count: > 0 })
+            {
+                return fromTerminal;
+            }
+
+            var fromDb = DeploymentMerchantAddressLines?
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Select(a => a.Trim())
+                .ToList();
+            if (fromDb is { Count: > 0 })
+            {
+                return fromDb;
+            }
+
+            var fromOptions = Deployment?.MerchantAddressLines?
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Select(a => a.Trim())
+                .ToList();
+            if (fromOptions is { Count: > 0 })
+            {
+                return fromOptions;
+            }
+
+            var siteName = PosConfigurationService.NormalizeConfiguredValue(Terminal?.TerminalSite?.SiteName);
+            if (siteName is not null)
+            {
+                return [siteName];
+            }
+
+            if (!string.IsNullOrWhiteSpace(BranchId))
+            {
+                return [BranchId];
+            }
+
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>Merchant phone for legal receipts (terminal config → DB → appsettings).</summary>
+    public string? ContactPhone =>
+        PosConfigurationService.NormalizeConfiguredValue(Terminal?.PhoneNumber)
+        ?? PosConfigurationService.NormalizeConfiguredValue(DeploymentContactPhone)
+        ?? PosConfigurationService.NormalizeConfiguredValue(Deployment?.ContactPhone);
+
+    /// <summary>Merchant email for legal receipts (terminal config → DB → appsettings).</summary>
+    public string? ContactEmail =>
+        PosConfigurationService.NormalizeConfiguredValue(Terminal?.EmailAddress)
+        ?? PosConfigurationService.NormalizeConfiguredValue(DeploymentContactEmail)
+        ?? PosConfigurationService.NormalizeConfiguredValue(Deployment?.ContactEmail);
 }

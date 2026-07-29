@@ -28,17 +28,22 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
 
     /// <summary>
     /// Formats the seller TIN from active store/terminal configuration.
-    /// Empty values print as NOT CONFIGURED (checkout should already block those).
+    /// Empty or sandbox-placeholder values print as NOT CONFIGURED.
     /// </summary>
     public static string FormatSellerTin(string? sellerTin)
     {
-        if (string.IsNullOrWhiteSpace(sellerTin))
+        if (string.IsNullOrWhiteSpace(sellerTin)
+            || PosConfigurationService.IsPlaceholderTaxpayerTin(sellerTin))
         {
             return "NOT CONFIGURED";
         }
 
         return sellerTin.Trim();
     }
+
+    /// <summary>Formats optional merchant contact fields; empty values print as NOT CONFIGURED.</summary>
+    public static string FormatConfiguredValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "NOT CONFIGURED" : value.Trim();
 
     public MraReceiptLayoutViewModel Build(ReceiptPrintRequest request, int charactersPerLine = 42)
     {
@@ -54,18 +59,9 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
                 request.FiscalResponse,
                 request.InvoiceNumber);
         var fiscalSignature = fiscal?.ResolveFiscalSignature() ?? string.Empty;
-        var verificationUrl = fiscal?.VerificationUrl?.Trim() ?? string.Empty;
         var isOfflinePending = FiscalReceiptEnricher.IsOfflinePlaceholder(fiscalSignature);
-        var includeQr = !isOfflinePending && !string.IsNullOrWhiteSpace(verificationUrl);
         var fiscalReceiptNumber = request.ResolveFiscalReceiptNumber();
         var paymentLabel = request.ResolvePaymentMethodLabel();
-
-        bool[,]? qrMatrix = null;
-        BitmapSource? qrImage = null;
-        if (includeQr)
-        {
-            (qrMatrix, qrImage) = RenderQrCoderMatrix(verificationUrl);
-        }
 
         var localTime = request.InvoiceDateTime.Kind == DateTimeKind.Utc
             ? request.InvoiceDateTime.ToLocalTime()
@@ -77,7 +73,6 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             Center(LegalReceiptStartBanner, charactersPerLine),
             Center("MALAWI REVENUE AUTHORITY", charactersPerLine),
             Center("Electronic Invoicing System (EIS)", charactersPerLine),
-            Center("MRA Portal — eis-portal.mra.mw", charactersPerLine),
             Separator('-', charactersPerLine),
             Center(Truncate(request.TradingName, charactersPerLine), charactersPerLine)
         };
@@ -98,20 +93,12 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(request.ContactPhone))
-        {
-            header.Add(Center(Truncate($"Tel: {request.ContactPhone.Trim()}", charactersPerLine), charactersPerLine));
-        }
-        else
-        {
-            header.Add(Center("Tel: N/A", charactersPerLine));
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.ContactEmail))
-        {
-            header.Add(Center(Truncate($"Email: {request.ContactEmail.Trim()}", charactersPerLine), charactersPerLine));
-        }
-
+        header.Add(Center(
+            Truncate($"Tel: {FormatConfiguredValue(request.ContactPhone)}", charactersPerLine),
+            charactersPerLine));
+        header.Add(Center(
+            Truncate($"Email: {FormatConfiguredValue(request.ContactEmail)}", charactersPerLine),
+            charactersPerLine));
         header.Add(Center(
             Truncate($"Merchant TIN: {FormatSellerTin(request.SellerTin)}", charactersPerLine),
             charactersPerLine));
@@ -200,36 +187,11 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             Separator('-', charactersPerLine)
         };
 
-        // ---- Fiscal block (signature / offline) — QR is rendered after this, before END ----
+        // Fiscal signature / verification URL / portal QR are intentionally omitted from the printed receipt.
         var fiscalBody = new List<string>();
         if (isOfflinePending)
         {
             fiscalBody.Add(Center("MRA EIS: OFFLINE — queued for sync", charactersPerLine));
-            foreach (var chunk in Chunk(
-                         string.IsNullOrWhiteSpace(fiscalSignature)
-                             ? FiscalReceiptEnricher.OfflinePendingPlaceholder
-                             : fiscalSignature,
-                         charactersPerLine))
-            {
-                fiscalBody.Add(chunk);
-            }
-        }
-        else
-        {
-            fiscalBody.Add(Center("MRA EIS FISCAL SIGNATURE", charactersPerLine));
-            foreach (var chunk in Chunk(fiscalSignature, charactersPerLine))
-            {
-                fiscalBody.Add(chunk);
-            }
-
-            if (!string.IsNullOrWhiteSpace(verificationUrl))
-            {
-                fiscalBody.Add(Center("Verification URL", charactersPerLine));
-                foreach (var chunk in Chunk(verificationUrl, charactersPerLine))
-                {
-                    fiscalBody.Add(chunk);
-                }
-            }
         }
 
         var fiscalStatus = new MraFiscalStatusBlockViewModel
@@ -237,22 +199,17 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             Title = "MRA EIS FISCAL",
             BodyLines = fiscalBody,
             IsOfflinePending = isOfflinePending,
-            IncludeQrCode = includeQr,
+            IncludeQrCode = false,
             FiscalSignature = fiscalSignature,
-            VerificationUrl = string.IsNullOrWhiteSpace(verificationUrl) ? null : verificationUrl,
-            QrModuleMatrix = qrMatrix,
-            QrCodeImage = qrImage
+            VerificationUrl = null,
+            QrModuleMatrix = null,
+            QrCodeImage = null
         };
 
-        // Footer ends with legal banner; QR placeholder sits immediately above it.
-        var footer = new List<string>();
-        if (includeQr)
+        var footer = new List<string>
         {
-            footer.Add(Center("Scan to verify on MRA Portal", charactersPerLine));
-            footer.Add(QrPlaceholderMarker);
-        }
-
-        footer.Add(Center(LegalReceiptEndBanner, charactersPerLine));
+            Center(LegalReceiptEndBanner, charactersPerLine)
+        };
 
         var ordered = new List<string>();
         ordered.AddRange(header);
