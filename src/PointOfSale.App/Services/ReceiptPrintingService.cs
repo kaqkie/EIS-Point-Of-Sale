@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PointOfSale.App.Options;
+using PointOfSale.Mra.Billing;
 using PointOfSale.Mra.Contracts.Sales;
 
 namespace PointOfSale.App.Services;
@@ -229,18 +230,38 @@ public sealed class ReceiptPrintRequest
     public decimal ChangeDue => Math.Max(0m, AmountTendered - InvoiceTotal);
 
     /// <summary>
-    /// MRA-assigned fiscal receipt / invoice number (composite Base64 form, e.g. <c>CV-WEB-JY4+-C</c>).
-    /// Prefers the EIS response invoice number when present.
+    /// MRA fiscal receipt / invoice number (composite Base64 form).
+    /// Prefers a real-TIN composite from the sale request over a missing or sandbox-placeholder EIS field.
     /// </summary>
     public string ResolveFiscalReceiptNumber()
     {
-        var fromEis = FiscalResponse?.InvoiceNumber?.Trim();
-        if (!string.IsNullOrWhiteSpace(fromEis))
+        var fromRequest = string.IsNullOrWhiteSpace(InvoiceNumber) ? null : InvoiceNumber.Trim();
+        var fromEis = string.IsNullOrWhiteSpace(FiscalResponse?.InvoiceNumber)
+            ? null
+            : FiscalResponse!.InvoiceNumber!.Trim();
+
+        if (IsPreferableCompositeInvoice(fromRequest))
         {
-            return fromEis;
+            return fromRequest!;
         }
 
-        return string.IsNullOrWhiteSpace(InvoiceNumber) ? "PENDING" : InvoiceNumber.Trim();
+        if (IsPreferableCompositeInvoice(fromEis))
+        {
+            return fromEis!;
+        }
+
+        return fromRequest ?? fromEis ?? "PENDING";
+    }
+
+    private static bool IsPreferableCompositeInvoice(string? invoiceNumber)
+    {
+        if (!MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(invoiceNumber))
+        {
+            return false;
+        }
+
+        return !MraInvoiceNumberGenerator.TryGetEncodedTaxpayerId(invoiceNumber, out var tin)
+            || tin != MraInvoiceNumberGenerator.SandboxPlaceholderTaxpayerId;
     }
 
     /// <summary>Normalizes payment method for thermal print (uppercase legal label).</summary>

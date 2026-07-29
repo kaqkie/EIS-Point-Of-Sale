@@ -11,6 +11,7 @@ using PointOfSale.Core.Pricing;
 using PointOfSale.Core.Security;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Services;
+using PointOfSale.Mra.Billing;
 using PointOfSale.Mra.Contracts.Sales;
 
 namespace PointOfSale.App.ViewModels;
@@ -1217,14 +1218,19 @@ public partial class CheckoutViewModel : ObservableObject
         {
             // Prefer regenerating the official ValidationURL so the offline QR matches MRA HMAC-SHA256.
             var signed = await _offlineReceiptSignatureService.SignAsync(request).ConfigureAwait(true);
+            // Keep the reserved composite invoice on the receipt (and align with ValidationURL I=).
+            var invoiceForReceipt = MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(signed.InvoiceNumber)
+                ? signed.InvoiceNumber
+                : invoiceNumber;
             return FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
                 new SubmitSalesTransactionResponseData
                 {
-                    InvoiceNumber = invoiceNumber,
+                    InvoiceNumber = invoiceForReceipt,
                     FiscalSignature = signed.OfflineDataSignature,
-                    VerificationUrl = signed.ValidationUrl
+                    VerificationUrl = signed.ValidationUrl,
+                    ValidationUrl = signed.ValidationUrl
                 },
-                invoiceNumber);
+                invoiceForReceipt);
         }
         catch (Exception ex)
         {

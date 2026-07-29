@@ -10,6 +10,9 @@ public static class MraInvoiceNumberGenerator
 {
     private const string Base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+    /// <summary>Historical sandbox seed TIN digits used only in developer/trial builds.</summary>
+    public const long SandboxPlaceholderTaxpayerId = 1234567890;
+
     /// <summary>
     /// Returns true when <paramref name="invoiceNumber"/> matches the MRA composite structure:
     /// Base64(TaxpayerID)-Base64(TerminalPosition)-Base64(JulianDate)-Base64(TransactionCount).
@@ -63,9 +66,11 @@ public static class MraInvoiceNumberGenerator
             throw new ArgumentOutOfRangeException(nameof(terminalPosition), "Terminal position must be positive.");
         }
 
-        if (transactionCount < 0)
+        if (transactionCount < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(transactionCount), "Transaction count cannot be negative.");
+            throw new ArgumentOutOfRangeException(
+                nameof(transactionCount),
+                "Transaction count must start at 1 for MRA daily invoice sequencing.");
         }
 
         var julianDate = ToJulianDate(transactionDateUtc);
@@ -187,7 +192,7 @@ public static class MraInvoiceNumberGenerator
 
     /// <summary>
     /// True when the invoice number is missing, legacy ART format, non-composite,
-    /// or encodes a different taxpayer id than <paramref name="sellerTin"/>.
+    /// encodes the sandbox placeholder TIN, or encodes a different taxpayer id than <paramref name="sellerTin"/>.
     /// </summary>
     public static bool NeedsInvoiceNumberRewrite(string? invoiceNumber, string? sellerTin)
     {
@@ -207,13 +212,30 @@ public static class MraInvoiceNumberGenerator
             return true;
         }
 
-        if (!TryParseTaxpayerId(sellerTin, out var expectedTin))
+        if (!TryGetEncodedTaxpayerId(trimmed, out var encodedTin))
+        {
+            return true;
+        }
+
+        // Early sandbox receipts used 1234567890 (Base64 BJlgLS) — rewrite once a real TIN is available.
+        if (encodedTin == SandboxPlaceholderTaxpayerId)
+        {
+            return TryParseTaxpayerId(sellerTin, out var realTin)
+                && realTin != SandboxPlaceholderTaxpayerId;
+        }
+
+        if (!TryParseTaxpayerId(sellerTin, out var expectedTin)
+            || expectedTin == SandboxPlaceholderTaxpayerId)
         {
             return false;
         }
 
-        return !TryGetEncodedTaxpayerId(trimmed, out var encodedTin) || encodedTin != expectedTin;
+        return encodedTin != expectedTin;
     }
+
+    /// <summary>True when <paramref name="taxpayerId"/> is the historical sandbox seed.</summary>
+    public static bool IsSandboxPlaceholderTaxpayerId(long taxpayerId) =>
+        taxpayerId == SandboxPlaceholderTaxpayerId;
 
     /// <summary>Extracts numeric taxpayer id digits from a TIN string.</summary>
     public static bool TryParseTaxpayerId(string? tin, out long taxpayerId)

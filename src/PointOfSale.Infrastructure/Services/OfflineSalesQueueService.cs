@@ -415,6 +415,13 @@ public sealed class OfflineSalesQueueService
 
             if (submit.Success && submit.Data is not null)
             {
+                // Stamp the submitted composite invoice onto the EIS response so printed receipts
+                // use the same number as the queue payload (EIS InvoiceResponse omits invoiceNumber).
+                if (string.IsNullOrWhiteSpace(submit.Data.InvoiceNumber))
+                {
+                    submit.Data.InvoiceNumber = payload.InvoiceHeader.InvoiceNumber;
+                }
+
                 var fiscalJson = JsonSerializer.Serialize(submit.Data, MraJson.SerializerOptions);
                 await _queueRepository.MarkSyncedAsync(queueId, fiscalJson, cancellationToken).ConfigureAwait(false);
                 _runtimeState?.RecordSuccessfulSync(DateTime.UtcNow);
@@ -706,10 +713,14 @@ public sealed class OfflineSalesQueueService
         CancellationToken cancellationToken,
         DateTime? transactionUtcOverride = null)
     {
-        if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(request.InvoiceHeader.SellerTin, out var taxpayerId))
+        if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(request.InvoiceHeader.SellerTin, out var taxpayerId)
+            || MraInvoiceNumberGenerator.IsSandboxPlaceholderTaxpayerId(taxpayerId))
         {
-            // Cannot generate compliant invoice numbers without numeric taxpayer id.
+            // Cannot generate compliant invoice numbers without a real numeric taxpayer id.
             // Keep existing invoiceNumber so the caller can surface a meaningful MRA error.
+            _logger.LogWarning(
+                "Skipping invoice rewrite for sellerTIN={Tin}: missing or sandbox placeholder.",
+                request.InvoiceHeader.SellerTin);
             return request;
         }
 
@@ -719,6 +730,10 @@ public sealed class OfflineSalesQueueService
                 : request.InvoiceHeader.InvoiceDateTime.ToUniversalTime());
 
         var terminalPosition = await ReadTerminalPositionAsync(cancellationToken).ConfigureAwait(false);
+        if (terminalPosition <= 0)
+        {
+            terminalPosition = 1;
+        }
 
         string newInvoiceNumber;
         if (_invoiceSequenceService is not null)

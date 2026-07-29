@@ -65,7 +65,15 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
         {
             throw new InvalidOperationException(
                 "Cannot submit to MRA: sellerTIN is missing or still the sandbox placeholder 1234567890. " +
-                "Complete terminal activation and confirm get-latest-configs succeeds.");
+                "Complete terminal activation and confirm get-latest-configs succeeds so invoice numbers " +
+                "encode the real Taxpayer ID (not BJlgLS).");
+        }
+
+        if (MraInvoiceNumberGenerator.TryParseTaxpayerId(context.SellerTin, out var tinCheck)
+            && MraInvoiceNumberGenerator.IsSandboxPlaceholderTaxpayerId(tinCheck))
+        {
+            throw new InvalidOperationException(
+                "Cannot submit to MRA: sellerTIN resolves to sandbox placeholder 1234567890.");
         }
 
         if (string.IsNullOrWhiteSpace(context.FiscalSiteId)

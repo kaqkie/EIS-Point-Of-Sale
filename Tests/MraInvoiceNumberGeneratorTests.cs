@@ -41,6 +41,14 @@ public sealed class MraInvoiceNumberGeneratorTests
         Assert.True(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(wrongTin, "20162939"));
         Assert.True(MraInvoiceNumberGenerator.TryGetEncodedTaxpayerId(wrongTin, out var encoded));
         Assert.Equal(1234567890, encoded);
+        Assert.False(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(wrongTin, "1234567890"));
+    }
+
+    [Fact]
+    public void Generate_RejectsZeroTransactionCount()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            MraInvoiceNumberGenerator.Generate(20162939, 1, DateTime.UtcNow, 0));
     }
 
     [Fact]
