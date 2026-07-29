@@ -205,7 +205,7 @@ public sealed class MraApiClient
 
     /// <summary>
     /// POST with an empty body (<c>-d ''</c>), optional Accept header, JWT Authorization, no x-signature.
-    /// Used by <c>sales/last-submitted-offline-transaction</c> (and online twin when required).
+    /// Used by <c>utilities/ping</c> and <c>sales/last-submitted-*-transaction</c>.
     /// </summary>
     public async Task<EisApiResponse<TResponse>> PostEmptyAsync<TResponse>(
         string relativePath,
@@ -215,8 +215,8 @@ public sealed class MraApiClient
         ArgumentNullException.ThrowIfNull(context);
         using var request = new HttpRequestMessage(HttpMethod.Post, relativePath)
         {
-            // curl -d '' → empty body (not "{}")
-            Content = new StringContent(string.Empty, Encoding.UTF8, "text/plain")
+            // curl -d '' with Content-Type: application/json (MRA ping / last-submitted samples)
+            Content = new StringContent(string.Empty, Encoding.UTF8, "application/json")
         };
 
         ApplyContext(request, context, signaturePlainText: null, jsonBody: null);

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using PointOfSale.Core.Constants;
 using PointOfSale.Infrastructure.Http;
 using PointOfSale.Infrastructure.Repositories;
+using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Options;
 
 namespace PointOfSale.App.Services;
@@ -112,7 +113,29 @@ public sealed class ConnectionStatusService : IConnectionStatusService
 
     private async Task<(bool Reachable, string? Detail)> ProbeMraAsync(Uri baseUri, CancellationToken cancellationToken)
     {
-        // Probe API root and host origin — some gateways hang/reject HEAD on /api/v1/.
+        // Prefer official EIS ping (JWT from TAC) when the terminal is activated.
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var ping = scope.ServiceProvider.GetService<MraEisPingService>();
+            if (ping is not null)
+            {
+                var result = await ping.PingAsync(cancellationToken).ConfigureAwait(false);
+                if (result.Attempted)
+                {
+                    var detail = result.Success
+                        ? $"ping {(result.ElapsedMs?.ToString() ?? "?")}ms"
+                        : Truncate(result.Detail ?? string.Empty, 64);
+                    return (result.Reachable, detail);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "utilities/ping probe unavailable; falling back to HTTP GET.");
+        }
+
+        // Pre-activation / no JWT: probe API root and host origin.
         var candidates = new List<Uri> { baseUri };
         try
         {

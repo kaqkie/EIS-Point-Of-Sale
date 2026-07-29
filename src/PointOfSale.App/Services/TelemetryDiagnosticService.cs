@@ -6,10 +6,12 @@ using System.Printing;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using PointOfSale.App.Options;
 using PointOfSale.Core.Entities;
 using PointOfSale.Infrastructure.Data;
 using PointOfSale.Infrastructure.Repositories;
+using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Options;
 using Serilog;
 using Serilog.Events;
@@ -60,6 +62,7 @@ public sealed class TelemetryDiagnosticService : ITelemetryDiagnosticService
     private readonly IDiagnosticTelemetryRepository _repository;
     private readonly ISqlConnectionFactory _connectionFactory;
     private readonly IConnectionStatusService _connectionStatus;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<ThermalPrinterOptions> _thermalOptions;
     private readonly IOptions<MraApiOptions> _mraOptions;
     private readonly SystemDiagnosticsOptions _options;
@@ -72,6 +75,7 @@ public sealed class TelemetryDiagnosticService : ITelemetryDiagnosticService
         IDiagnosticTelemetryRepository repository,
         ISqlConnectionFactory connectionFactory,
         IConnectionStatusService connectionStatus,
+        IServiceScopeFactory scopeFactory,
         IOptions<ThermalPrinterOptions> thermalOptions,
         IOptions<MraApiOptions> mraOptions,
         IOptions<SystemDiagnosticsOptions> options,
@@ -81,6 +85,7 @@ public sealed class TelemetryDiagnosticService : ITelemetryDiagnosticService
         _repository = repository;
         _connectionFactory = connectionFactory;
         _connectionStatus = connectionStatus;
+        _scopeFactory = scopeFactory;
         _thermalOptions = thermalOptions;
         _mraOptions = mraOptions;
         _options = options.Value;
@@ -471,6 +476,32 @@ public sealed class TelemetryDiagnosticService : ITelemetryDiagnosticService
     private async Task<(bool Reachable, string StatusText, int? PingMs, string? HttpStatus)> ProbeMraAsync(
         CancellationToken cancellationToken)
     {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var ping = scope.ServiceProvider.GetService<MraEisPingService>();
+            if (ping is not null)
+            {
+                var result = await ping.PingAsync(cancellationToken).ConfigureAwait(false);
+                if (result.Attempted)
+                {
+                    var status = result.Success
+                        ? "1"
+                        : result.StatusCode?.ToString() ?? (result.Reachable ? "HostOk" : "Unreachable");
+                    var text = result.Success
+                        ? $"MRA ping ok in {result.ElapsedMs} ms."
+                        : result.Reachable
+                            ? $"MRA ping host reached ({status}) in {result.ElapsedMs} ms: {result.Detail}"
+                            : $"MRA ping failed in {result.ElapsedMs} ms: {result.Detail}";
+                    return (result.Reachable, text, result.ElapsedMs, status);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "utilities/ping probe unavailable; falling back to HTTP GET.");
+        }
+
         var baseUrl = _mraOptions.Value.ResolveBaseUrl();
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri))
         {

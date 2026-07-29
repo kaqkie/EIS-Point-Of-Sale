@@ -281,6 +281,17 @@ public class MockMraEisServer : IDisposable
             return await InvokeSalesResponderAsync(body, request).ConfigureAwait(false);
         }
 
+        if (path.Contains("utilities/ping", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith("/ping", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateJsonResponse(HttpStatusCode.OK, new
+            {
+                statusCode = 1,
+                remark = "Pong",
+                data = new { serverDate = DateTime.UtcNow }
+            });
+        }
+
         if (path.Contains("last-submitted-online-transaction", StringComparison.OrdinalIgnoreCase) ||
             path.Contains("last-submitted-offline-transaction", StringComparison.OrdinalIgnoreCase))
         {

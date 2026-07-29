@@ -86,6 +86,7 @@ public static class DependencyInjection
         services.AddSingleton<ITerminalBlockingMessageResponseService, TerminalBlockingMessageResponseService>();
         services.AddScoped<ITerminalSiteProductsCatalogSyncService, TerminalSiteProductsCatalogSyncService>();
         services.AddScoped<Vat5CertificateValidationService>();
+        services.AddScoped<MraEisPingService>();
         services.AddScoped<TerminalBlockingMessageService>();
         services.AddScoped<OfflineReceiptSignatureService>();
         services.AddSingleton<IOfflineTransactionComplianceValidator, OfflineTransactionComplianceValidator>();
