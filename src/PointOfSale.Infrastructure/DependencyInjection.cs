@@ -77,6 +77,7 @@ public static class DependencyInjection
             sp.GetService<MraRuntimeEnvironmentState>()));
         services.AddSingleton<IMraEisResponseEvaluator, MraEisResponseEvaluator>();
         services.AddSingleton<ILastSubmittedOfflineTransactionResponseService, LastSubmittedOfflineTransactionResponseService>();
+        services.AddSingleton<ILastSubmittedOnlineTransactionResponseService, LastSubmittedOnlineTransactionResponseService>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();

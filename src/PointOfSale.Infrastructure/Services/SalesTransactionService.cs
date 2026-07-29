@@ -20,6 +20,7 @@ public sealed class SalesTransactionService
     private readonly ILocalInventoryRepository _inventoryRepository;
     private readonly StockManagementService _stockManagementService;
     private readonly ILastSubmittedOfflineTransactionResponseService _lastOfflineParser;
+    private readonly ILastSubmittedOnlineTransactionResponseService _lastOnlineParser;
     private readonly ILogger<SalesTransactionService> _logger;
 
     public SalesTransactionService(
@@ -28,7 +29,8 @@ public sealed class SalesTransactionService
         ILocalInventoryRepository inventoryRepository,
         StockManagementService stockManagementService,
         ILogger<SalesTransactionService> logger,
-        ILastSubmittedOfflineTransactionResponseService? lastOfflineParser = null)
+        ILastSubmittedOfflineTransactionResponseService? lastOfflineParser = null,
+        ILastSubmittedOnlineTransactionResponseService? lastOnlineParser = null)
     {
         _apiClient = apiClient;
         _authProvider = authProvider;
@@ -38,6 +40,9 @@ public sealed class SalesTransactionService
         _lastOfflineParser = lastOfflineParser
             ?? new LastSubmittedOfflineTransactionResponseService(
                 NullLogger<LastSubmittedOfflineTransactionResponseService>.Instance);
+        _lastOnlineParser = lastOnlineParser
+            ?? new LastSubmittedOnlineTransactionResponseService(
+                NullLogger<LastSubmittedOnlineTransactionResponseService>.Instance);
     }
 
     public Task<SalesResult<SubmitSalesTransactionResponseData>> SubmitSalesTransactionAsync(
@@ -158,25 +163,54 @@ public sealed class SalesTransactionService
             return OfflineSequenceContinuityResult.NoRemoteBaseline(lookup.Remark);
         }
 
-        var parse = _lastOfflineParser.Validate(
-            new EisApiResponse<SubmittedTransactionData>
-            {
-                StatusCode = 1,
-                Remark = lookup.Remark,
-                Data = lookup.Data
-            });
-        if (!parse.Success || parse.Data is null)
+        var envelope = new EisApiResponse<SubmittedTransactionData>
         {
-            return OfflineSequenceContinuityResult.Unparseable(
-                lookup.Data.InvoiceHeader?.InvoiceNumber,
-                parse.Remark);
+            StatusCode = 1,
+            Remark = lookup.Remark,
+            Data = lookup.Data
+        };
+
+        bool hasComposite;
+        SubmittedTransactionData? parsedData;
+        string? parseRemark;
+        InvoiceSequenceCheck sequence;
+
+        if (string.Equals(channelLabel, "online", StringComparison.Ordinal))
+        {
+            var parse = _lastOnlineParser.Validate(envelope);
+            hasComposite = parse.HasCompositeInvoiceNumber;
+            parsedData = parse.Data;
+            parseRemark = parse.Remark;
+            if (!parse.Success || parsedData is null)
+            {
+                return OfflineSequenceContinuityResult.Unparseable(
+                    lookup.Data.InvoiceHeader?.InvoiceNumber,
+                    parseRemark);
+            }
+
+            sequence = _lastOnlineParser.CheckSequenceContinuity(
+                parsedData,
+                expectedSellerTin: parsedData.InvoiceHeader?.SellerTin);
+        }
+        else
+        {
+            var parse = _lastOfflineParser.Validate(envelope);
+            hasComposite = parse.HasCompositeInvoiceNumber;
+            parsedData = parse.Data;
+            parseRemark = parse.Remark;
+            if (!parse.Success || parsedData is null)
+            {
+                return OfflineSequenceContinuityResult.Unparseable(
+                    lookup.Data.InvoiceHeader?.InvoiceNumber,
+                    parseRemark);
+            }
+
+            sequence = _lastOfflineParser.CheckSequenceContinuity(
+                parsedData,
+                expectedSellerTin: parsedData.InvoiceHeader?.SellerTin);
         }
 
-        var sequence = _lastOfflineParser.CheckSequenceContinuity(
-            parse.Data,
-            expectedSellerTin: parse.Data.InvoiceHeader?.SellerTin);
-
-        if (!sequence.IsValid || !parse.HasCompositeInvoiceNumber)
+        if (!sequence.IsValid || !hasComposite)
         {
             _logger.LogWarning(
                 "Last {Channel} invoice sequence check failed for {Invoice}: {Message}",
@@ -192,7 +226,7 @@ public sealed class SalesTransactionService
             sequence.TerminalPosition!.Value,
             sequence.JulianDate!.Value,
             sequence.TransactionCount!.Value,
-            parse.Data.DateSubmitted,
+            parsedData.DateSubmitted,
             lookup.Remark);
     }
 

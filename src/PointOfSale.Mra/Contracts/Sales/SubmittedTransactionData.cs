@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 namespace PointOfSale.Mra.Contracts.Sales;
 
 /// <summary>
-/// Invoice payload returned inside <see cref="Common.EisApiResponse{T}"/> from
-/// <c>POST sales/last-submitted-online-transaction</c> and the offline variant.
+/// Nested <c>data</c> payload for last-submitted online/offline EIS responses.
+/// Maps <c>dateSubmitted</c>, <c>invoiceHeader</c>, <c>invoiceLineItems</c>, and <c>invoiceSummary</c>.
 /// Lenient property binding for historical sandbox records (e.g. tax rate <c>T</c>).
 /// </summary>
 public sealed class SubmittedTransactionData

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using PointOfSale.Mra.Billing;
 using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Serialization;
@@ -19,7 +18,7 @@ public interface ILastSubmittedOfflineTransactionResponseService
     /// Verifies that <paramref name="data"/>'s <c>invoiceNumber</c> (e.g. <c>E-De-JYxh-B</c>)
     /// matches expected taxpayer / terminal / sequence continuity for offline reconciliation.
     /// </summary>
-    OfflineInvoiceSequenceCheck CheckSequenceContinuity(
+    InvoiceSequenceCheck CheckSequenceContinuity(
         SubmittedTransactionData data,
         string? expectedSellerTin = null,
         int? expectedTerminalPosition = null,
@@ -120,74 +119,18 @@ public sealed class LastSubmittedOfflineTransactionResponseService
             hasComposite ? parts : null);
     }
 
-    public OfflineInvoiceSequenceCheck CheckSequenceContinuity(
+    public InvoiceSequenceCheck CheckSequenceContinuity(
         SubmittedTransactionData data,
         string? expectedSellerTin = null,
         int? expectedTerminalPosition = null,
         long? localDailySequenceFloor = null,
-        IReadOnlyCollection<string>? pendingLocalInvoiceNumbers = null)
-    {
-        ArgumentNullException.ThrowIfNull(data);
-
-        var invoiceNumber = data.ResolveInvoiceNumber();
-        if (!MraInvoiceNumberGenerator.TryParseComposite(invoiceNumber, out var remote))
-        {
-            return OfflineInvoiceSequenceCheck.Unparseable(
-                invoiceNumber,
-                "invoiceNumber is not a valid MRA composite (TIN-Terminal-Julian-Count).");
-        }
-
-        if (!string.IsNullOrWhiteSpace(expectedSellerTin)
-            && MraInvoiceNumberGenerator.TryParseTaxpayerId(expectedSellerTin, out var expectedTin)
-            && remote.TaxpayerId != expectedTin)
-        {
-            return OfflineInvoiceSequenceCheck.Mismatch(
-                invoiceNumber!,
-                remote,
-                $"Encoded taxpayer id {remote.TaxpayerId} does not match expected sellerTIN {expectedTin}.");
-        }
-
-        if (expectedTerminalPosition is int terminal && terminal > 0 && remote.TerminalPosition != terminal)
-        {
-            return OfflineInvoiceSequenceCheck.Mismatch(
-                invoiceNumber!,
-                remote,
-                $"Encoded terminal position {remote.TerminalPosition} does not match expected position {terminal}.");
-        }
-
-        if (localDailySequenceFloor is long floor && floor >= 0 && remote.TransactionCount < floor)
-        {
-            // Remote behind local floor — unusual; still allow sync but flag.
-            return OfflineInvoiceSequenceCheck.Warning(
-                invoiceNumber!,
-                remote,
-                $"Remote offline count {remote.TransactionCount} is behind local floor {floor}.");
-        }
-
-        if (pendingLocalInvoiceNumbers is { Count: > 0 })
-        {
-            foreach (var pending in pendingLocalInvoiceNumbers)
-            {
-                if (!MraInvoiceNumberGenerator.TryParseComposite(pending, out var local))
-                {
-                    continue;
-                }
-
-                if (local.TaxpayerId == remote.TaxpayerId
-                    && local.TerminalPosition == remote.TerminalPosition
-                    && local.JulianDate == remote.JulianDate
-                    && local.TransactionCount <= remote.TransactionCount)
-                {
-                    return OfflineInvoiceSequenceCheck.Mismatch(
-                        invoiceNumber!,
-                        remote,
-                        $"Pending local invoice {pending} does not continue after remote count {remote.TransactionCount}.");
-                }
-            }
-        }
-
-        return OfflineInvoiceSequenceCheck.Ok(invoiceNumber!, remote);
-    }
+        IReadOnlyCollection<string>? pendingLocalInvoiceNumbers = null) =>
+        LastSubmittedInvoiceSequenceValidator.Check(
+            data,
+            expectedSellerTin,
+            expectedTerminalPosition,
+            localDailySequenceFloor,
+            pendingLocalInvoiceNumbers);
 
     private static string FormatErrors(IReadOnlyList<EisApiError>? errors)
     {
@@ -252,70 +195,5 @@ public sealed class LastSubmittedOfflineParseResult
             ErrorDetail = errorDetail,
             Errors = errors,
             Data = data
-        };
-}
-
-public sealed class OfflineInvoiceSequenceCheck
-{
-    public bool IsValid { get; init; }
-    public bool IsWarning { get; init; }
-    public string? InvoiceNumber { get; init; }
-    public string? Message { get; init; }
-    public long? TaxpayerId { get; init; }
-    public int? TerminalPosition { get; init; }
-    public int? JulianDate { get; init; }
-    public long? TransactionCount { get; init; }
-
-    public static OfflineInvoiceSequenceCheck Ok(
-        string invoiceNumber,
-        (long TaxpayerId, int TerminalPosition, int JulianDate, long TransactionCount) parts) =>
-        new()
-        {
-            IsValid = true,
-            InvoiceNumber = invoiceNumber,
-            Message = "Invoice number matches expected MRA sequence structure.",
-            TaxpayerId = parts.TaxpayerId,
-            TerminalPosition = parts.TerminalPosition,
-            JulianDate = parts.JulianDate,
-            TransactionCount = parts.TransactionCount
-        };
-
-    public static OfflineInvoiceSequenceCheck Warning(
-        string invoiceNumber,
-        (long TaxpayerId, int TerminalPosition, int JulianDate, long TransactionCount) parts,
-        string message) =>
-        new()
-        {
-            IsValid = true,
-            IsWarning = true,
-            InvoiceNumber = invoiceNumber,
-            Message = message,
-            TaxpayerId = parts.TaxpayerId,
-            TerminalPosition = parts.TerminalPosition,
-            JulianDate = parts.JulianDate,
-            TransactionCount = parts.TransactionCount
-        };
-
-    public static OfflineInvoiceSequenceCheck Mismatch(
-        string invoiceNumber,
-        (long TaxpayerId, int TerminalPosition, int JulianDate, long TransactionCount) parts,
-        string message) =>
-        new()
-        {
-            IsValid = false,
-            InvoiceNumber = invoiceNumber,
-            Message = message,
-            TaxpayerId = parts.TaxpayerId,
-            TerminalPosition = parts.TerminalPosition,
-            JulianDate = parts.JulianDate,
-            TransactionCount = parts.TransactionCount
-        };
-
-    public static OfflineInvoiceSequenceCheck Unparseable(string? invoiceNumber, string message) =>
-        new()
-        {
-            IsValid = false,
-            InvoiceNumber = invoiceNumber,
-            Message = message
         };
 }
