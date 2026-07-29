@@ -13,11 +13,12 @@ public static class HmacSignatureService
 
     /// <summary>
     /// Computes HMAC-SHA512 over UTF-8 <paramref name="plainText"/> using UTF-8 <paramref name="secretKey"/>
-    /// and returns the digest as a Base64 string (MRA EIS <c>x-signature</c> format).
+    /// and returns the digest as a Base64 string (MRA EIS <c>x-signature</c> / <c>x-eis-message-hash</c> format).
+    /// Empty <paramref name="plainText"/> is allowed (empty request bodies).
     /// </summary>
     public static string ComputeHmacSha512(string plainText, string secretKey)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(plainText);
+        ArgumentNullException.ThrowIfNull(plainText);
         ArgumentException.ThrowIfNullOrWhiteSpace(secretKey);
 
         var digest = ComputeHmacSha512Digest(plainText, secretKey);
@@ -26,10 +27,11 @@ public static class HmacSignatureService
 
     /// <summary>
     /// Raw HMAC-SHA512 digest bytes (UTF-8 key and message). Prefer <see cref="ComputeHmacSha512"/> for EIS headers.
+    /// Empty <paramref name="plainText"/> is allowed.
     /// </summary>
     public static byte[] ComputeHmacSha512Digest(string plainText, string secretKey)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(plainText);
+        ArgumentNullException.ThrowIfNull(plainText);
         ArgumentException.ThrowIfNullOrWhiteSpace(secretKey);
 
         var keyBytes = Encoding.UTF8.GetBytes(secretKey);

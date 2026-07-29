@@ -62,7 +62,10 @@ public abstract class MraApiClientBase
         if (!string.IsNullOrWhiteSpace(xSignaturePlainText) &&
             !string.IsNullOrWhiteSpace(secretKeyForSignature))
         {
-            // Confirmation (and any TAC-style signed call): HMAC-SHA512 → Base64 on x-signature.
+            // Payload message hash (all routes except activate-terminal).
+            MraEisMessageHash.TryAttach(request, json, secretKeyForSignature);
+
+            // Confirmation: HMAC-SHA512(TAC) → x-signature.
             HmacSignatureService.AttachActivationConfirmationSignature(
                 request,
                 xSignaturePlainText,
@@ -86,6 +89,7 @@ public abstract class MraApiClientBase
         };
 
         ApplyAuthorization(request, jwtToken);
+        MraEisMessageHash.TryAttach(request, json, secretKey);
         HmacSignatureService.ApplyXSignatureHeader(
             request,
             HmacSignatureService.ComputeHmacSha512(json, secretKey));

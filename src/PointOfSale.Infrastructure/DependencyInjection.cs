@@ -56,12 +56,14 @@ public static class DependencyInjection
         services.AddScoped<IFiscalYearArchiveRepository, FiscalYearArchiveRepository>();
         services.AddScoped<IMultiTerminalSyncRepository, MultiTerminalSyncRepository>();
 
+        services.AddTransient<MraEisMessageHashHandler>();
         services.AddHttpClient(MraHttpClientFactory.ClientName)
             .ConfigurePrimaryHttpMessageHandler(sp =>
             {
                 var opts = sp.GetRequiredService<IOptions<MraApiOptions>>().Value;
                 return MraHttpClientFactory.CreateHandler(opts);
             })
+            .AddHttpMessageHandler<MraEisMessageHashHandler>()
             .ConfigureHttpClient((sp, client) =>
             {
                 var opts = sp.GetRequiredService<IOptions<MraApiOptions>>().Value;

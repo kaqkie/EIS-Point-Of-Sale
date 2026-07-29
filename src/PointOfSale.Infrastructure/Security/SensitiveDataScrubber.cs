@@ -20,6 +20,7 @@ public static partial class SensitiveDataScrubber
         scrubbed = JwtTokenJsonPattern().Replace(scrubbed, $"\"jwtToken\":\"{Redacted}\"");
         scrubbed = AuthorizationHeaderPattern().Replace(scrubbed, $"Authorization: {Redacted}");
         scrubbed = XSignatureHeaderPattern().Replace(scrubbed, $"x-signature: {Redacted}");
+        scrubbed = XEisMessageHashHeaderPattern().Replace(scrubbed, $"x-eis-message-hash: {Redacted}");
         scrubbed = ApiKeyJsonPattern().Replace(scrubbed, $"\"apiKey\":\"{Redacted}\"");
         scrubbed = OfflineSignaturePattern().Replace(scrubbed, $"\"offlineSignature\":\"{Redacted}\"");
         return scrubbed;
@@ -42,6 +43,9 @@ public static partial class SensitiveDataScrubber
 
     [GeneratedRegex(@"x-signature\s*:\s*[^\r\n""]+", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex XSignatureHeaderPattern();
+
+    [GeneratedRegex(@"x-eis-message-hash\s*:\s*[^\r\n""]+", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex XEisMessageHashHeaderPattern();
 
     [GeneratedRegex(@"""apiKey""\s*:\s*""[^""]*""", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ApiKeyJsonPattern();

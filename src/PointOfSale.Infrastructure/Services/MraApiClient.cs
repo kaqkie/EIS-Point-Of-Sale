@@ -156,6 +156,11 @@ public sealed class MraApiClient
         if (context?.SecretKey is { Length: > 0 } secretKey &&
             !string.IsNullOrWhiteSpace(signaturePlainText))
         {
+            MraEisMessageHash.SetSecretKeyOption(request, secretKey);
+            // Message hash covers the HTTP payload (JSON body), not the TAC used for x-signature.
+            MraEisMessageHash.SetPlainTextOption(request, jsonBody ?? string.Empty);
+            MraEisMessageHash.TryAttach(request, jsonBody ?? string.Empty, secretKey);
+
             if (context.IsActivationConfirmationSignature)
             {
                 HmacSignatureService.AttachActivationConfirmationSignature(
@@ -180,9 +185,21 @@ public sealed class MraApiClient
         else if (context?.SecretKey is { Length: > 0 } payloadSecret &&
                  !string.IsNullOrWhiteSpace(jsonBody))
         {
+            MraEisMessageHash.SetSecretKeyOption(request, payloadSecret);
+            MraEisMessageHash.SetPlainTextOption(request, jsonBody);
+            MraEisMessageHash.TryAttach(request, jsonBody, payloadSecret);
+
             HmacSignatureService.ApplyXSignatureHeader(
                 request,
                 ComputeSignature(jsonBody, payloadSecret));
+        }
+        else if (context?.SecretKey is { Length: > 0 } hashSecret)
+        {
+            // JWT + secret without x-signature plaintext (e.g. empty-body last-submitted) still needs message hash.
+            var payload = jsonBody ?? string.Empty;
+            MraEisMessageHash.SetSecretKeyOption(request, hashSecret);
+            MraEisMessageHash.SetPlainTextOption(request, payload);
+            MraEisMessageHash.TryAttach(request, payload, hashSecret);
         }
     }
 
