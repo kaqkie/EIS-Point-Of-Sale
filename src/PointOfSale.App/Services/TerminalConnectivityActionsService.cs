@@ -157,6 +157,27 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
             _logger.LogWarning(ex, "VerifyAndSyncApis config sync failed.");
         }
 
+        string? repairRemark = null;
+        try
+        {
+            var offlineSales = scope.ServiceProvider.GetService<OfflineSalesQueueService>();
+            if (offlineSales is not null)
+            {
+                var repair = await offlineSales
+                    .RepairAllReceiptIdentifiersAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                if (repair.Rewritten > 0 || repair.Failed > 0)
+                {
+                    repairRemark = repair.SummaryMessage;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            repairRemark = $"Receipt ID repair error: {ex.Message}";
+            _logger.LogWarning(ex, "VerifyAndSyncApis receipt ID repair failed.");
+        }
+
         try
         {
             var queue = scope.ServiceProvider.GetService<IOfflineInvoiceQueueRepository>();
@@ -176,6 +197,7 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         var overallOk = ping.Success && configOk;
         var message =
             $"{ping.Message} {configRemark} " +
+            (string.IsNullOrWhiteSpace(repairRemark) ? string.Empty : $"{repairRemark} ") +
             $"Offline queue — pending: {pending}, syncing: {syncing}, quarantined: {quarantined}. " +
             $"Connection: {_connectionStatus.StatusText}";
 

@@ -93,6 +93,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(ForceSyncCommand))]
     [NotifyCanExecuteChangedFor(nameof(SyncNextCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixReceiptIdsCommand))]
     private bool _isBusy;
 
     partial void OnSelectedStatusFilterChanged(string value) => _ = RefreshAsync();
@@ -194,6 +195,32 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             StatusMessage = $"Sync next failed: {ex.Message}";
+        }
+        finally
+        {
+            EndBusy();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunIdleCommand))]
+    private async Task FixReceiptIdsAsync()
+    {
+        if (!BeginBusy("Repairing receipt invoice numbers…"))
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await _offlineSalesQueueService
+                .RepairAllReceiptIdentifiersAsync()
+                .ConfigureAwait(true);
+            StatusMessage = result.SummaryMessage;
+            await RefreshAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Receipt ID repair failed: {ex.Message}";
         }
         finally
         {
@@ -485,6 +512,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         ForceSyncCommand.NotifyCanExecuteChanged();
         SyncNextCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged();
+        FixReceiptIdsCommand.NotifyCanExecuteChanged();
     }
 
     private static void ApplyOnUi(Action action)

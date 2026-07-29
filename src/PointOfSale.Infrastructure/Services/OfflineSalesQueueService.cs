@@ -347,12 +347,21 @@ public sealed class OfflineSalesQueueService
                 "Cannot assign MRA invoice number: sellerTIN is missing or still the sandbox placeholder.");
         }
 
+        var sellerTinTrimmed = sellerTin.Trim();
+        var sellerTinChanged = !string.Equals(
+            payload.InvoiceHeader.SellerTin,
+            sellerTinTrimmed,
+            StringComparison.Ordinal);
+
         // Keep identity TIN on the header so encoded invoice number matches sellerTIN.
-        if (!string.Equals(payload.InvoiceHeader.SellerTin, sellerTin.Trim(), StringComparison.Ordinal))
+        if (sellerTinChanged)
         {
             payload = payload with
             {
-                InvoiceHeader = CloneHeader(payload.InvoiceHeader, invoiceNumber: payload.InvoiceHeader.InvoiceNumber, sellerTin: sellerTin.Trim())
+                InvoiceHeader = CloneHeader(
+                    payload.InvoiceHeader,
+                    invoiceNumber: payload.InvoiceHeader.InvoiceNumber,
+                    sellerTin: sellerTinTrimmed)
             };
         }
 
@@ -362,7 +371,29 @@ public sealed class OfflineSalesQueueService
                 : payload.InvoiceHeader.InvoiceDateTime.ToUniversalTime());
 
         var previousInvoiceNumber = payload.InvoiceHeader.InvoiceNumber;
-        var needsRewrite = MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(previousInvoiceNumber, sellerTin);
+        var needsRewrite = MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(previousInvoiceNumber, sellerTinTrimmed);
+        if (!needsRewrite && !sellerTinChanged)
+        {
+            // Pending + already correct: no DB write. Quarantined/Syncing still reset to PENDING
+            // so Force Sync / Retry can proceed with the existing composite invoice number.
+            var isPending = item.Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase);
+            if (isPending)
+            {
+                return ReceiptIdentifierUpdateResult.Succeeded(
+                    queueId,
+                    previousInvoiceNumber ?? string.Empty,
+                    rewritten: false);
+            }
+
+            await _queueRepository
+                .UpdatePayloadAndResetForResubmitAsync(queueId, item.PayloadJson, cancellationToken)
+                .ConfigureAwait(false);
+            return ReceiptIdentifierUpdateResult.Succeeded(
+                queueId,
+                previousInvoiceNumber ?? string.Empty,
+                rewritten: false);
+        }
+
         if (needsRewrite)
         {
             payload = await EnsureCompliantInvoiceNumberAsync(payload, cancellationToken, transactionUtcOverride: transactionUtc)
@@ -398,6 +429,77 @@ public sealed class OfflineSalesQueueService
             queueId,
             payload.InvoiceHeader.InvoiceNumber,
             rewritten: needsRewrite || !string.Equals(previousInvoiceNumber, payload.InvoiceHeader.InvoiceNumber, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Rewrites placeholder / mismatched MRA invoice numbers on all open queue items
+    /// (PENDING, SYNCING, QUARANTINED) using the activated seller TIN. SYNCED items are left unchanged.
+    /// </summary>
+    public async Task<ReceiptIdentifierBatchRepairResult> RepairAllReceiptIdentifiersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var pending = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Pending, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+        var syncing = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Syncing, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+        var quarantined = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Quarantined, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+
+        var candidates = pending
+            .Concat(syncing)
+            .Concat(quarantined)
+            .GroupBy(x => x.Id)
+            .Select(g => g.First())
+            .OrderBy(x => x.Id)
+            .ToList();
+
+        var rewritten = 0;
+        var unchanged = 0;
+        var failed = 0;
+        string? firstError = null;
+
+        foreach (var item in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = await UpdateReceiptIdentifiersAsync(item.Id, request: null, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.Success)
+            {
+                failed++;
+                firstError ??= result.Error;
+                _logger.LogWarning(
+                    "Receipt ID repair failed for queue {QueueId}: {Error}",
+                    item.Id,
+                    result.Error);
+                continue;
+            }
+
+            if (result.Rewritten)
+            {
+                rewritten++;
+            }
+            else
+            {
+                unchanged++;
+            }
+        }
+
+        _logger.LogInformation(
+            "Receipt ID batch repair finished: scanned={Scanned}, rewritten={Rewritten}, unchanged={Unchanged}, failed={Failed}.",
+            candidates.Count,
+            rewritten,
+            unchanged,
+            failed);
+
+        return new ReceiptIdentifierBatchRepairResult(
+            candidates.Count,
+            rewritten,
+            unchanged,
+            failed,
+            firstError);
     }
 
     private async Task<SaleQueueResult> TrySubmitQueuedAsync(
@@ -1625,4 +1727,35 @@ public sealed class ReceiptIdentifierUpdateResult
             Success = false,
             Error = error
         };
+}
+
+/// <summary>Result of rewriting MRA invoice numbers across open offline-queue receipts.</summary>
+public sealed record ReceiptIdentifierBatchRepairResult(
+    int Scanned,
+    int Rewritten,
+    int Unchanged,
+    int Failed,
+    string? FirstError)
+{
+    public bool Success => Failed == 0;
+
+    public string SummaryMessage
+    {
+        get
+        {
+            if (Scanned == 0)
+            {
+                return "No open receipts needed ID repair.";
+            }
+
+            var msg =
+                $"Receipt IDs repaired: {Rewritten} rewritten, {Unchanged} already correct, {Failed} failed (scanned {Scanned}).";
+            if (!string.IsNullOrWhiteSpace(FirstError) && Failed > 0)
+            {
+                msg += $" First error: {FirstError}";
+            }
+
+            return msg;
+        }
+    }
 }
