@@ -4054,3 +4054,153 @@ PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error �
    at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 48
 2026-07-29 16:43:52.829 +02:00 [WRN] ART Diagnostic HealthCheck HealthCheckWorker 4 null: Degraded: MRA.
 2026-07-29 16:43:52.832 +02:00 [WRN] Health check degraded: Degraded: MRA.
+2026-07-29 19:38:19.121 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:38:21.161 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-29 19:38:22.127 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 412
+ClientConnectionId:2ea1fa18-496e-47bd-88fd-242463238aca
+Error Number:10611,State:1,Class:16
+2026-07-29 19:38:23.369 +02:00 [INF] Offline invoice FIFO sync worker started (interval 15s, requireConnectivity=true).
+2026-07-29 19:38:23.413 +02:00 [INF] Hardware fault-tolerance loop started (probe every 20s).
+2026-07-29 19:38:23.417 +02:00 [INF] ArchivalCompressionBackgroundService is disabled.
+2026-07-29 19:38:23.425 +02:00 [INF] Inventory alert scanner started (interval 60s).
+2026-07-29 19:38:23.460 +02:00 [INF] HealthCheckWorker started (interval 45s).
+2026-07-29 19:38:23.463 +02:00 [INF] System health monitor started (interval 45s).
+2026-07-29 19:38:23.465 +02:00 [INF] PerformanceProfilingBackgroundService started (sample 30s, flush 300s).
+2026-07-29 19:38:23.467 +02:00 [INF] DatabaseMaintenanceBackgroundService started (interval 24h).
+2026-07-29 19:38:23.940 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-29 19:38:23.953 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 412
+ClientConnectionId:acd1b5f2-5f3e-4653-b09e-6c485e18c770
+Error Number:10611,State:1,Class:16
+2026-07-29 19:38:24.269 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-29 19:38:31.623 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 19:38:32.371 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 26 null: SQL round-trip 26 ms
+2026-07-29 19:38:32.670 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:38:35.567 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-29 19:38:35.634 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:38:37.076 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=4187
+2026-07-29 19:38:37.076 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=16844
+2026-07-29 19:38:37.736 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:38:37.744 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:38:37.794 +02:00 [WRN] utilities/ping host responded HTTP 500 after 19219 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:38:37.794 +02:00 [WRN] utilities/ping host responded HTTP 500 after 5124 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:38:38.213 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 5124 500: MRA ping host reached (500) in 5124 ms: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+2026-07-29 19:38:38.455 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 19:38:38.585 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 26 null: All subsystems healthy (SQL 26 ms, disk 40.47 GB free).
+2026-07-29 19:38:39.120 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=3484
+2026-07-29 19:38:39.189 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:38:39.189 +02:00 [WRN] utilities/ping host responded HTTP 500 after 3555 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:38:39.189 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3555 500: MRA ping host reached (500) in 3555 ms: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+2026-07-29 19:38:39.396 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:39:02.943 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-29 19:39:03.350 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-29 19:39:04.208 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=500 success=false durationMs=1266
+2026-07-29 19:39:04.235 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:39:04.312 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=24907
+2026-07-29 19:39:04.333 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 154
+2026-07-29 19:39:04.356 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:39:04.389 +02:00 [WRN] utilities/ping host responded HTTP 500 after 24993 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:39:04.396 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 19:39:04.397 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 40.47 GB free).
+2026-07-29 19:39:04.459 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:39:05.820 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=1359
+2026-07-29 19:39:05.832 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:39:05.832 +02:00 [WRN] utilities/ping host responded HTTP 500 after 1373 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:39:05.844 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 19:39:05.943 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 19:39:23.516 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:39:24.066 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 19:39:24.079 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-29 19:39:24.140 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:39:47.061 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=23532
+2026-07-29 19:39:47.065 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=22907
+2026-07-29 19:39:47.091 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:39:47.091 +02:00 [WRN] utilities/ping host responded HTTP 500 after 23575 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:39:47.105 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 19:39:47.119 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:39:47.120 +02:00 [WRN] utilities/ping host responded HTTP 500 after 22980 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:39:47.120 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 22980 500: MRA ping host reached (500) in 22980 ms: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+2026-07-29 19:39:47.282 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:39:50.967 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-29 19:39:50.984 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-29 19:39:59.003 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 7 null: Performance profile sample (FPS 0.0)
+2026-07-29 19:40:06.090 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=15094
+2026-07-29 19:40:06.098 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:40:06.098 +02:00 [WRN] utilities/ping host responded HTTP 500 after 15114 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:40:06.099 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 15114 500: MRA ping host reached (500) in 15114 ms: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+2026-07-29 19:40:06.111 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 40.46 GB free).
+2026-07-29 19:40:06.175 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 19:40:06.741 +02:00 [INF] MRA POST /api/v1/utilities/ping status=500 success=false durationMs=19469
+2026-07-29 19:40:06.749 +02:00 [WRN] MRA EIS HTTP 500 for POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping". RequestPayload=(empty). ResponseBody={"message":"An internal error occurred"}
+2026-07-29 19:40:06.750 +02:00 [WRN] utilities/ping host responded HTTP 500 after 19467 ms
+PointOfSale.Mra.Http.MraApiException: MRA EIS HTTP 500: Internal Server Error — An internal error occurred
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 314
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.MraEisPingService.PingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraEisPingService.cs:line 49
+2026-07-29 19:40:06.754 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 19:40:06.755 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 40.47 GB free).
+2026-07-29 19:40:22.744 +02:00 [INF] Hardware fault-tolerance loop stopped.
