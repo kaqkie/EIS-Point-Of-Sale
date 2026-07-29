@@ -24,6 +24,7 @@ public static class MraServiceCollectionExtensions
         services.AddSingleton<ILastSubmittedOfflineTransactionResponseService, LastSubmittedOfflineTransactionResponseService>();
         services.AddSingleton<ILastSubmittedOnlineTransactionResponseService, LastSubmittedOnlineTransactionResponseService>();
         services.AddSingleton<ITerminalSiteProductsResponseService, TerminalSiteProductsResponseService>();
+        services.AddSingleton<IVat5CertificateResponseService, Vat5CertificateResponseService>();
         services.AddHttpClient<OnboardingApiService>((sp, client) =>
         {
             var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MraApiOptions>>().Value;

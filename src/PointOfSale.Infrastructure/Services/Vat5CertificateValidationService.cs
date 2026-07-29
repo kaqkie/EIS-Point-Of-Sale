@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PointOfSale.Core.Constants;
 using PointOfSale.Core.Pricing;
 using PointOfSale.Infrastructure.Repositories;
@@ -7,6 +8,7 @@ using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Contracts.Utilities;
 using PointOfSale.Mra.Serialization;
+using PointOfSale.Mra.Services;
 
 namespace PointOfSale.Infrastructure.Services;
 
@@ -19,24 +21,28 @@ public sealed class Vat5CertificateValidationService
     private readonly MraApiClient _apiClient;
     private readonly IMraTerminalAuthProvider _authProvider;
     private readonly IConfigurationRepository _configurationRepository;
+    private readonly IVat5CertificateResponseService _responseParser;
     private readonly ILogger<Vat5CertificateValidationService> _logger;
 
     public Vat5CertificateValidationService(
         MraApiClient apiClient,
         IMraTerminalAuthProvider authProvider,
         IConfigurationRepository configurationRepository,
-        ILogger<Vat5CertificateValidationService> logger)
+        ILogger<Vat5CertificateValidationService> logger,
+        IVat5CertificateResponseService? responseParser = null)
     {
         _apiClient = apiClient;
         _authProvider = authProvider;
         _configurationRepository = configurationRepository;
         _logger = logger;
+        _responseParser = responseParser
+            ?? new Vat5CertificateResponseService(NullLogger<Vat5CertificateResponseService>.Instance);
     }
 
     /// <summary>
     /// <c>POST /api/v1/utilities/validate-vat5-certificate</c> —
     /// <c>Accept: text/plain</c>, JSON body, <c>Authorization: Bearer {jwt}</c>.
-    /// Updates the local consumable balance ledger from the approved certificate quantity.
+    /// Parses the EIS envelope, evaluates authenticity/expiry/quantity, and updates the local ledger.
     /// </summary>
     public async Task<Vat5ValidationResult> ValidateVat5CertificateAsync(
         ValidateVat5CertificateRequest request,
@@ -74,23 +80,31 @@ public sealed class Vat5CertificateValidationService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        if (!response.IsSuccess || response.Data is null)
+        var existing = await ReadLedgerAsync(payload.ProjectNumber, payload.CertificateNumber, cancellationToken)
+            .ConfigureAwait(false);
+        var parsed = _responseParser.Validate(
+            response,
+            requestedQuantity: payload.Quantity,
+            alreadyConsumedQuantity: existing?.ConsumedQuantity ?? 0m);
+
+        if (!parsed.Success || parsed.Data is null || parsed.Evaluation is null)
         {
             _logger.LogWarning(
                 "validate-vat5-certificate failed for project={Project} cert={Certificate}. Remark={Remark}",
                 payload.ProjectNumber,
                 payload.CertificateNumber,
-                response.Remark ?? "(null)");
+                parsed.Remark ?? "(null)");
             return Vat5ValidationResult.Failed(
-                response.Remark ?? "VAT 5 certificate validation failed.",
-                response.StatusCode,
-                response.Errors);
+                parsed.Remark ?? "VAT 5 certificate validation failed.",
+                parsed.StatusCode,
+                parsed.Errors);
         }
 
-        var data = response.Data;
-        var project = FirstNonEmpty(data.ProjectNumber, payload.ProjectNumber)!;
-        var certificate = FirstNonEmpty(data.CertificateNumber, payload.CertificateNumber)!;
-        var approvedQty = data.Quantity > 0 ? data.Quantity : payload.Quantity;
+        var data = parsed.Data;
+        var evaluation = parsed.Evaluation;
+        var project = evaluation.ProjectNumber ?? payload.ProjectNumber;
+        var certificate = evaluation.CertificateNumber ?? payload.CertificateNumber;
+        var approvedQty = evaluation.ApprovedQuantity > 0 ? evaluation.ApprovedQuantity : payload.Quantity;
 
         var ledger = await UpsertLedgerFromValidationAsync(
                 project,
@@ -101,12 +115,13 @@ public sealed class Vat5CertificateValidationService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var now = DateTime.UtcNow;
-        var expired = data.DateOfExpiry is DateTime expiry && expiry.ToUniversalTime().Date < now.Date;
-        var remaining = ledger.RemainingQuantity;
-        var canCover = !expired && remaining >= payload.Quantity;
+        // Re-evaluate against the persisted ledger remaining quantity.
+        evaluation = _responseParser.EvaluateCertificate(
+            data,
+            payload.Quantity,
+            alreadyConsumedQuantity: ledger.ConsumedQuantity);
 
-        if (expired)
+        if (evaluation.IsExpired)
         {
             _logger.LogWarning(
                 "VAT5 certificate expired. project={Project} cert={Certificate} expiry={Expiry}",
@@ -114,14 +129,14 @@ public sealed class Vat5CertificateValidationService
                 certificate,
                 data.DateOfExpiry);
         }
-        else if (!canCover)
+        else if (!evaluation.CanCoverRequestedQuantity)
         {
             _logger.LogWarning(
                 "VAT5 certificate quantity insufficient. project={Project} cert={Certificate} requested={Requested} remaining={Remaining}",
                 project,
                 certificate,
                 payload.Quantity,
-                remaining);
+                ledger.RemainingQuantity);
         }
         else
         {
@@ -130,17 +145,51 @@ public sealed class Vat5CertificateValidationService
                 project,
                 certificate,
                 approvedQty,
-                remaining,
+                ledger.RemainingQuantity,
                 payload.Quantity);
         }
 
         return Vat5ValidationResult.Succeeded(
             data,
             ledger,
-            requestedQuantity: payload.Quantity,
-            isExpired: expired,
-            canCoverRequestedQuantity: canCover,
-            remark: response.Remark);
+            evaluation,
+            remark: parsed.Remark ?? evaluation.Message);
+    }
+
+    /// <summary>
+    /// Parses a raw successful EIS JSON body and, when eligible, applies VAT relief to the sales request.
+    /// </summary>
+    public Vat5ReliefProcessingResult ProcessSuccessfulValidationResponse(
+        string? rawJson,
+        SubmitSalesTransactionRequest salesRequest,
+        decimal usageQuantity,
+        decimal alreadyConsumedQuantity = 0m)
+    {
+        ArgumentNullException.ThrowIfNull(salesRequest);
+        if (usageQuantity <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(usageQuantity), "Usage quantity must be greater than zero.");
+        }
+
+        var parsed = _responseParser.ParseJson(rawJson, usageQuantity, alreadyConsumedQuantity);
+        if (!parsed.Success || parsed.Data is null || parsed.Evaluation is null)
+        {
+            return Vat5ReliefProcessingResult.Failed(
+                parsed.Remark ?? "Unable to parse VAT5 validation response.",
+                parsed.ErrorDetail,
+                parsed);
+        }
+
+        if (!parsed.AllowsReliefSupply)
+        {
+            return Vat5ReliefProcessingResult.Failed(
+                parsed.Evaluation.Message ?? "VAT5 certificate is not eligible for relief supply.",
+                parsed.ErrorDetail,
+                parsed);
+        }
+
+        var relieved = ApplyReliefSupplyToSalesRequest(salesRequest, parsed.Data, usageQuantity);
+        return Vat5ReliefProcessingResult.Succeeded(parsed, relieved);
     }
 
     /// <summary>
@@ -421,15 +470,14 @@ public sealed class Vat5ValidationResult
     public IReadOnlyList<EisApiError>? Errors { get; init; }
     public Vat5CertificateValidationData? Certificate { get; init; }
     public Vat5CertificateBalanceLedger? Ledger { get; init; }
+    public Vat5CertificateEvaluation? Evaluation { get; init; }
     public decimal RequestedQuantity { get; init; }
-    public decimal RemainingQuantity => Ledger?.RemainingQuantity ?? 0m;
+    public decimal RemainingQuantity => Ledger?.RemainingQuantity ?? Evaluation?.RemainingQuantity ?? 0m;
 
     public static Vat5ValidationResult Succeeded(
         Vat5CertificateValidationData certificate,
         Vat5CertificateBalanceLedger ledger,
-        decimal requestedQuantity,
-        bool isExpired,
-        bool canCoverRequestedQuantity,
+        Vat5CertificateEvaluation evaluation,
         string? remark) =>
         new()
         {
@@ -438,10 +486,11 @@ public sealed class Vat5ValidationResult
             Remark = remark,
             Certificate = certificate,
             Ledger = ledger,
-            RequestedQuantity = requestedQuantity,
-            IsExpired = isExpired,
-            CanCoverRequestedQuantity = canCoverRequestedQuantity,
-            IsCertificateValid = !isExpired && ledger.ApprovedQuantity > 0
+            Evaluation = evaluation,
+            RequestedQuantity = evaluation.RequestedQuantity,
+            IsExpired = evaluation.IsExpired,
+            CanCoverRequestedQuantity = evaluation.CanCoverRequestedQuantity,
+            IsCertificateValid = evaluation.IsAuthentic && !evaluation.IsExpired
         };
 
     public static Vat5ValidationResult Failed(
@@ -456,5 +505,37 @@ public sealed class Vat5ValidationResult
             Errors = errors,
             IsCertificateValid = false,
             CanCoverRequestedQuantity = false
+        };
+}
+
+public sealed class Vat5ReliefProcessingResult
+{
+    public bool Success { get; init; }
+    public string? Remark { get; init; }
+    public string? ErrorDetail { get; init; }
+    public Vat5CertificateParseResult? Parse { get; init; }
+    public SubmitSalesTransactionRequest? RelievedSalesRequest { get; init; }
+
+    public static Vat5ReliefProcessingResult Succeeded(
+        Vat5CertificateParseResult parse,
+        SubmitSalesTransactionRequest relievedSalesRequest) =>
+        new()
+        {
+            Success = true,
+            Remark = parse.Remark ?? parse.Evaluation?.Message,
+            Parse = parse,
+            RelievedSalesRequest = relievedSalesRequest
+        };
+
+    public static Vat5ReliefProcessingResult Failed(
+        string remark,
+        string? errorDetail,
+        Vat5CertificateParseResult? parse) =>
+        new()
+        {
+            Success = false,
+            Remark = remark,
+            ErrorDetail = errorDetail,
+            Parse = parse
         };
 }

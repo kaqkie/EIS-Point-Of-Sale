@@ -3,12 +3,11 @@ using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PointOfSale.Core.Pricing;
-using PointOfSale.Infrastructure.Options;
 using PointOfSale.Infrastructure.Services;
-using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Contracts.Utilities;
 using PointOfSale.Mra.Options;
 using PointOfSale.Mra.Security;
+using PointOfSale.Mra.Services;
 using PointOfSale.Tests.Mocks;
 using PointOfSale.Tests.Support;
 using Xunit;
@@ -17,6 +16,87 @@ namespace PointOfSale.Tests;
 
 public sealed class Vat5CertificateValidationTests
 {
+    private const string SampleSuccessJson = """
+        {
+          "statusCode": 1,
+          "remark": "VAT 5 certificate validation succeeded.",
+          "data": {
+            "projectNumber": "VATF/00000132/2024",
+            "certificateNumber": "MRA/BMTO/VAT5/000169",
+            "quantity": 80,
+            "dateOfIssue": "2024-02-23T00:00:00",
+            "dateOfExpiry": "2099-03-24T00:00:00"
+          },
+          "errors": null
+        }
+        """;
+
+    [Fact]
+    public void Parser_MapsEnvelope_AndAllowsReliefWhenNotExpired()
+    {
+        var parser = new Vat5CertificateResponseService(NullLogger<Vat5CertificateResponseService>.Instance);
+        var parsed = parser.ParseJson(SampleSuccessJson, requestedQuantity: 20);
+
+        Assert.True(parsed.Success);
+        Assert.Equal("VATF/00000132/2024", parsed.Data!.ProjectNumber);
+        Assert.Equal("MRA/BMTO/VAT5/000169", parsed.Data.CertificateNumber);
+        Assert.Equal(80m, parsed.Data.Quantity);
+        Assert.NotNull(parsed.Data.DateOfIssue);
+        Assert.NotNull(parsed.Data.DateOfExpiry);
+        Assert.True(parsed.AllowsReliefSupply);
+        Assert.Equal(80m, parsed.RemainingQuantity);
+        Assert.Contains("valid", parsed.Evaluation!.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Parser_RejectsExpiredCertificate()
+    {
+        const string expiredJson = """
+            {
+              "statusCode": 1,
+              "remark": "ok",
+              "data": {
+                "projectNumber": "VATF/OLD",
+                "certificateNumber": "MRA/OLD/1",
+                "quantity": 40,
+                "dateOfIssue": "2020-01-01T00:00:00",
+                "dateOfExpiry": "2020-02-01T00:00:00"
+              },
+              "errors": null
+            }
+            """;
+
+        var parser = new Vat5CertificateResponseService(NullLogger<Vat5CertificateResponseService>.Instance);
+        var parsed = parser.ParseJson(expiredJson, requestedQuantity: 5);
+
+        Assert.True(parsed.Success);
+        Assert.True(parsed.IsExpired);
+        Assert.False(parsed.AllowsReliefSupply);
+    }
+
+    [Fact]
+    public void ProcessSuccessfulValidationResponse_AppliesReliefCalculations()
+    {
+        using var mock = new MockMraServer();
+        using var harness = new MraIntegrationHarness(mock);
+        var service = new Vat5CertificateValidationService(
+            harness.ApiClient,
+            harness.AuthProvider,
+            harness.ConfigurationRepository,
+            NullLogger<Vat5CertificateValidationService>.Instance);
+
+        var sale = SalePayloadFactory.Create("VAT5-PARSE-001");
+        var processed = service.ProcessSuccessfulValidationResponse(
+            SampleSuccessJson,
+            sale,
+            usageQuantity: 1);
+
+        Assert.True(processed.Success);
+        Assert.True(processed.RelievedSalesRequest!.InvoiceHeader.IsReliefSupply);
+        Assert.Equal(0m, processed.RelievedSalesRequest.InvoiceSummary.TotalVat);
+        Assert.All(processed.RelievedSalesRequest.InvoiceLineItems, l => Assert.Equal(0m, l.TotalVat));
+    }
+
     [Fact]
     public void ApplyReliefSupplyLine_RemovesStandardVat()
     {
@@ -44,12 +124,9 @@ public sealed class Vat5CertificateValidationTests
                 ? null
                 : await request.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-            const string json = """
-                {"statusCode":1,"remark":"VAT 5 certificate validation succeeded.","data":{"projectNumber":"VATF/00000132/2024","certificateNumber":"MRA/BMTO/VAT5/000169","quantity":80,"dateOfIssue":"2024-02-23T00:00:00","dateOfExpiry":"2099-03-24T00:00:00"},"errors":null}
-                """;
             return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
             {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
+                Content = new StringContent(SampleSuccessJson, Encoding.UTF8, "application/json")
             };
         });
 
