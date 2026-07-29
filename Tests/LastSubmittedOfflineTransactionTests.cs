@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using PointOfSale.Infrastructure.Options;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Billing;
+using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Options;
 using PointOfSale.Tests.Support;
 using Xunit;
@@ -29,7 +30,20 @@ public sealed class LastSubmittedOfflineTransactionTests
     }
 
     [Fact]
-    public async Task GetLastSubmittedOfflineTransaction_PostsEmptyBody_WithBearerAndAcceptTextPlain()
+    public async Task GetLastSubmittedOfflineTransaction_PostsEmptyBody_WithBearerAndAcceptTextPlain() =>
+        await AssertLastSubmittedPostsEmptyBodyAsync(
+            invoke: s => s.GetLastSubmittedOfflineTransactionAsync(),
+            pathSegment: "last-submitted-offline-transaction");
+
+    [Fact]
+    public async Task GetLastSubmittedOnlineTransaction_PostsEmptyBody_WithBearerAndAcceptTextPlain() =>
+        await AssertLastSubmittedPostsEmptyBodyAsync(
+            invoke: s => s.GetLastSubmittedOnlineTransactionAsync(),
+            pathSegment: "last-submitted-online-transaction");
+
+    private static async Task AssertLastSubmittedPostsEmptyBodyAsync(
+        Func<SalesTransactionService, Task<SalesResult<SubmittedTransactionData>>> invoke,
+        string pathSegment)
     {
         HttpRequestMessage? captured = null;
         string? capturedBody = null;
@@ -81,13 +95,13 @@ public sealed class LastSubmittedOfflineTransactionTests
             stock,
             NullLogger<SalesTransactionService>.Instance);
 
-        var result = await sales.GetLastSubmittedOfflineTransactionAsync();
+        var result = await invoke(sales);
 
         Assert.True(result.Success);
         Assert.Equal("BM6l7-B-B-M", result.Data!.InvoiceHeader!.InvoiceNumber);
         Assert.NotNull(captured);
         Assert.Equal(HttpMethod.Post, captured!.Method);
-        Assert.Contains("last-submitted-offline-transaction", captured.RequestUri!.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(pathSegment, captured.RequestUri!.ToString(), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(string.Empty, capturedBody);
         Assert.True(captured.Headers.TryGetValues("Authorization", out var authValues));
         Assert.Equal("Bearer raw-jwt-token", Assert.Single(authValues));
@@ -96,7 +110,15 @@ public sealed class LastSubmittedOfflineTransactionTests
     }
 
     [Fact]
-    public async Task VerifyOfflineSequenceContinuity_ReturnsAlignedCounts()
+    public async Task VerifyOfflineSequenceContinuity_ReturnsAlignedCounts() =>
+        await AssertSequenceContinuityAlignedAsync(s => s.VerifyOfflineSequenceContinuityAsync());
+
+    [Fact]
+    public async Task VerifyOnlineSequenceContinuity_ReturnsAlignedCounts() =>
+        await AssertSequenceContinuityAlignedAsync(s => s.VerifyOnlineSequenceContinuityAsync());
+
+    private static async Task AssertSequenceContinuityAlignedAsync(
+        Func<SalesTransactionService, Task<OfflineSequenceContinuityResult>> verify)
     {
         var invoice = MraInvoiceNumberGenerator.Generate(
             taxpayerId: 20162939,
@@ -142,7 +164,7 @@ public sealed class LastSubmittedOfflineTransactionTests
             stock,
             NullLogger<SalesTransactionService>.Instance);
 
-        var continuity = await sales.VerifyOfflineSequenceContinuityAsync();
+        var continuity = await verify(sales);
 
         Assert.True(continuity.Parsed);
         Assert.Equal(invoice, continuity.LastInvoiceNumber);

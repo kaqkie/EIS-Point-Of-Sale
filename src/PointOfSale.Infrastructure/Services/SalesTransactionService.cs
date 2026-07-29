@@ -49,14 +49,15 @@ public sealed class SalesTransactionService
             cancellationToken);
 
     /// <summary>
-    /// <c>POST /api/v1/sales/last-submitted-online-transaction</c> — activation JWT in
-    /// <c>Authorization</c> (raw token; a stored <c>Bearer</c> prefix is stripped) and empty JSON body <c>{}</c>.
-    /// No <c>x-signature</c> header. Response deserializes to <see cref="SubmittedTransactionData"/>.
+    /// <c>POST /api/v1/sales/last-submitted-online-transaction</c> —
+    /// empty body, <c>Accept: text/plain</c>, <c>Authorization: Bearer {jwt}</c>, no x-signature.
+    /// Used to verify online invoice sequence integrity against the MRA server.
     /// </summary>
     public Task<SalesResult<SubmittedTransactionData>> GetLastSubmittedOnlineTransactionAsync(
         CancellationToken cancellationToken = default) =>
-        PostJwtOnlyAsync<SubmittedTransactionData>(
+        GetLastSubmittedTransactionAsync(
             "sales/last-submitted-online-transaction",
+            channelLabel: "online",
             cancellationToken);
 
     /// <summary>
@@ -64,13 +65,22 @@ public sealed class SalesTransactionService
     /// empty body, <c>Accept: text/plain</c>, <c>Authorization: Bearer {jwt}</c>, no x-signature.
     /// Used to verify offline invoice sequence continuity before syncing queued sales.
     /// </summary>
-    public async Task<SalesResult<SubmittedTransactionData>> GetLastSubmittedOfflineTransactionAsync(
-        CancellationToken cancellationToken = default)
+    public Task<SalesResult<SubmittedTransactionData>> GetLastSubmittedOfflineTransactionAsync(
+        CancellationToken cancellationToken = default) =>
+        GetLastSubmittedTransactionAsync(
+            "sales/last-submitted-offline-transaction",
+            channelLabel: "offline",
+            cancellationToken);
+
+    private async Task<SalesResult<SubmittedTransactionData>> GetLastSubmittedTransactionAsync(
+        string relativePath,
+        string channelLabel,
+        CancellationToken cancellationToken)
     {
         var context = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
         var response = await _apiClient
             .PostEmptyAsync<SubmittedTransactionData>(
-                "sales/last-submitted-offline-transaction",
+                relativePath,
                 new MraRequestContext
                 {
                     JwtToken = context.JwtToken,
@@ -87,7 +97,8 @@ public sealed class SalesTransactionService
                 ? "(no errors array)"
                 : JsonSerializer.Serialize(result.Errors, MraJson.SerializerOptions);
             _logger.LogWarning(
-                "MRA EIS last-submitted-offline-transaction returned success=false. Remark={Remark}. Errors={Errors}. statusCode={StatusCode}",
+                "MRA EIS last-submitted-{Channel}-transaction returned success=false. Remark={Remark}. Errors={Errors}. statusCode={StatusCode}",
+                channelLabel,
                 result.Remark ?? "(null)",
                 errorsJson,
                 response.StatusCode);
@@ -95,7 +106,8 @@ public sealed class SalesTransactionService
         else
         {
             _logger.LogInformation(
-                "Last submitted offline transaction: invoice={Invoice} submitted={SubmittedUtc}",
+                "Last submitted {Channel} transaction: invoice={Invoice} submitted={SubmittedUtc}",
+                channelLabel,
                 result.Data?.InvoiceHeader?.InvoiceNumber ?? "(null)",
                 result.Data?.DateSubmitted);
         }
@@ -104,26 +116,45 @@ public sealed class SalesTransactionService
     }
 
     /// <summary>
+    /// Queries MRA for the last online fiscal invoice and validates composite sequence integrity
+    /// for Albert Retail Terminal sync-status checks.
+    /// </summary>
+    public Task<OfflineSequenceContinuityResult> VerifyOnlineSequenceContinuityAsync(
+        CancellationToken cancellationToken = default) =>
+        VerifySequenceContinuityAsync(
+            GetLastSubmittedOnlineTransactionAsync,
+            channelLabel: "online",
+            cancellationToken);
+
+    /// <summary>
     /// Queries MRA for the last offline fiscal invoice and raises the local daily sequence floor
     /// when the remote counter is ahead — preventing duplicate transaction counts on sync.
     /// </summary>
-    public async Task<OfflineSequenceContinuityResult> VerifyOfflineSequenceContinuityAsync(
-        CancellationToken cancellationToken = default)
+    public Task<OfflineSequenceContinuityResult> VerifyOfflineSequenceContinuityAsync(
+        CancellationToken cancellationToken = default) =>
+        VerifySequenceContinuityAsync(
+            GetLastSubmittedOfflineTransactionAsync,
+            channelLabel: "offline",
+            cancellationToken);
+
+    private async Task<OfflineSequenceContinuityResult> VerifySequenceContinuityAsync(
+        Func<CancellationToken, Task<SalesResult<SubmittedTransactionData>>> lookupFactory,
+        string channelLabel,
+        CancellationToken cancellationToken)
     {
         SalesResult<SubmittedTransactionData> lookup;
         try
         {
-            lookup = await GetLastSubmittedOfflineTransactionAsync(cancellationToken).ConfigureAwait(false);
+            lookup = await lookupFactory(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Unable to query last-submitted-offline-transaction for sequence check.");
+            _logger.LogWarning(ex, "Unable to query last-submitted-{Channel}-transaction for sequence check.", channelLabel);
             return OfflineSequenceContinuityResult.Unavailable(ex.Message);
         }
 
         if (!lookup.Success || lookup.Data is null)
         {
-            // No prior offline sale (or soft failure) — safe to sync local queue from current counters.
             return OfflineSequenceContinuityResult.NoRemoteBaseline(lookup.Remark);
         }
 
@@ -148,7 +179,8 @@ public sealed class SalesTransactionService
         if (!sequence.IsValid || !parse.HasCompositeInvoiceNumber)
         {
             _logger.LogWarning(
-                "Last offline invoice sequence check failed for {Invoice}: {Message}",
+                "Last {Channel} invoice sequence check failed for {Invoice}: {Message}",
+                channelLabel,
                 sequence.InvoiceNumber,
                 sequence.Message);
             return OfflineSequenceContinuityResult.Unparseable(sequence.InvoiceNumber, sequence.Message);
@@ -295,37 +327,6 @@ public sealed class SalesTransactionService
 
         var response = await _apiClient
             .PostAsync<object, TResponse>(relativePath, payloadToSend, context, cancellationToken)
-            .ConfigureAwait(false);
-
-        var result = ToResult(response);
-        if (!result.Success)
-        {
-            var errorsJson = result.Errors is null
-                ? "(no errors array)"
-                : JsonSerializer.Serialize(result.Errors, MraJson.SerializerOptions);
-            _logger.LogWarning(
-                "MRA EIS {Path} returned success=false. Remark={Remark}. Errors={Errors}. statusCode={StatusCode}",
-                relativePath,
-                result.Remark ?? "(null)",
-                errorsJson,
-                response.StatusCode);
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// JWT-authenticated POST with an empty JSON body — no <c>x-signature</c>
-    /// (matches OpenAPI for last-submitted-* and get-latest-configs style queries).
-    /// </summary>
-    private async Task<SalesResult<TResponse>> PostJwtOnlyAsync<TResponse>(
-        string relativePath,
-        CancellationToken cancellationToken)
-    {
-        var context = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
-
-        var response = await _apiClient
-            .PostAsync<object, TResponse>(relativePath, new { }, context, cancellationToken)
             .ConfigureAwait(false);
 
         var result = ToResult(response);

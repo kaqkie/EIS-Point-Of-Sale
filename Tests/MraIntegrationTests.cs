@@ -85,7 +85,7 @@ public sealed class MraIntegrationTests
     }
 
     [Fact]
-    public async Task GetLastSubmittedOnline_UsesJwtOnlyWithoutXSignature()
+    public async Task GetLastSubmittedOnline_PostsEmptyBody_WithBearerAuth_WithoutXSignature()
     {
         using var mock = new MockMraServer();
         using var harness = new MraIntegrationHarness(mock);
@@ -98,9 +98,12 @@ public sealed class MraIntegrationTests
 
         var logged = mock.AllRequests.Last(r =>
             r.Path.Contains("last-submitted-online-transaction", StringComparison.OrdinalIgnoreCase));
-        Assert.Equal("{}", logged.Body);
+        Assert.Equal(string.Empty, logged.Body);
         Assert.False(logged.Headers.ContainsKey(HmacSignatureService.SignatureHeaderName));
-        Assert.True(logged.Headers.ContainsKey("Authorization"));
+        Assert.True(logged.Headers.TryGetValue("Authorization", out var authValues));
+        Assert.StartsWith("Bearer ", Assert.Single(authValues), StringComparison.Ordinal);
+        Assert.True(logged.Headers.TryGetValue("Accept", out var acceptValues));
+        Assert.Equal("text/plain", Assert.Single(acceptValues));
     }
 
     [Fact]
