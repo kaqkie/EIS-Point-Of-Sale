@@ -5,6 +5,7 @@ using PointOfSale.Core.Entities;
 using PointOfSale.Core.Inventory;
 using PointOfSale.Core.Pricing;
 using PointOfSale.Infrastructure.Services;
+using PointOfSale.Mra.Billing;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Security;
 using PointOfSale.Mra.Serialization;
@@ -146,23 +147,38 @@ public sealed class MraIntegrationTests
     }
 
     [Fact]
-    public async Task OfflineSignatureBackup_MatchesHmacOverUnsignedPayloadJson()
+    public async Task OfflineSignatureBackup_MatchesHmacSha256ValidationUrlParams()
     {
         using var mock = new MockMraServer();
         using var harness = new MraIntegrationHarness(mock);
         harness.InventoryRepository.Seed(SalePayloadFactory.DefaultProduct);
 
-        var request = SalePayloadFactory.Create("OFFLINE-SIG-001");
-        var unsigned = request with
+        var date = new DateTime(2024, 4, 26, 14, 29, 34, DateTimeKind.Utc);
+        var invoice = MraInvoiceNumberGenerator.Generate(20162939, 1, date, 1);
+        var baseRequest = SalePayloadFactory.Create(invoice);
+        var request = baseRequest with
         {
-            InvoiceSummary = request.InvoiceSummary with { OfflineSignature = null }
+            InvoiceHeader = new InvoiceHeaderDto
+            {
+                InvoiceNumber = invoice,
+                InvoiceDateTime = date,
+                SellerTin = "20162939",
+                SiteId = baseRequest.InvoiceHeader.SiteId,
+                PaymentMethod = baseRequest.InvoiceHeader.PaymentMethod,
+                GlobalConfigVersion = baseRequest.InvoiceHeader.GlobalConfigVersion,
+                TaxpayerConfigVersion = baseRequest.InvoiceHeader.TaxpayerConfigVersion,
+                TerminalConfigVersion = baseRequest.InvoiceHeader.TerminalConfigVersion
+            }
         };
-        var payloadJson = JsonSerializer.Serialize(unsigned, MraJson.SerializerOptions);
 
-        var offlineSignature = await harness.SalesService.ComputeOfflineSignatureAsync(payloadJson);
-        var expected = HmacSignatureService.ComputeHmacSha512Base64(payloadJson, harness.AuthProvider.SecretKey);
+        var signed = await harness.SalesService.ComputeOfflineReceiptSignatureAsync(request);
+        var expected = MraOfflineReceiptSigning.GenerateFromSalesRequest(
+            request,
+            harness.AuthProvider.SecretKey);
 
-        Assert.Equal(expected, offlineSignature);
+        Assert.Equal(expected.OfflineDataSignature, signed.OfflineDataSignature);
+        Assert.Equal(expected.ValidationUrl, signed.ValidationUrl);
+        Assert.Equal(expected.ParameterString, signed.ParameterString);
     }
 
     [Fact]

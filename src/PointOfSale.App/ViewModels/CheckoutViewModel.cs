@@ -31,6 +31,7 @@ public partial class CheckoutViewModel : ObservableObject
     private readonly IAuthenticationAuthorizationService _auth;
     private readonly ISupervisorAuthorizationService _supervisorAuthorization;
     private readonly ISupervisorOverrideDialogService _supervisorDialog;
+    private readonly OfflineReceiptSignatureService _offlineReceiptSignatureService;
     private readonly ILogger<CheckoutViewModel> _logger;
 
     private ReceiptPrintRequest? _lastPrintableReceipt;
@@ -50,6 +51,7 @@ public partial class CheckoutViewModel : ObservableObject
         IAuthenticationAuthorizationService auth,
         ISupervisorAuthorizationService supervisorAuthorization,
         ISupervisorOverrideDialogService supervisorDialog,
+        OfflineReceiptSignatureService offlineReceiptSignatureService,
         ILogger<CheckoutViewModel> logger)
     {
         _inventoryRepository = inventoryRepository;
@@ -66,6 +68,7 @@ public partial class CheckoutViewModel : ObservableObject
         _auth = auth;
         _supervisorAuthorization = supervisorAuthorization;
         _supervisorDialog = supervisorDialog;
+        _offlineReceiptSignatureService = offlineReceiptSignatureService;
         _logger = logger;
         CartItems = new ObservableCollection<CartLineViewModel>();
         TaxLines = new ObservableCollection<TaxLineViewModel>();
@@ -923,17 +926,9 @@ public partial class CheckoutViewModel : ObservableObject
             else
             {
                 // Same cash-register / POS path: always print a customer receipt after a successful take.
-                await PrintReceiptAsync(
-                        request,
-                        FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
-                            new SubmitSalesTransactionResponseData
-                            {
-                                InvoiceNumber = result.InvoiceNumber,
-                                FiscalSignature = request.InvoiceSummary.OfflineSignature
-                                    ?? FiscalReceiptEnricher.OfflinePendingPlaceholder
-                            },
-                            result.InvoiceNumber))
+                var offlineFiscal = await BuildOfflineFiscalPayloadAsync(request, result.InvoiceNumber)
                     .ConfigureAwait(true);
+                await PrintReceiptAsync(request, offlineFiscal).ConfigureAwait(true);
 
                 if (result.TerminalBlocked)
                 {
@@ -1045,17 +1040,9 @@ public partial class CheckoutViewModel : ObservableObject
 
             var queued = CashierOperatorMessages.QueuedOffline(result.InvoiceNumber, forcedOffline: true);
             ShowOperatorDialog(queued);
-            await PrintReceiptAsync(
-                    request,
-                    FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
-                        new SubmitSalesTransactionResponseData
-                        {
-                            InvoiceNumber = result.InvoiceNumber,
-                            FiscalSignature = request.InvoiceSummary.OfflineSignature
-                                ?? FiscalReceiptEnricher.OfflinePendingPlaceholder
-                        },
-                        result.InvoiceNumber))
+            var offlineFiscal = await BuildOfflineFiscalPayloadAsync(request, result.InvoiceNumber)
                 .ConfigureAwait(true);
+            await PrintReceiptAsync(request, offlineFiscal).ConfigureAwait(true);
             StatusMessage = $"{queued.Body} Receipt sent to printer.";
             CartItems.Clear();
             RecalculateTotals();
@@ -1211,6 +1198,37 @@ public partial class CheckoutViewModel : ObservableObject
                     .Where(r => !string.IsNullOrWhiteSpace(r.Id) && r.Rate > 0m)
                     .Select(r => (r.Id!.Trim(), r.Rate))
                     .ToList()));
+    }
+
+    private async Task<SubmitSalesTransactionResponseData> BuildOfflineFiscalPayloadAsync(
+        SubmitSalesTransactionRequest request,
+        string invoiceNumber)
+    {
+        try
+        {
+            // Prefer regenerating the official ValidationURL so the offline QR matches MRA HMAC-SHA256.
+            var signed = await _offlineReceiptSignatureService.SignAsync(request).ConfigureAwait(true);
+            return FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = invoiceNumber,
+                    FiscalSignature = signed.OfflineDataSignature,
+                    VerificationUrl = signed.ValidationUrl
+                },
+                invoiceNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Offline ValidationURL signing failed for {InvoiceNumber}; using stored signature.", invoiceNumber);
+            return FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = invoiceNumber,
+                    FiscalSignature = request.InvoiceSummary.OfflineSignature
+                        ?? FiscalReceiptEnricher.OfflinePendingPlaceholder
+                },
+                invoiceNumber);
+        }
     }
 
     private async Task PrintReceiptAsync(

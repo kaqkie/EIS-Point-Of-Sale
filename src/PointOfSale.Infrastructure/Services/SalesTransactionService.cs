@@ -315,6 +315,10 @@ public sealed class SalesTransactionService
     public SubmitSalesTransactionRequest PreparePayload(SubmitSalesTransactionRequest request, bool forceOffline) =>
         request;
 
+    /// <summary>
+    /// Legacy helper: HMAC-SHA512 over arbitrary payload JSON (EIS message-hash style).
+    /// Prefer <see cref="ComputeOfflineReceiptSignatureAsync"/> for offline sales compliance.
+    /// </summary>
     public async Task<string> ComputeOfflineSignatureAsync(string payloadJson, CancellationToken cancellationToken = default)
     {
         var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
@@ -324,6 +328,34 @@ public sealed class SalesTransactionService
         }
 
         return HmacSignatureService.ComputeHmacSha512Base64(payloadJson, context.SecretKey);
+    }
+
+    /// <summary>
+    /// MRA offline receipt signing: Julian/Base64 <c>TI</c>, parameter string <c>TI/N/I/V/T</c>,
+    /// HMAC-SHA256 <c>offlineDataSignature</c>, and full <c>ValidationURL</c>.
+    /// </summary>
+    public Task<MraOfflineReceiptSignatureResult> ComputeOfflineReceiptSignatureAsync(
+        SubmitSalesTransactionRequest request,
+        string? offlineValidationBaseUrl = null,
+        CancellationToken cancellationToken = default) =>
+        ComputeOfflineReceiptSignatureCoreAsync(request, offlineValidationBaseUrl, cancellationToken);
+
+    private async Task<MraOfflineReceiptSignatureResult> ComputeOfflineReceiptSignatureCoreAsync(
+        SubmitSalesTransactionRequest request,
+        string? offlineValidationBaseUrl,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var context = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(context.SecretKey))
+        {
+            throw new InvalidOperationException("Secret key unavailable for offline ValidationURL signature.");
+        }
+
+        return MraOfflineReceiptSigning.GenerateFromSalesRequest(
+            request,
+            context.SecretKey,
+            offlineValidationBaseUrl);
     }
 
     public async Task ApplyLocalInventoryDeductionsAsync(

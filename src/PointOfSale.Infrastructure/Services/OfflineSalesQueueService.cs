@@ -36,6 +36,7 @@ public sealed class OfflineSalesQueueService
     private readonly IMraInvoiceSequenceService? _invoiceSequenceService;
     private readonly TerminalOnboardingService? _terminalOnboardingService;
     private readonly TerminalBlockingMessageService? _terminalBlockingMessageService;
+    private readonly OfflineReceiptSignatureService? _offlineReceiptSignatureService;
     private readonly IOfflineInvoiceSyncCompletedHandler? _syncCompletedHandler;
     private readonly IComplianceAuditLogger? _complianceAudit;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
@@ -55,6 +56,7 @@ public sealed class OfflineSalesQueueService
         IMraInvoiceSequenceService? invoiceSequenceService = null,
         TerminalOnboardingService? terminalOnboardingService = null,
         TerminalBlockingMessageService? terminalBlockingMessageService = null,
+        OfflineReceiptSignatureService? offlineReceiptSignatureService = null,
         IMraEisResponseEvaluator? responseEvaluator = null)
     {
         _queueRepository = queueRepository;
@@ -68,6 +70,7 @@ public sealed class OfflineSalesQueueService
         _invoiceSequenceService = invoiceSequenceService;
         _terminalOnboardingService = terminalOnboardingService;
         _terminalBlockingMessageService = terminalBlockingMessageService;
+        _offlineReceiptSignatureService = offlineReceiptSignatureService;
         _responseEvaluator = responseEvaluator ?? new MraEisResponseEvaluator(
             NullLogger<MraEisResponseEvaluator>.Instance);
     }
@@ -1069,6 +1072,15 @@ public sealed class OfflineSalesQueueService
         SubmitSalesTransactionRequest request,
         CancellationToken cancellationToken)
     {
+        // Prefer official MRA offline ValidationURL HMAC-SHA256 (signing_offline_receipts.htm).
+        if (_offlineReceiptSignatureService is not null)
+        {
+            return await _offlineReceiptSignatureService
+                .AttachOfflineSignatureAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        // Fallback for unit tests that omit OfflineReceiptSignatureService: still produce a non-null signature.
         var unsigned = request with
         {
             InvoiceSummary = request.InvoiceSummary with { OfflineSignature = null }

@@ -60,6 +60,25 @@ public static class HmacSignatureService
         ComputeHmacSha512(plainText, secretKey);
 
     /// <summary>
+    /// MRA offline receipt signing: HMAC-SHA256(UTF-8 plaintext, UTF-8 secret) → Base64 URL-safe
+    /// (<c>+</c>→<c>-</c>, <c>/</c>→<c>_</c>, trim <c>=</c>) per
+    /// <c>https://dev-eis-api.mra.mw/docs/signing_offline_receipts.htm</c>.
+    /// </summary>
+    public static string ComputeHmacWithSha256(string plainText, string secretKey)
+    {
+        ArgumentNullException.ThrowIfNull(plainText);
+        ArgumentException.ThrowIfNullOrWhiteSpace(secretKey);
+
+        var keyBytes = Encoding.UTF8.GetBytes(secretKey);
+        var dataBytes = Encoding.UTF8.GetBytes(plainText);
+        var hash = HMACSHA256.HashData(keyBytes, dataBytes);
+        return Convert.ToBase64String(hash)
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
+    }
+
+    /// <summary>
     /// Terminal activated confirmation: HMAC-SHA512(TAC, secretKey) → Base64.
     /// Per MRA, the confirmation endpoint signs the Terminal Activation Code (not the JSON body).
     /// </summary>

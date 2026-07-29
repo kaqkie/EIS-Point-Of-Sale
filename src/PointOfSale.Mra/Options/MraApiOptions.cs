@@ -27,6 +27,12 @@ public sealed class MraApiOptions
     public const string DefaultSandboxVerificationBaseUrl = "https://dev-eis-portal.mra.mw/verify";
     public const string DefaultProductionVerificationBaseUrl = "https://eis-portal.mra.mw/verify";
 
+    public const string DefaultSandboxOfflineReceiptValidationBaseUrl =
+        "https://dev-eis-portal.mra.mw/ReceiptValidation/Validate/";
+
+    public const string DefaultProductionOfflineReceiptValidationBaseUrl =
+        "https://eis-portal.mra.mw/ReceiptValidation/Validate/";
+
     /// <summary>Sandbox | Production — selects SandboxBaseUrl or ProductionBaseUrl when BaseUrl is not overridden.</summary>
     public string Environment { get; set; } = "Sandbox";
 
@@ -58,6 +64,12 @@ public sealed class MraApiOptions
     public string VerificationBaseUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Offline ValidationURL base (<c>.../ReceiptValidation/Validate/</c>).
+    /// When empty, Sandbox vs Production defaults from <see cref="Environment"/> are used.
+    /// </summary>
+    public string OfflineReceiptValidationBaseUrl { get; set; } = string.Empty;
+
+    /// <summary>
     /// Vendor <c>x-access-key</c> issued by MRA after system certification.
     /// Required only for Production <c>onboarding/activate-terminal</c>; leave empty in Sandbox.
     /// </summary>
@@ -85,6 +97,24 @@ public sealed class MraApiOptions
         return Environment.Equals("Production", StringComparison.OrdinalIgnoreCase)
             ? DefaultProductionVerificationBaseUrl
             : DefaultSandboxVerificationBaseUrl;
+    }
+
+    /// <summary>
+    /// Base URL for offline receipt ValidationURL generation
+    /// (<c>https://dev-eis-api.mra.mw/docs/signing_offline_receipts.htm</c>).
+    /// </summary>
+    public string ResolveOfflineReceiptValidationBaseUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(OfflineReceiptValidationBaseUrl)
+            && !IsLegacyUnreachableHost(OfflineReceiptValidationBaseUrl))
+        {
+            return PointOfSale.Mra.Billing.MraOfflineReceiptSigning.NormalizeValidationBaseUrl(
+                OfflineReceiptValidationBaseUrl);
+        }
+
+        return Environment.Equals("Production", StringComparison.OrdinalIgnoreCase)
+            ? DefaultProductionOfflineReceiptValidationBaseUrl
+            : DefaultSandboxOfflineReceiptValidationBaseUrl;
     }
 
     public bool ShouldRelaxServerCertificateValidation()

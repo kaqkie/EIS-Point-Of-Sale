@@ -5,6 +5,7 @@ using System.Text.Json;
 using PointOfSale.App.Services.Compliance;
 using PointOfSale.Core.Entities;
 using PointOfSale.Core.Pricing;
+using PointOfSale.Mra.Billing;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Contracts.Stock;
 using PointOfSale.Mra.Security;
@@ -136,13 +137,13 @@ public sealed class MraCertificationRunner : IDisposable
         await StepAsync(document, "Offline Signature Backup & Queue Insertion", "offline-queue", async () =>
         {
             var sale = BuildSale("CERT-OFFLINE-001");
-            var unsigned = sale with { InvoiceSummary = sale.InvoiceSummary with { OfflineSignature = null } };
-            var payloadJson = JsonSerializer.Serialize(unsigned, MraJson.SerializerOptions);
-            var offlineSig = await _harness.SalesService.ComputeOfflineSignatureAsync(payloadJson, cancellationToken)
+            var offlineSigned = await _harness.SalesService
+                .ComputeOfflineReceiptSignatureAsync(sale, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             Assert.Equal(
-                HmacSignatureService.ComputeHmacSha512Base64(payloadJson, _harness.AuthProvider.SecretKey),
-                offlineSig);
+                MraOfflineReceiptSigning.GenerateFromSalesRequest(sale, _harness.AuthProvider.SecretKey).OfflineDataSignature,
+                offlineSigned.OfflineDataSignature);
+            Assert.Contains("ReceiptValidation/Validate", offlineSigned.ValidationUrl, StringComparison.OrdinalIgnoreCase);
 
             var queueResult = await _harness.OfflineQueueService
                 .EnqueueAndTrySubmitAsync(sale, forceOffline: true, cancellationToken)
@@ -156,10 +157,10 @@ public sealed class MraCertificationRunner : IDisposable
             Assert.Equal("PENDING", item!.Status);
 
             return (200,
-                JsonSerializer.Serialize(new { queueResult.QueueId, offlineSig }),
-                offlineSig,
-                offlineSig,
-                payloadJson);
+                JsonSerializer.Serialize(new { queueResult.QueueId, offlineSigned.OfflineDataSignature, offlineSigned.ValidationUrl }),
+                offlineSigned.OfflineDataSignature,
+                offlineSigned.OfflineDataSignature,
+                offlineSigned.ParameterString);
         }, cancellationToken).ConfigureAwait(false);
 
         await StepAsync(document, "Credit/Debit Note Processing", "sales/process-credit-debit-note", async () =>
