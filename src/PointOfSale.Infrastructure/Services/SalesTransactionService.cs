@@ -8,6 +8,8 @@ using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Security;
 using PointOfSale.Mra.Serialization;
+using PointOfSale.Mra.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace PointOfSale.Infrastructure.Services;
 
@@ -17,6 +19,7 @@ public sealed class SalesTransactionService
     private readonly IMraTerminalAuthProvider _authProvider;
     private readonly ILocalInventoryRepository _inventoryRepository;
     private readonly StockManagementService _stockManagementService;
+    private readonly ILastSubmittedOfflineTransactionResponseService _lastOfflineParser;
     private readonly ILogger<SalesTransactionService> _logger;
 
     public SalesTransactionService(
@@ -24,13 +27,17 @@ public sealed class SalesTransactionService
         IMraTerminalAuthProvider authProvider,
         ILocalInventoryRepository inventoryRepository,
         StockManagementService stockManagementService,
-        ILogger<SalesTransactionService> logger)
+        ILogger<SalesTransactionService> logger,
+        ILastSubmittedOfflineTransactionResponseService? lastOfflineParser = null)
     {
         _apiClient = apiClient;
         _authProvider = authProvider;
         _inventoryRepository = inventoryRepository;
         _stockManagementService = stockManagementService;
         _logger = logger;
+        _lastOfflineParser = lastOfflineParser
+            ?? new LastSubmittedOfflineTransactionResponseService(
+                NullLogger<LastSubmittedOfflineTransactionResponseService>.Instance);
     }
 
     public Task<SalesResult<SubmitSalesTransactionResponseData>> SubmitSalesTransactionAsync(
@@ -120,22 +127,40 @@ public sealed class SalesTransactionService
             return OfflineSequenceContinuityResult.NoRemoteBaseline(lookup.Remark);
         }
 
-        var invoiceNumber = lookup.Data.InvoiceHeader?.InvoiceNumber;
-        if (!MraInvoiceNumberGenerator.TryParseComposite(invoiceNumber, out var parts))
+        var parse = _lastOfflineParser.Validate(
+            new EisApiResponse<SubmittedTransactionData>
+            {
+                StatusCode = 1,
+                Remark = lookup.Remark,
+                Data = lookup.Data
+            });
+        if (!parse.Success || parse.Data is null)
+        {
+            return OfflineSequenceContinuityResult.Unparseable(
+                lookup.Data.InvoiceHeader?.InvoiceNumber,
+                parse.Remark);
+        }
+
+        var sequence = _lastOfflineParser.CheckSequenceContinuity(
+            parse.Data,
+            expectedSellerTin: parse.Data.InvoiceHeader?.SellerTin);
+
+        if (!sequence.IsValid || !parse.HasCompositeInvoiceNumber)
         {
             _logger.LogWarning(
-                "Last offline invoice {Invoice} is not a parseable MRA composite; skipping sequence alignment.",
-                invoiceNumber);
-            return OfflineSequenceContinuityResult.Unparseable(invoiceNumber, lookup.Remark);
+                "Last offline invoice sequence check failed for {Invoice}: {Message}",
+                sequence.InvoiceNumber,
+                sequence.Message);
+            return OfflineSequenceContinuityResult.Unparseable(sequence.InvoiceNumber, sequence.Message);
         }
 
         return OfflineSequenceContinuityResult.Aligned(
-            invoiceNumber!,
-            parts.TaxpayerId,
-            parts.TerminalPosition,
-            parts.JulianDate,
-            parts.TransactionCount,
-            lookup.Data.DateSubmitted,
+            sequence.InvoiceNumber!,
+            sequence.TaxpayerId!.Value,
+            sequence.TerminalPosition!.Value,
+            sequence.JulianDate!.Value,
+            sequence.TransactionCount!.Value,
+            parse.Data.DateSubmitted,
             lookup.Remark);
     }
 

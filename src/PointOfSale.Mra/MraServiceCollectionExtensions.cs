@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using PointOfSale.Mra.Options;
+using PointOfSale.Mra.Services;
 using PointOfSale.Mra.Services.Configuration;
 using PointOfSale.Mra.Services.Onboarding;
 
@@ -20,6 +21,7 @@ public static class MraServiceCollectionExtensions
             services.AddOptions<MraApiOptions>();
         }
 
+        services.AddSingleton<ILastSubmittedOfflineTransactionResponseService, LastSubmittedOfflineTransactionResponseService>();
         services.AddHttpClient<OnboardingApiService>((sp, client) =>
         {
             var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MraApiOptions>>().Value;
