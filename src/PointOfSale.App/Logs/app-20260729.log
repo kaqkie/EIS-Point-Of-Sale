@@ -1470,3 +1470,233 @@ Operation cancelled by user.
    at PointOfSale.Infrastructure.Services.OfflineTransactionSyncService.DrainPendingAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\OfflineTransactionSyncService.cs:line 89
    at PointOfSale.Infrastructure.Workers.OfflineInvoiceFifoSyncBackgroundService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Workers\OfflineInvoiceFifoSyncBackgroundService.cs:line 58
 ClientConnectionId:54f7ff94-6187-4fe4-8f09-98bea815a87f
+2026-07-29 14:27:50.691 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-29 14:27:50.914 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 412
+ClientConnectionId:6f72af96-6a67-4d27-9922-44bbda22f6bc
+Error Number:10611,State:1,Class:16
+2026-07-29 14:27:52.144 +02:00 [INF] Offline invoice FIFO sync worker started (interval 15s, requireConnectivity=true).
+2026-07-29 14:27:52.376 +02:00 [INF] Hardware fault-tolerance loop started (probe every 20s).
+2026-07-29 14:27:52.379 +02:00 [INF] ArchivalCompressionBackgroundService is disabled.
+2026-07-29 14:27:52.388 +02:00 [INF] Inventory alert scanner started (interval 60s).
+2026-07-29 14:27:52.413 +02:00 [INF] HealthCheckWorker started (interval 45s).
+2026-07-29 14:27:52.417 +02:00 [INF] System health monitor started (interval 45s).
+2026-07-29 14:27:52.420 +02:00 [INF] PerformanceProfilingBackgroundService started (sample 30s, flush 300s).
+2026-07-29 14:27:52.424 +02:00 [INF] DatabaseMaintenanceBackgroundService started (interval 24h).
+2026-07-29 14:27:52.575 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-29 14:27:52.905 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-29 14:27:53.212 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-29 14:27:53.213 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=401 success=false durationMs=625
+2026-07-29 14:27:53.222 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 412
+ClientConnectionId:6f72af96-6a67-4d27-9922-44bbda22f6bc
+Error Number:10611,State:1,Class:16
+2026-07-29 14:27:53.485 +02:00 [WRN] MRA EIS HTTP 401 for POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction". RequestPayload=(empty). ResponseBody=(empty)
+2026-07-29 14:27:53.486 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: Empty MRA EIS response (401).
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 274
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-29 14:28:00.613 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:28:01.018 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 3 null: SQL round-trip 3 ms
+2026-07-29 14:28:01.493 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 341 404: MRA reachable (404) in 341 ms.
+2026-07-29 14:28:01.921 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:28:01.944 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 3 null: All subsystems healthy (SQL 3 ms, disk 40.09 GB free).
+2026-07-29 14:28:04.434 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: SQL round-trip 2 ms
+2026-07-29 14:28:04.496 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 51 404: MRA reachable (404) in 51 ms.
+2026-07-29 14:28:04.662 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:28:04.663 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 2 null: All subsystems healthy (SQL 2 ms, disk 40.09 GB free).
+2026-07-29 14:28:08.204 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:28:08.277 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:28:25.748 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:28:31.109 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:28:45.823 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:28:47.105 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:28:47.140 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 4 null: SQL round-trip 4 ms
+2026-07-29 14:28:47.198 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 46 404: MRA reachable (404) in 46 ms.
+2026-07-29 14:28:50.572 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:28:50.572 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 4 null: All subsystems healthy (SQL 4 ms, disk 40.09 GB free).
+2026-07-29 14:28:53.289 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-29 14:28:55.086 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1726 404: MRA reachable (404) in 1726 ms.
+2026-07-29 14:28:55.516 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:28:55.517 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 40.09 GB free).
+2026-07-29 14:28:55.814 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:28:55.862 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-29 14:28:55.877 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:29:05.811 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:29:25.651 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:29:26.689 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:29:35.635 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:29:35.669 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-29 14:29:35.815 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 142 404: MRA reachable (404) in 142 ms.
+2026-07-29 14:29:39.086 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:29:39.086 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 40.09 GB free).
+2026-07-29 14:29:40.890 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-29 14:29:41.204 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 305 404: MRA reachable (404) in 305 ms.
+2026-07-29 14:29:41.733 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:29:41.733 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 40.09 GB free).
+2026-07-29 14:29:43.482 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:29:43.557 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:29:46.497 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:29:51.751 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-29 14:29:52.694 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=401 success=false durationMs=937
+2026-07-29 14:29:52.703 +02:00 [WRN] MRA EIS HTTP 401 for POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction". RequestPayload=(empty). ResponseBody=(empty)
+2026-07-29 14:29:52.703 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: Empty MRA EIS response (401).
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 274
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-29 14:29:55.908 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-29 14:30:05.726 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:30:22.509 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:30:24.135 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:30:24.169 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-29 14:30:26.649 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:30:27.461 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3278 404: MRA reachable (404) in 3278 ms.
+2026-07-29 14:30:28.591 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-29 14:30:29.133 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 196 404: MRA reachable (404) in 196 ms.
+2026-07-29 14:30:29.147 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 40.09 GB free).
+2026-07-29 14:30:29.233 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:30:30.786 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:30:30.787 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 40.09 GB free).
+2026-07-29 14:30:46.234 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:31:05.116 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-29 14:31:05.245 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 34 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:31:05.729 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:31:14.255 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: SQL round-trip 2 ms
+2026-07-29 14:31:14.371 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 105 404: MRA reachable (404) in 105 ms.
+2026-07-29 14:31:14.841 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:31:14.841 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 2 null: All subsystems healthy (SQL 2 ms, disk 40.09 GB free).
+2026-07-29 14:31:15.812 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:31:15.823 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-29 14:31:16.110 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 278 404: MRA reachable (404) in 278 ms.
+2026-07-29 14:31:16.150 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 40.09 GB free).
+2026-07-29 14:31:16.248 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:31:16.317 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:31:25.633 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:31:25.955 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-29 14:31:26.260 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=401 success=false durationMs=297
+2026-07-29 14:31:26.269 +02:00 [WRN] MRA EIS HTTP 401 for POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction". RequestPayload=(empty). ResponseBody=(empty)
+2026-07-29 14:31:26.270 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: Empty MRA EIS response (401).
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 274
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-29 14:31:35.316 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:31:45.593 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:01.185 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:32:01.203 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 6 null: SQL round-trip 6 ms
+2026-07-29 14:32:01.343 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-29 14:32:01.438 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 91 404: MRA reachable (404) in 91 ms.
+2026-07-29 14:32:01.671 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:01.672 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 40.09 GB free).
+2026-07-29 14:32:04.439 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:04.439 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3232 404: MRA reachable (404) in 3232 ms.
+2026-07-29 14:32:04.558 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:32:04.991 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:04.992 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 6 null: All subsystems healthy (SQL 6 ms, disk 40.09 GB free).
+2026-07-29 14:32:05.371 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-29 14:32:05.772 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:26.666 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:32.328 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 18 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:32:45.697 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:50.015 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-29 14:32:50.098 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 70 404: MRA reachable (404) in 70 ms.
+2026-07-29 14:32:50.125 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:32:50.213 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-29 14:32:50.314 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 44 404: MRA reachable (404) in 44 ms.
+2026-07-29 14:32:50.324 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:50.325 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 40.09 GB free).
+2026-07-29 14:32:50.451 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:32:53.699 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:32:53.700 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 40.09 GB free).
+2026-07-29 14:33:05.641 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:33:25.685 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:33:28.782 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:33:28.820 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-29 14:33:29.199 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=401 success=false durationMs=391
+2026-07-29 14:33:29.255 +02:00 [WRN] MRA EIS HTTP 401 for POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction". RequestPayload=(empty). ResponseBody=(empty)
+2026-07-29 14:33:29.255 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: Empty MRA EIS response (401).
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 274
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-29 14:33:35.492 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-29 14:33:35.607 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 83 404: MRA reachable (404) in 83 ms.
+2026-07-29 14:33:38.748 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:33:38.758 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-29 14:33:38.877 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 115 404: MRA reachable (404) in 115 ms.
+2026-07-29 14:33:38.880 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 40.09 GB free).
+2026-07-29 14:33:38.887 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:33:38.887 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 40.09 GB free).
+2026-07-29 14:33:39.053 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:33:39.116 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:33:45.593 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:33:53.898 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-29 14:33:58.946 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:34:05.603 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:34:24.024 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:34:24.145 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 32 null: SQL round-trip 32 ms
+2026-07-29 14:34:24.307 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 6 null: SQL round-trip 6 ms
+2026-07-29 14:34:24.351 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 102 404: MRA reachable (404) in 102 ms.
+2026-07-29 14:34:24.421 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 84 404: MRA reachable (404) in 84 ms.
+2026-07-29 14:34:24.425 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 6 null: All subsystems healthy (SQL 6 ms, disk 40.09 GB free).
+2026-07-29 14:34:24.558 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:34:24.591 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:34:24.591 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 32 null: All subsystems healthy (SQL 32 ms, disk 40.09 GB free).
+2026-07-29 14:34:28.739 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:34:45.837 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:34:54.176 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-29 14:34:55.678 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-29 14:35:04.465 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-29 14:35:04.622 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=401 success=false durationMs=157
+2026-07-29 14:35:04.805 +02:00 [WRN] MRA EIS HTTP 401 for POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction". RequestPayload=(empty). ResponseBody=(empty)
+2026-07-29 14:35:04.805 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: Empty MRA EIS response (401).
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 274
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 223
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-29 14:35:05.812 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:35:09.579 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-29 14:35:09.751 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-29 14:35:09.976 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 49 404: MRA reachable (404) in 49 ms.
+2026-07-29 14:35:10.036 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 9 null: SQL round-trip 9 ms
+2026-07-29 14:35:10.508 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 58 404: MRA reachable (404) in 58 ms.
+2026-07-29 14:35:10.551 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 9 null: All subsystems healthy (SQL 9 ms, disk 40.09 GB free).
+2026-07-29 14:35:13.510 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:35:13.510 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 40.09 GB free).
+2026-07-29 14:35:13.731 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:35:13.812 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-29 14:35:25.692 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-29 14:35:33.954 +02:00 [INF] Hardware fault-tolerance loop stopped.
