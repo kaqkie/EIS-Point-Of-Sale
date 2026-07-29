@@ -106,6 +106,20 @@ public sealed class ComplianceCertificationService : IComplianceCertificationSer
             return (200, JsonSerializer.Serialize(new { success = true, remark = result.Remark }), null, null);
         }, Log, cancellationToken).ConfigureAwait(false);
 
+        await RunStepAsync(document, "Product UNSPSC Status", "utilities/product-status", async () =>
+        {
+            // Endpoint exercise — unmapped barcodes may return non-success; still proves auth + routing.
+            var result = await stock.GetProductStatusAsync("CERT-SKU-001", cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return (result.Success ? 200 : 404, JsonSerializer.Serialize(new
+            {
+                success = result.Success,
+                productId = result.Data?.ProductId,
+                psCode = result.Data?.PsCode,
+                remark = result.Remark
+            }), null, null);
+        }, Log, cancellationToken).ConfigureAwait(false);
+
         await RunStepAsync(document, "Initial Inventory Staging/Upload", "utilities/taxpayer-initial-inventory-upload", async () =>
         {
             var items = new List<InitialInventoryItemDto>

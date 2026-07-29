@@ -292,6 +292,25 @@ public class MockMraEisServer : IDisposable
             });
         }
 
+        if (path.Contains("utilities/product-status", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("product-status", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateJsonResponse(HttpStatusCode.OK, new
+            {
+                statusCode = 1,
+                remark = "Product mapped",
+                data = new
+                {
+                    productId = "10121500",
+                    description = "Mock product",
+                    psCode = "50111500",
+                    psDescription = "Beverages",
+                    applicableTaxRateIds = new[] { "A" },
+                    quantitiesInStock = Array.Empty<object>()
+                }
+            });
+        }
+
         if (path.Contains("last-submitted-online-transaction", StringComparison.OrdinalIgnoreCase) ||
             path.Contains("last-submitted-offline-transaction", StringComparison.OrdinalIgnoreCase))
         {

@@ -249,6 +249,68 @@ public sealed class StockManagementService
         return sync.UpsertedCount;
     }
 
+    /// <summary>
+    /// <c>POST /api/v1/utilities/product-status</c> —
+    /// checks whether a product (barcode) is mapped to UNSPSC at MRA.
+    /// <c>Accept: text/plain</c>, JSON body with <c>productId</c>/<c>tin</c>,
+    /// Authorization JWT from terminal activation (raw token, per MRA samples).
+    /// </summary>
+    public async Task<StockResult<ProductStatusResponseData>> GetProductStatusAsync(
+        string productId,
+        string? tin = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(productId);
+
+        var taxpayerTin = await ResolveTaxpayerTinAsync(tin, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(taxpayerTin))
+        {
+            return StockResult<ProductStatusResponseData>.Failed(
+                "Taxpayer TIN is required for product-status (pass tin or complete onboarding config).",
+                errors: null);
+        }
+
+        var payload = new ProductStatusRequest
+        {
+            ProductId = productId.Trim(),
+            Tin = taxpayerTin
+        };
+
+        var jwtContext = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
+        var context = new MraRequestContext
+        {
+            JwtToken = jwtContext.JwtToken,
+            UseBearerAuthorization = false,
+            AcceptHeader = "text/plain"
+        };
+
+        var response = await _apiClient
+            .PostAsync<ProductStatusRequest, ProductStatusResponseData>(
+                "utilities/product-status",
+                payload,
+                context,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!response.IsSuccess || response.Data is null)
+        {
+            _logger.LogWarning(
+                "product-status failed for productId={ProductId} tin={Tin}. Remark={Remark}",
+                payload.ProductId,
+                payload.Tin,
+                response.Remark ?? "(null)");
+            return StockResult<ProductStatusResponseData>.Failed(response.Remark, response.Errors);
+        }
+
+        _logger.LogInformation(
+            "product-status for productId={ProductId}: psCode={PsCode} description={Description}",
+            response.Data.ProductId ?? payload.ProductId,
+            response.Data.PsCode ?? "(none)",
+            response.Data.Description ?? "(none)");
+
+        return StockResult<ProductStatusResponseData>.Succeeded(response.Data, response.Remark);
+    }
+
     public async Task<StockResult<IReadOnlyList<StockAdjustmentReasonDto>>> GetStockAdjustmentReasonsAsync(
         CancellationToken cancellationToken = default)
     {
