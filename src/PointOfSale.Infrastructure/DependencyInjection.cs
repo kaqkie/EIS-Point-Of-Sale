@@ -80,6 +80,8 @@ public static class DependencyInjection
         services.AddSingleton<IMraEisResponseEvaluator, MraEisResponseEvaluator>();
         services.AddSingleton<ILastSubmittedOfflineTransactionResponseService, LastSubmittedOfflineTransactionResponseService>();
         services.AddSingleton<ILastSubmittedOnlineTransactionResponseService, LastSubmittedOnlineTransactionResponseService>();
+        services.AddSingleton<ITerminalSiteProductsResponseService, TerminalSiteProductsResponseService>();
+        services.AddScoped<ITerminalSiteProductsCatalogSyncService, TerminalSiteProductsCatalogSyncService>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();

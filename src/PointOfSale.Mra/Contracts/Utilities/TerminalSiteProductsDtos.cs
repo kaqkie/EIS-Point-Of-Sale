@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PointOfSale.Mra.Contracts.Common;
 
 namespace PointOfSale.Mra.Contracts.Utilities;
 
@@ -12,6 +13,14 @@ public sealed class GetTerminalSiteProductsRequest
 
     [JsonPropertyName("siteId")]
     public required string SiteId { get; init; }
+}
+
+/// <summary>
+/// Typed EIS envelope for <c>get-terminal-site-products</c>
+/// (<c>statusCode</c>, <c>remark</c>, <c>errors</c>, <c>data</c> catalog array).
+/// </summary>
+public sealed class GetTerminalSiteProductsResponse : EisApiResponse<IReadOnlyList<TerminalSiteProductDto>>
+{
 }
 
 /// <summary>
@@ -76,4 +85,24 @@ public sealed class TerminalSiteProductDto
 
         return null;
     }
+}
+
+/// <summary>
+/// Normalized catalog row ready for Albert Retail Terminal local inventory persistence.
+/// </summary>
+public sealed class TerminalSiteProductCatalogSnapshot
+{
+    public required string ProductId { get; init; }
+    public required string ProductCode { get; init; }
+    public required string Name { get; init; }
+    public string? Description { get; init; }
+    public decimal UnitPrice { get; init; }
+    public decimal StockQuantity { get; init; }
+    public string? UnitOfMeasure { get; init; }
+    public string? SiteId { get; init; }
+    public DateTime? ProductExpiryDate { get; init; }
+    public decimal MinimumStockLevel { get; init; }
+    public string? TaxRateId { get; init; }
+    public bool IsProduct { get; init; }
+    public string? HsCode { get; init; }
 }

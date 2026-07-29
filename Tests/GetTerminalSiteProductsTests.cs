@@ -56,7 +56,7 @@ public sealed class GetTerminalSiteProductsTests
             }
             """;
 
-        var response = JsonSerializer.Deserialize<PointOfSale.Mra.Contracts.Common.EisApiResponse<IReadOnlyList<TerminalSiteProductDto>>>(
+        var response = JsonSerializer.Deserialize<GetTerminalSiteProductsResponse>(
             json,
             MraJson.SerializerOptions);
 
@@ -67,6 +67,86 @@ public sealed class GetTerminalSiteProductsTests
         Assert.Equal(120m, response.Data[0].Quantity);
         Assert.Equal("A", response.Data[0].TaxRateId);
         Assert.False(response.Data[1].IsProduct);
+        Assert.Null(response.Data[1].ProductExpiryDate);
+    }
+
+    [Fact]
+    public void Parser_BuildsSnapshots_AndSyncPersistsLocalInventory()
+    {
+        const string json = """
+            {
+              "statusCode": 1,
+              "remark": "Success",
+              "data": [
+                {
+                  "productCode": "1234567890123",
+                  "productName": "Coca Cola 500ml",
+                  "description": "Carbonated soft drink",
+                  "quantity": 120,
+                  "unitOfMeasure": "Bottle",
+                  "price": 1.5,
+                  "siteId": "SITE001",
+                  "productExpiryDate": "2025-12-31T00:00:00.000Z",
+                  "minimumStockLevel": 10,
+                  "taxRateId": "A",
+                  "isProduct": true
+                },
+                {
+                  "productCode": "SRV001",
+                  "productName": "Car Wash Service",
+                  "description": "Standard car wash",
+                  "quantity": 0,
+                  "unitOfMeasure": "Service",
+                  "price": 10,
+                  "siteId": "SITE001",
+                  "productExpiryDate": null,
+                  "minimumStockLevel": 0,
+                  "taxRateId": "E",
+                  "isProduct": false
+                },
+                {
+                  "productCode": null,
+                  "productName": "Broken row",
+                  "quantity": 1,
+                  "price": 1,
+                  "isProduct": true
+                }
+              ],
+              "errors": []
+            }
+            """;
+
+        var parser = new PointOfSale.Mra.Services.TerminalSiteProductsResponseService(
+            NullLogger<PointOfSale.Mra.Services.TerminalSiteProductsResponseService>.Instance);
+        var parsed = parser.ParseJson(json);
+
+        Assert.True(parsed.Success);
+        Assert.Equal(3, parsed.ProductCount);
+        Assert.Equal(2, parsed.UsableCount);
+        Assert.Equal(1, parsed.SkippedInvalidRows);
+        Assert.Equal(1, parsed.ServiceCount);
+        Assert.NotNull(parsed.Snapshots[0].ProductExpiryDate);
+        Assert.Null(parsed.Snapshots[1].ProductExpiryDate);
+
+        var inventory = new FakeLocalInventoryRepository();
+        var config = new FakeConfigurationRepository();
+        var sync = new TerminalSiteProductsCatalogSyncService(
+            parser,
+            inventory,
+            config,
+            NullLogger<TerminalSiteProductsCatalogSyncService>.Instance);
+
+        var result = sync.SyncFromJsonAsync(json, "2005000001", "SITE001").GetAwaiter().GetResult();
+        Assert.True(result.Success);
+        Assert.Equal(2, result.UpsertedCount);
+        Assert.Equal(1, result.ProductCount);
+        Assert.Equal(1, result.ServiceCount);
+
+        var cola = inventory.GetByProductCodeAsync("1234567890123").GetAwaiter().GetResult();
+        Assert.NotNull(cola);
+        Assert.Equal("MraEis", cola!.CatalogSource);
+        Assert.Equal("A", cola.TaxRateId);
+        Assert.Equal(10m, cola.MinReorderQty);
     }
 
     [Fact]

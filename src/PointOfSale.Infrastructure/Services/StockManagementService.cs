@@ -10,6 +10,7 @@ using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Contracts.Stock;
 using PointOfSale.Mra.Contracts.Utilities;
 using PointOfSale.Mra.Serialization;
+using PointOfSale.Mra.Services;
 using PointOfSale.Infrastructure.Repositories;
 
 namespace PointOfSale.Infrastructure.Services;
@@ -23,6 +24,8 @@ public sealed class StockManagementService
     private readonly IMraTerminalAuthProvider _authProvider;
     private readonly ILocalInventoryRepository _inventoryRepository;
     private readonly IConfigurationRepository _configurationRepository;
+    private readonly ITerminalSiteProductsResponseService _siteProductsParser;
+    private readonly ITerminalSiteProductsCatalogSyncService _siteProductsSync;
     private readonly ILogger<StockManagementService> _logger;
     private readonly int _inventoryUploadBatchSize;
 
@@ -32,7 +35,9 @@ public sealed class StockManagementService
         ILocalInventoryRepository inventoryRepository,
         IConfigurationRepository configurationRepository,
         ILogger<StockManagementService> logger,
-        IOptions<PosOperationsOptions> posOperations)
+        IOptions<PosOperationsOptions> posOperations,
+        ITerminalSiteProductsResponseService? siteProductsParser = null,
+        ITerminalSiteProductsCatalogSyncService? siteProductsSync = null)
     {
         _apiClient = apiClient;
         _authProvider = authProvider;
@@ -40,6 +45,15 @@ public sealed class StockManagementService
         _configurationRepository = configurationRepository;
         _logger = logger;
         _inventoryUploadBatchSize = Math.Clamp(posOperations.Value.InventoryUploadBatchSize, 1, MaxPageSize);
+        _siteProductsParser = siteProductsParser
+            ?? new TerminalSiteProductsResponseService(
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<TerminalSiteProductsResponseService>.Instance);
+        _siteProductsSync = siteProductsSync
+            ?? new TerminalSiteProductsCatalogSyncService(
+                _siteProductsParser,
+                inventoryRepository,
+                configurationRepository,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<TerminalSiteProductsCatalogSyncService>.Instance);
     }
 
     public async Task<StockResult<PagedResponse<WarehouseInventoryItemDto>>> GetWarehouseInventoryAsync(
@@ -173,30 +187,46 @@ public sealed class StockManagementService
         }
 
         IReadOnlyList<TerminalSiteProductDto> catalog = response.Data ?? Array.Empty<TerminalSiteProductDto>();
-        var result = StockResult<IReadOnlyList<TerminalSiteProductDto>>.Succeeded(catalog, response.Remark);
+        var parsed = _siteProductsParser.Validate(
+            new EisApiResponse<IReadOnlyList<TerminalSiteProductDto>>
+            {
+                StatusCode = response.StatusCode,
+                Remark = response.Remark,
+                Data = catalog,
+                Errors = response.Errors
+            });
+        if (!parsed.Success)
+        {
+            return StockResult<IReadOnlyList<TerminalSiteProductDto>>.Failed(parsed.Remark, parsed.Errors);
+        }
 
-        var cacheKey = BuildTerminalSiteProductsCacheKey(payload.Tin, payload.SiteId);
-        await CacheReferenceDataAsync(cacheKey, catalog, cancellationToken).ConfigureAwait(false);
+        var result = StockResult<IReadOnlyList<TerminalSiteProductDto>>.Succeeded(parsed.Products, parsed.Remark);
 
         if (reconcileLocalInventory)
         {
-            var reconciled = await ReconcileTerminalSiteProductsAsync(
-                    catalog,
+            var sync = await _siteProductsSync
+                .SyncFromSnapshotsAsync(
+                    parsed.Snapshots,
+                    payload.Tin,
+                    payload.SiteId,
                     preserveLocalStock,
+                    parsed.Remark,
                     cancellationToken)
                 .ConfigureAwait(false);
             _logger.LogInformation(
-                "Cached {Count} MRA site product(s) for tin={Tin} siteId={SiteId}; reconciled={Reconciled}",
-                catalog.Count,
+                "Cached/synced {Count} MRA site product(s) for tin={Tin} siteId={SiteId}; upserted={Upserted}",
+                parsed.ProductCount,
                 payload.Tin,
                 payload.SiteId,
-                reconciled);
+                sync.UpsertedCount);
         }
         else
         {
+            var cacheKey = BuildTerminalSiteProductsCacheKey(payload.Tin, payload.SiteId);
+            await CacheReferenceDataAsync(cacheKey, parsed.Products, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation(
                 "Cached {Count} MRA site product(s) for tin={Tin} siteId={SiteId} (local reconcile skipped)",
-                catalog.Count,
+                parsed.ProductCount,
                 payload.Tin,
                 payload.SiteId);
         }
@@ -216,64 +246,17 @@ public sealed class StockManagementService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(products);
-        var upserted = 0;
-        var syncedAt = DateTime.UtcNow;
-
-        foreach (var product in products)
-        {
-            var code = product.ResolveProductCode();
-            if (string.IsNullOrWhiteSpace(code))
-            {
-                _logger.LogWarning("Skipping MRA site product with missing productCode/barcode.");
-                continue;
-            }
-
-            var name = product.ResolveName();
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                name = code;
-            }
-
-            var item = new LocalInventoryItem
-            {
-                ProductId = code,
-                ProductCode = code,
-                Name = name,
-                UnitPrice = product.Price,
-                StockQuantity = product.Quantity,
-                UnitOfMeasure = product.UnitOfMeasure?.Trim(),
-                TaxRateId = product.TaxRateId?.Trim(),
-                HsCode = product.HsCode?.Trim(),
-                CatalogSource = "MraEis",
-                HeadOfficeRevisionUtc = syncedAt,
-                LastReplicatedAtUtc = syncedAt,
-                MinReorderQty = product.MinimumStockLevel
-            };
-
-            if (preserveLocalStock)
-            {
-                var existing = await _inventoryRepository
-                    .GetByProductCodeAsync(code, cancellationToken)
-                    .ConfigureAwait(false);
-                if (existing is not null)
-                {
-                    item.StockQuantity = existing.StockQuantity;
-                    item.AverageUnitCost = existing.AverageUnitCost;
-                    item.MarkupPercent = existing.MarkupPercent;
-                    item.SupplierCode = existing.SupplierCode;
-                    item.SupplierName = existing.SupplierName;
-                    if (existing.MaxStockCapacity > 0)
-                    {
-                        item.MaxStockCapacity = existing.MaxStockCapacity;
-                    }
-                }
-            }
-
-            await _inventoryRepository.UpsertAsync(item, cancellationToken).ConfigureAwait(false);
-            upserted++;
-        }
-
-        return upserted;
+        var snapshots = _siteProductsParser.BuildCatalogSnapshots(products);
+        var sync = await _siteProductsSync
+            .SyncFromSnapshotsAsync(
+                snapshots,
+                tin: null,
+                siteId: null,
+                preserveLocalStock,
+                remark: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return sync.UpsertedCount;
     }
 
     public async Task<StockResult<IReadOnlyList<StockAdjustmentReasonDto>>> GetStockAdjustmentReasonsAsync(
