@@ -48,4 +48,24 @@ public static class PosTaxCalculator
         var vat = CalculateVatAmount(net, ratePercent);
         return (net, vat, net + vat);
     }
+
+    /// <summary>
+    /// For VAT relief (<c>isReliefSupply</c>) sales: keep taxable net, remove standard VAT.
+    /// Non-standard / exempt rates are left unchanged.
+    /// </summary>
+    public static (decimal Net, decimal Vat, decimal Gross) ApplyReliefSupplyLine(
+        decimal unitPrice,
+        decimal quantity,
+        decimal ratePercent,
+        bool isStandardVatTier)
+    {
+        var net = CalculateNetAmount(unitPrice, quantity);
+        if (!isStandardVatTier || ratePercent <= 0m)
+        {
+            var vat = CalculateVatAmount(net, ratePercent);
+            return (net, vat, net + vat);
+        }
+
+        return (net, 0m, net);
+    }
 }

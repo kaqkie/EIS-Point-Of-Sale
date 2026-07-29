@@ -321,6 +321,24 @@ public class MockMraEisServer : IDisposable
             });
         }
 
+        if (path.Contains("validate-vat5-certificate", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateJsonResponse(HttpStatusCode.OK, new
+            {
+                statusCode = 1,
+                remark = "VAT 5 certificate validation succeeded.",
+                data = new
+                {
+                    projectNumber = "VATF/00000132/2024",
+                    certificateNumber = "MRA/BMTO/VAT5/000169",
+                    quantity = 80m,
+                    dateOfIssue = "2024-02-23T00:00:00",
+                    dateOfExpiry = "2099-03-24T00:00:00"
+                },
+                errors = (object?)null
+            });
+        }
+
         if (path.Contains("upload-initial-inventory", StringComparison.OrdinalIgnoreCase))
         {
             return await _inventoryResponder(request, body).ConfigureAwait(false);

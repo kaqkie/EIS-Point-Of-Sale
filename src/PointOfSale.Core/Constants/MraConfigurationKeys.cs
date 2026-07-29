@@ -14,6 +14,7 @@ public static class MraConfigurationKeys
     public const string StockHsCodesCache = "mra.stock.hscodes.cache";
     public const string StockUnitsOfMeasureCache = "mra.stock.uom.cache";
     public const string TerminalSiteProductsCachePrefix = "mra.utilities.terminalSiteProducts.";
+    public const string Vat5CertificateBalancePrefix = "mra.utilities.vat5.balance.";
 }
 
 public static class TerminalActivationStates
