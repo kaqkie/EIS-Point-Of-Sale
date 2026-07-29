@@ -5,7 +5,7 @@
 */
 SET NOCOUNT ON;
 
-DECLARE @TaxpayerTin NVARCHAR(32) = N''; -- <-- set registered MRA TIN here
+DECLARE @TaxpayerTin NVARCHAR(32) = N'20122074';
 DECLARE @SiteId NVARCHAR(128) = N'City Center';
 DECLARE @BranchId NVARCHAR(128) = N'Lilongwe';
 DECLARE @TradingName NVARCHAR(256) = N'Till 7';
