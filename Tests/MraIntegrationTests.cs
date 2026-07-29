@@ -27,9 +27,12 @@ public sealed class MraIntegrationTests
                 System.Text.Encoding.UTF8.GetBytes(secretKey),
                 System.Text.Encoding.UTF8.GetBytes(plainText)));
 
-        var actual = HmacSignatureService.ComputeHmacSha512Base64(plainText, secretKey);
+        var actual = HmacSignatureService.ComputeHmacSha512(plainText, secretKey);
         Assert.Equal(expected, actual);
+        Assert.Equal(actual, HmacSignatureService.ComputeHmacSha512Base64(plainText, secretKey));
         Assert.Equal(actual, MraApiClient.ComputeSignature(plainText, secretKey));
+        Assert.Equal(actual, HmacSignatureService.EncodeSignatureBase64(
+            HmacSignatureService.ComputeHmacSha512Digest(plainText, secretKey)));
     }
 
     [Fact]
@@ -39,10 +42,7 @@ public sealed class MraIntegrationTests
         const string secret = "activation-secret";
 
         var signature = HmacSignatureService.ComputeActivationConfirmationSignature(tac, secret);
-        Assert.Equal(HmacSignatureService.ComputeHmacSha512Base64(tac, secret), signature);
-
-        var digest = HmacSignatureService.ComputeHmacSha512(tac, secret);
-        Assert.Equal(signature, HmacSignatureService.EncodeSignatureBase64(digest));
+        Assert.Equal(HmacSignatureService.ComputeHmacSha512(tac, secret), signature);
     }
 
     [Fact]
@@ -59,6 +59,45 @@ public sealed class MraIntegrationTests
         Assert.Equal(
             HmacSignatureService.ComputeActivationConfirmationSignature("TAC-112233", "pending-secret"),
             signature);
+    }
+
+    [Fact]
+    public async Task TerminalActivatedConfirmation_AttachesXSignatureOverTac()
+    {
+        using var mock = new MockMraServer();
+        mock.ConfigureCertificationEndpoints();
+        using var harness = new MraIntegrationHarness(mock);
+
+        const string tac = "TAC-CONFIRM-001";
+        const string secret = "pending-activation-secret";
+
+        var response = await harness.ApiClient.PostAsync<
+            PointOfSale.Mra.Contracts.Onboarding.TerminalActivatedConfirmationRequest,
+            PointOfSale.Mra.Contracts.Onboarding.TerminalActivatedConfirmationResponseData>(
+            "onboarding/terminal-activated-confirmation",
+            new PointOfSale.Mra.Contracts.Onboarding.TerminalActivatedConfirmationRequest
+            {
+                TerminalId = "TERM-001"
+            },
+            new MraRequestContext
+            {
+                SecretKey = secret,
+                SignaturePlainText = tac,
+                IsActivationConfirmationSignature = true
+            });
+
+        Assert.True(response.IsSuccess);
+
+        var logged = mock.AllRequests.Last(r =>
+            r.Path.Contains("terminal-activated-confirmation", StringComparison.OrdinalIgnoreCase));
+        Assert.True(logged.Headers.TryGetValue(HmacSignatureService.SignatureHeaderName, out var sigValues));
+        Assert.Equal(
+            HmacSignatureService.ComputeHmacSha512(tac, secret),
+            Assert.Single(sigValues));
+        // Must sign the TAC — not the JSON body.
+        Assert.NotEqual(
+            HmacSignatureService.ComputeHmacSha512(logged.Body!, secret),
+            Assert.Single(sigValues));
     }
 
     [Fact]

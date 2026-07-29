@@ -62,10 +62,11 @@ public abstract class MraApiClientBase
         if (!string.IsNullOrWhiteSpace(xSignaturePlainText) &&
             !string.IsNullOrWhiteSpace(secretKeyForSignature))
         {
-            var signature = HmacSignatureService.ComputeHmacSha512Base64(
+            // Confirmation (and any TAC-style signed call): HMAC-SHA512 → Base64 on x-signature.
+            HmacSignatureService.AttachActivationConfirmationSignature(
+                request,
                 xSignaturePlainText,
                 secretKeyForSignature);
-            HmacSignatureService.ApplyXSignatureHeader(request, signature);
         }
 
         return await SendAsync<TResponse>(request, cancellationToken).ConfigureAwait(false);
@@ -87,7 +88,7 @@ public abstract class MraApiClientBase
         ApplyAuthorization(request, jwtToken);
         HmacSignatureService.ApplyXSignatureHeader(
             request,
-            HmacSignatureService.ComputeHmacSha512Base64(json, secretKey));
+            HmacSignatureService.ComputeHmacSha512(json, secretKey));
 
         return await SendAsync<TResponse>(request, cancellationToken).ConfigureAwait(false);
     }

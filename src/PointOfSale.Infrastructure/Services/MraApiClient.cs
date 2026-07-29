@@ -120,7 +120,7 @@ public sealed class MraApiClient
             cancellationToken);
 
     public static string ComputeSignature(string plainText, string secretKey) =>
-        HmacSignatureService.ComputeHmacSha512Base64(plainText, secretKey);
+        HmacSignatureService.ComputeHmacSha512(plainText, secretKey);
 
     private void ApplyContext(HttpRequestMessage request, MraRequestContext? context, string? signaturePlainText, string? jsonBody)
     {
@@ -152,14 +152,24 @@ public sealed class MraApiClient
                 request.RequestUri);
         }
 
-        // Confirmation: HMAC-SHA512(TAC, secretKey). Sales/other POSTs: HMAC over JSON body.
+        // Confirmation: HMAC-SHA512(TAC, secretKey) → x-signature. Sales/other POSTs: HMAC over JSON body.
         if (context?.SecretKey is { Length: > 0 } secretKey &&
             !string.IsNullOrWhiteSpace(signaturePlainText))
         {
-            var signature = context.IsActivationConfirmationSignature
-                ? HmacSignatureService.ComputeActivationConfirmationSignature(signaturePlainText, secretKey)
-                : ComputeSignature(signaturePlainText, secretKey);
-            HmacSignatureService.ApplyXSignatureHeader(request, signature);
+            if (context.IsActivationConfirmationSignature)
+            {
+                HmacSignatureService.AttachActivationConfirmationSignature(
+                    request,
+                    signaturePlainText,
+                    secretKey);
+            }
+            else
+            {
+                HmacSignatureService.ApplyXSignatureHeader(
+                    request,
+                    ComputeSignature(signaturePlainText, secretKey));
+            }
+
             _logger.LogDebug(
                 "Attached {Header} for {Method} {Path} (activationConfirmation={IsActivation})",
                 HmacSignatureService.SignatureHeaderName,
@@ -170,8 +180,9 @@ public sealed class MraApiClient
         else if (context?.SecretKey is { Length: > 0 } payloadSecret &&
                  !string.IsNullOrWhiteSpace(jsonBody))
         {
-            var signature = ComputeSignature(jsonBody, payloadSecret);
-            HmacSignatureService.ApplyXSignatureHeader(request, signature);
+            HmacSignatureService.ApplyXSignatureHeader(
+                request,
+                ComputeSignature(jsonBody, payloadSecret));
         }
     }
 

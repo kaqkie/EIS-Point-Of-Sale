@@ -4,7 +4,7 @@ using System.Text;
 namespace PointOfSale.Mra.Security;
 
 /// <summary>
-/// MRA EIS HMAC-SHA512 helpers per developers guide (Base64-encoded digest).
+/// MRA EIS HMAC-SHA512 helpers per developers guide (UTF-8 input → Base64 digest).
 /// Terminal activation confirmation signs the TAC with the shared secret and sends it as <c>x-signature</c>.
 /// </summary>
 public static class HmacSignatureService
@@ -12,9 +12,22 @@ public static class HmacSignatureService
     public const string SignatureHeaderName = "x-signature";
 
     /// <summary>
-    /// Computes raw HMAC-SHA512 bytes over UTF-8 <paramref name="plainText"/> using <paramref name="secretKey"/>.
+    /// Computes HMAC-SHA512 over UTF-8 <paramref name="plainText"/> using UTF-8 <paramref name="secretKey"/>
+    /// and returns the digest as a Base64 string (MRA EIS <c>x-signature</c> format).
     /// </summary>
-    public static byte[] ComputeHmacSha512(string plainText, string secretKey)
+    public static string ComputeHmacSha512(string plainText, string secretKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(plainText);
+        ArgumentException.ThrowIfNullOrWhiteSpace(secretKey);
+
+        var digest = ComputeHmacSha512Digest(plainText, secretKey);
+        return Convert.ToBase64String(digest);
+    }
+
+    /// <summary>
+    /// Raw HMAC-SHA512 digest bytes (UTF-8 key and message). Prefer <see cref="ComputeHmacSha512"/> for EIS headers.
+    /// </summary>
+    public static byte[] ComputeHmacSha512Digest(string plainText, string secretKey)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(plainText);
         ArgumentException.ThrowIfNullOrWhiteSpace(secretKey);
@@ -39,11 +52,10 @@ public static class HmacSignatureService
     }
 
     /// <summary>
-    /// Standard EIS signature: HMAC-SHA512(plainText, secretKey) → Base64.
-    /// Used for request payloads on sales and most signed endpoints.
+    /// Alias for <see cref="ComputeHmacSha512"/> — kept for existing call sites.
     /// </summary>
     public static string ComputeHmacSha512Base64(string plainText, string secretKey) =>
-        EncodeSignatureBase64(ComputeHmacSha512(plainText, secretKey));
+        ComputeHmacSha512(plainText, secretKey);
 
     /// <summary>
     /// Terminal activated confirmation: HMAC-SHA512(TAC, secretKey) → Base64.
@@ -55,7 +67,7 @@ public static class HmacSignatureService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(terminalActivationCode);
         ArgumentException.ThrowIfNullOrWhiteSpace(secretKey);
-        return ComputeHmacSha512Base64(terminalActivationCode.Trim(), secretKey);
+        return ComputeHmacSha512(terminalActivationCode.Trim(), secretKey);
     }
 
     /// <summary>
@@ -77,7 +89,8 @@ public static class HmacSignatureService
     }
 
     /// <summary>
-    /// Builds the Base64 HMAC and attaches <c>x-signature</c> for terminal activation confirmation.
+    /// Builds the Base64 HMAC via <see cref="ComputeHmacSha512"/> and attaches <c>x-signature</c>
+    /// for terminal activation confirmation.
     /// </summary>
     public static string AttachActivationConfirmationSignature(
         HttpRequestMessage request,
