@@ -20,6 +20,7 @@ public partial class CashierDashboardViewModel : ObservableObject
     private readonly INavigationService _navigation;
     private readonly ISupervisorAuthorizationService _supervisorAuthorization;
     private readonly ISupervisorOverrideDialogService _supervisorDialog;
+    private readonly ITerminalConnectivityActionsService _connectivityActions;
     private readonly ILogger<CashierDashboardViewModel> _logger;
 
     public CashierDashboardViewModel(
@@ -30,6 +31,7 @@ public partial class CashierDashboardViewModel : ObservableObject
         INavigationService navigation,
         ISupervisorAuthorizationService supervisorAuthorization,
         ISupervisorOverrideDialogService supervisorDialog,
+        ITerminalConnectivityActionsService connectivityActions,
         ILogger<CashierDashboardViewModel> logger)
     {
         Checkout = checkout;
@@ -39,6 +41,7 @@ public partial class CashierDashboardViewModel : ObservableObject
         _navigation = navigation;
         _supervisorAuthorization = supervisorAuthorization;
         _supervisorDialog = supervisorDialog;
+        _connectivityActions = connectivityActions;
         _logger = logger;
         SelectedWorkspaceTab = 0;
         PaymentMethodOptions = new[] { "Cash", "Card", "MobileMoney", "Split" };
@@ -89,6 +92,12 @@ public partial class CashierDashboardViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isBusy;
+
+    [ObservableProperty]
+    private string _mraPingStatus = "MRA ping: not run yet.";
+
+    [ObservableProperty]
+    private string _terminalUpdateStatus = "Terminal update: not checked yet.";
 
     [ObservableProperty]
     private CashierShift? _openShift;
@@ -423,6 +432,91 @@ public partial class CashierDashboardViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenStandaloneCheckout() => ShowCashRegisterMode(enabled: true);
+
+    [RelayCommand]
+    private async Task PingMraAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            StatusMessage = "Pinging MRA EIS…";
+            var result = await _connectivityActions.PingMraAsync().ConfigureAwait(true);
+            MraPingStatus = result.Message;
+            StatusMessage = result.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cashier MRA ping failed.");
+            MraPingStatus = $"MRA ping error: {ex.Message}";
+            StatusMessage = MraPingStatus;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckTerminalUpdatesAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            StatusMessage = "Checking terminal updates…";
+            var result = await _connectivityActions.CheckTerminalUpdatesAsync().ConfigureAwait(true);
+            TerminalUpdateStatus = result.Message;
+            StatusMessage = result.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cashier terminal update check failed.");
+            TerminalUpdateStatus = $"Update check error: {ex.Message}";
+            StatusMessage = TerminalUpdateStatus;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task VerifyAndSyncApisAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            StatusMessage = "Verifying MRA APIs and syncing…";
+            var result = await _connectivityActions.VerifyAndSyncApisAsync().ConfigureAwait(true);
+            MraPingStatus = result.Ping.Message;
+            StatusMessage = result.Success
+                ? $"API sync OK — {result.Message}"
+                : $"API sync issues — {result.Message}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cashier API verify/sync failed.");
+            StatusMessage = $"API sync error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     [RelayCommand]
     private void OpenQueue() => _navigation.NavigateTo<QueueSyncStatusViewModel>();

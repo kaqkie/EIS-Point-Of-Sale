@@ -29,6 +29,27 @@
                                    Foreground="{StaticResource Art.Brush.AccentHover}"
                                    FontWeight="SemiBold" />
                     </Border>
+                    <Button Content="Ping MRA"
+                            Style="{StaticResource Art.Button.Ghost}"
+                            Command="{Binding PingMraCommand}"
+                            Margin="0,0,8,0"
+                            MinWidth="100"
+                            FocusVisualStyle="{x:Null}"
+                            ToolTip="Ping Malawi Revenue Authority EIS and show success or failure" />
+                    <Button Content="Check updates"
+                            Style="{StaticResource Art.Button.Ghost}"
+                            Command="{Binding CheckTerminalUpdatesCommand}"
+                            Margin="0,0,8,0"
+                            MinWidth="120"
+                            FocusVisualStyle="{x:Null}"
+                            ToolTip="Check for Albert Retail Terminal software updates" />
+                    <Button Content="Sync APIs"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding VerifyAndSyncApisCommand}"
+                            Margin="0,0,8,0"
+                            MinWidth="100"
+                            FocusVisualStyle="{x:Null}"
+                            ToolTip="Ping MRA, sync latest configs, and report offline queue status" />
                     <Button Content="Shift tools"
                             Style="{StaticResource Art.Button.Secondary}"
                             Command="{Binding ReturnToFullWorkspaceCommand}"

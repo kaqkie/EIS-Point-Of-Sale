@@ -15,6 +15,21 @@
                     <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Art.Text.Subtitle}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Button Content="Ping MRA"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding PingMraCommand}"
+                            Margin="0,0,8,0"
+                            ToolTip="POST utilities/ping — show success or failure with latency" />
+                    <Button Content="Check updates"
+                            Style="{StaticResource Art.Button.Ghost}"
+                            Command="{Binding CheckTerminalUpdatesCommand}"
+                            Margin="0,0,8,0"
+                            ToolTip="Check the terminal update feed and stage packages if available" />
+                    <Button Content="Sync APIs"
+                            Style="{StaticResource Art.Button.Ghost}"
+                            Command="{Binding VerifyAndSyncApisCommand}"
+                            Margin="0,0,8,0"
+                            ToolTip="Ping MRA, refresh connection, sync latest configs, report offline queue" />
                     <Button Content="Refresh" Style="{StaticResource Art.Button.Secondary}" Command="{Binding RefreshOverviewCommand}" Margin="0,0,8,0" />
                     <Button Content="Hardware" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenHardwareCommand}" Margin="0,0,8,0" />
                     <Button Content="Compliance audit" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenComplianceAuditCommand}" />
@@ -110,7 +125,23 @@
                                 <TextBlock Text="MRA EIS connection" Style="{StaticResource Art.Text.Title}" FontSize="16" />
                                 <TextBlock Text="{Binding MraEnvironment, StringFormat='Environment: {0}'}" Margin="0,10,0,4" />
                                 <TextBlock Text="{Binding MraEndpoint}" TextWrapping="Wrap" Style="{StaticResource Art.Text.Subtitle}" />
-                                <TextBlock Text="{Binding MraProductId, StringFormat='Product ID: {0}'}" Margin="0,8,0,12" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding MraProductId, StringFormat='Product ID: {0}'}" Margin="0,8,0,8" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding MraPingStatus}" TextWrapping="Wrap" Margin="0,0,0,4" Style="{StaticResource Art.Text.Subtitle}" />
+                                <TextBlock Text="{Binding TerminalUpdateStatus}" TextWrapping="Wrap" Margin="0,0,0,4" Style="{StaticResource Art.Text.Subtitle}" />
+                                <TextBlock Text="{Binding ApiSyncStatus}" TextWrapping="Wrap" Margin="0,0,0,12" Style="{StaticResource Art.Text.Subtitle}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button Content="Ping MRA"
+                                            Style="{StaticResource Art.Button.Secondary}"
+                                            Command="{Binding PingMraCommand}"
+                                            Margin="0,0,8,0" />
+                                    <Button Content="Check updates"
+                                            Style="{StaticResource Art.Button.Ghost}"
+                                            Command="{Binding CheckTerminalUpdatesCommand}"
+                                            Margin="0,0,8,0" />
+                                    <Button Content="Sync APIs"
+                                            Style="{StaticResource Art.Button.Success}"
+                                            Command="{Binding VerifyAndSyncApisCommand}" />
+                                </StackPanel>
                                 <Button Content="Snapshot endpoints for audit"
                                         Style="{StaticResource Art.Button.Primary}"
                                         Command="{Binding PersistMraEndpointNotesCommand}" />

@@ -70,7 +70,7 @@ public sealed class FiscalConnectivityAndReceiptTests
     }
 
     [Fact]
-    public void MraReceiptLayout_UsesExplicitVat175_WithoutSignatureOrQr()
+    public void MraReceiptLayout_UsesExplicitVat175_WithVerificationQr()
     {
         var layout = new MraReceiptLayoutService().Build(
             new ReceiptPrintRequest
@@ -147,14 +147,13 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains("TRANSACTION DATE/TIME: 2026-07-24 09:00:00", text, StringComparison.Ordinal);
         Assert.Contains("Date/Time: 2026-07-24 09:00:00", text, StringComparison.Ordinal);
         Assert.False(layout.FiscalStatus.IsOfflinePending);
-        Assert.False(layout.FiscalStatus.IncludeQrCode);
-        Assert.Null(layout.FiscalStatus.QrModuleMatrix);
-        Assert.Null(layout.FiscalStatus.QrCodeImage);
+        Assert.True(layout.FiscalStatus.IncludeQrCode);
+        Assert.NotNull(layout.FiscalStatus.QrModuleMatrix);
+        Assert.NotNull(layout.FiscalStatus.QrCodeImage);
+        Assert.Contains("Scan QR to verify with MRA", text, StringComparison.Ordinal);
+        Assert.Contains(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
         Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", text, StringComparison.Ordinal);
         Assert.DoesNotContain("Verification URL", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("Scan to verify", text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
-        Assert.DoesNotContain("eis-portal.mra.mw", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -166,7 +165,7 @@ public sealed class FiscalConnectivityAndReceiptTests
     }
 
     [Fact]
-    public void MraReceiptLayout_OfflinePending_OmitsQr()
+    public void MraReceiptLayout_OfflinePendingPlaceholder_OmitsQr()
     {
         var layout = new MraReceiptLayoutService().Build(
             new ReceiptPrintRequest
@@ -217,6 +216,60 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", text, StringComparison.Ordinal);
         Assert.Contains("MOB: NOT CONFIGURED", text, StringComparison.Ordinal);
         Assert.Contains("Email: NOT CONFIGURED", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MraReceiptLayout_PendingOfflineWithValidationUrl_IncludesQr()
+    {
+        const string offlineUrl =
+            "https://dev-eis-portal.mra.mw/ReceiptValidation/Validate/?I=ABC&N=1&T=100&V=15&D=xyz&S=hmacSig";
+        var layout = new MraReceiptLayoutService().Build(
+            new ReceiptPrintRequest
+            {
+                TradingName = "Albert Retail",
+                SellerTin = "2007123456",
+                AddressLines = ["City Center"],
+                InvoiceNumber = "ART-OFF-QR-1",
+                InvoiceDateTime = DateTime.UtcNow,
+                PaymentMethod = "Cash",
+                LineItems =
+                [
+                    new InvoiceLineItemDto
+                    {
+                        Id = 1,
+                        ProductCode = "SKU1",
+                        Description = "Soap",
+                        UnitPrice = 100m,
+                        Quantity = 1m,
+                        Total = 117.5m,
+                        TotalVat = 17.5m,
+                        TaxRateId = "A"
+                    }
+                ],
+                TaxBreakdown =
+                [
+                    new TaxBreakDownDto { RateId = "A", TaxableAmount = 100m, TaxAmount = 17.5m }
+                ],
+                InvoiceTotal = 117.5m,
+                AmountTendered = 120m,
+                FiscalResponse = new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = "ART-OFF-QR-1",
+                    FiscalSignature = "offline-hmac-signature",
+                    ValidationUrl = offlineUrl,
+                    VerificationUrl = offlineUrl
+                }
+            });
+
+        var text = string.Join('\n', layout.OrderedTextLines);
+        Assert.True(layout.FiscalStatus.IsOfflinePending);
+        Assert.True(layout.FiscalStatus.IncludeQrCode);
+        Assert.NotNull(layout.FiscalStatus.QrCodeImage);
+        Assert.Equal(offlineUrl, layout.FiscalStatus.VerificationUrl);
+        Assert.Contains("OFFLINE", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("queued for sync", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
+        Assert.Contains("Scan QR to verify with MRA", text, StringComparison.Ordinal);
     }
 
     [Fact]

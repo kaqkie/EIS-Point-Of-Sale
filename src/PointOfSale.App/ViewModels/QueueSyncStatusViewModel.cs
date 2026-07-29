@@ -19,6 +19,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     private readonly OfflineSalesQueueService _offlineSalesQueueService;
     private readonly OfflineTransactionSyncService _offlineTransactionSyncService;
     private readonly SalesTransactionService _salesTransactionService;
+    private readonly OfflineReceiptSignatureService _offlineReceiptSignatureService;
     private readonly IReceiptPrintingService _receiptPrintingService;
     private readonly IPosConfigurationService _posConfigurationService;
     private readonly DispatcherTimer _refreshTimer;
@@ -30,6 +31,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         OfflineSalesQueueService offlineSalesQueueService,
         OfflineTransactionSyncService offlineTransactionSyncService,
         SalesTransactionService salesTransactionService,
+        OfflineReceiptSignatureService offlineReceiptSignatureService,
         IReceiptPrintingService receiptPrintingService,
         IPosConfigurationService posConfigurationService)
     {
@@ -37,6 +39,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         _offlineSalesQueueService = offlineSalesQueueService;
         _offlineTransactionSyncService = offlineTransactionSyncService;
         _salesTransactionService = salesTransactionService;
+        _offlineReceiptSignatureService = offlineReceiptSignatureService;
         _receiptPrintingService = receiptPrintingService;
         _posConfigurationService = posConfigurationService;
         QueueItems = new ObservableCollection<QueueItemViewModel>();
@@ -363,21 +366,51 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 
             if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
             {
-                fiscal = new SubmitSalesTransactionResponseData
+                // Rebuild the official offline ValidationURL so pending reprints include a scannable MRA QR.
+                try
                 {
-                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                    FiscalSignature = payload.InvoiceSummary.OfflineSignature
-                };
+                    var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
+                    fiscal = new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                        FiscalSignature = signed.OfflineDataSignature,
+                        ValidationUrl = signed.ValidationUrl,
+                        VerificationUrl = signed.ValidationUrl
+                    };
+                }
+                catch
+                {
+                    fiscal = new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                        FiscalSignature = payload.InvoiceSummary.OfflineSignature
+                    };
+                }
             }
 
             if (fiscal is null &&
                 item.Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase) == false)
             {
-                fiscal = new SubmitSalesTransactionResponseData
+                // Still pending/quarantined without a stored offline signature — try one more sign attempt.
+                try
                 {
-                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                    FiscalSignature = FiscalReceiptEnricher.OfflinePendingPlaceholder
-                };
+                    var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
+                    fiscal = new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                        FiscalSignature = signed.OfflineDataSignature,
+                        ValidationUrl = signed.ValidationUrl,
+                        VerificationUrl = signed.ValidationUrl
+                    };
+                }
+                catch
+                {
+                    fiscal = new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                        FiscalSignature = FiscalReceiptEnricher.OfflinePendingPlaceholder
+                    };
+                }
             }
 
             var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);

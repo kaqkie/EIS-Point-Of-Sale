@@ -19,6 +19,7 @@ public partial class AdminDashboardViewModel : ObservableObject
     private readonly IAuthenticationAuthorizationService _auth;
     private readonly INavigationService _navigation;
     private readonly IConfigurationRepository _config;
+    private readonly ITerminalConnectivityActionsService _connectivityActions;
     private readonly MraApiOptions _mra;
 
     public AdminDashboardViewModel(
@@ -29,6 +30,7 @@ public partial class AdminDashboardViewModel : ObservableObject
         IAuthenticationAuthorizationService auth,
         INavigationService navigation,
         IConfigurationRepository config,
+        ITerminalConnectivityActionsService connectivityActions,
         IOptions<MraApiOptions> mra)
     {
         InventoryWorkspace = inventoryWorkspace;
@@ -38,6 +40,7 @@ public partial class AdminDashboardViewModel : ObservableObject
         _auth = auth;
         _navigation = navigation;
         _config = config;
+        _connectivityActions = connectivityActions;
         _mra = mra.Value;
         LowStockItems = new ObservableCollection<string>();
         SelectedAdminTab = 0;
@@ -97,10 +100,103 @@ public partial class AdminDashboardViewModel : ObservableObject
     [ObservableProperty]
     private string _selfConfirmPassword = string.Empty;
 
+    [ObservableProperty]
+    private string _mraPingStatus = "MRA ping: not run yet.";
+
+    [ObservableProperty]
+    private string _terminalUpdateStatus = "Terminal update: not checked yet.";
+
+    [ObservableProperty]
+    private string _apiSyncStatus = "API sync: not verified yet.";
+
     private async Task InitializeAsync()
     {
         await RefreshOverviewAsync().ConfigureAwait(true);
         await LoadFiscalPanelAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task PingMraAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            StatusMessage = "Pinging MRA EIS…";
+            var result = await _connectivityActions.PingMraAsync().ConfigureAwait(true);
+            MraPingStatus = result.Message;
+            StatusMessage = result.Message;
+        }
+        catch (Exception ex)
+        {
+            MraPingStatus = $"MRA ping error: {ex.Message}";
+            StatusMessage = MraPingStatus;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckTerminalUpdatesAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            StatusMessage = "Checking terminal updates…";
+            var result = await _connectivityActions.CheckTerminalUpdatesAsync().ConfigureAwait(true);
+            TerminalUpdateStatus = result.Message;
+            StatusMessage = result.Message;
+        }
+        catch (Exception ex)
+        {
+            TerminalUpdateStatus = $"Update check error: {ex.Message}";
+            StatusMessage = TerminalUpdateStatus;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task VerifyAndSyncApisAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            StatusMessage = "Verifying MRA APIs and syncing configs…";
+            var result = await _connectivityActions.VerifyAndSyncApisAsync().ConfigureAwait(true);
+            ApiSyncStatus = result.Message;
+            MraPingStatus = result.Ping.Message;
+            StatusMessage = result.Success
+                ? $"API sync OK — {result.Message}"
+                : $"API sync issues — {result.Message}";
+        }
+        catch (Exception ex)
+        {
+            ApiSyncStatus = $"API sync error: {ex.Message}";
+            StatusMessage = ApiSyncStatus;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]

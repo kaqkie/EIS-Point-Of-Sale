@@ -187,23 +187,42 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             Separator('-', charactersPerLine)
         };
 
-        // Fiscal signature / verification URL / portal QR are intentionally omitted from the printed receipt.
+        // ---- 6. Fiscal status: offline pending banner and/or MRA verification QR ----
+        var verificationUrl = fiscal?.ResolveVerificationUrl();
+        var hasPrintableVerificationUrl = !string.IsNullOrWhiteSpace(verificationUrl)
+            && !FiscalReceiptEnricher.IsOfflinePlaceholder(verificationUrl);
+        var isOfflineValidationUrl = hasPrintableVerificationUrl
+            && IsOfflineValidationUrl(verificationUrl!);
+        // True placeholder (no HMAC yet) or offline ValidationURL while still queued for EIS sync.
+        var showOfflinePendingBanner = isOfflinePending || isOfflineValidationUrl;
+        var includeQr = hasPrintableVerificationUrl;
+
         var fiscalBody = new List<string>();
-        if (isOfflinePending)
+        if (showOfflinePendingBanner)
         {
             fiscalBody.Add(Center("MRA EIS: OFFLINE — queued for sync", charactersPerLine));
         }
+
+        if (includeQr)
+        {
+            fiscalBody.Add(Center("Scan QR to verify with MRA", charactersPerLine));
+            fiscalBody.Add(QrPlaceholderMarker);
+        }
+
+        var (qrMatrix, qrImage) = includeQr
+            ? RenderQrCoderMatrix(verificationUrl)
+            : (null, null);
 
         var fiscalStatus = new MraFiscalStatusBlockViewModel
         {
             Title = "MRA EIS FISCAL",
             BodyLines = fiscalBody,
-            IsOfflinePending = isOfflinePending,
-            IncludeQrCode = false,
+            IsOfflinePending = showOfflinePendingBanner,
+            IncludeQrCode = includeQr,
             FiscalSignature = fiscalSignature,
-            VerificationUrl = null,
-            QrModuleMatrix = null,
-            QrCodeImage = null
+            VerificationUrl = includeQr ? verificationUrl : null,
+            QrModuleMatrix = qrMatrix,
+            QrCodeImage = qrImage
         };
 
         var footer = new List<string>
@@ -238,6 +257,15 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             CharactersPerLine = charactersPerLine
         };
     }
+
+    /// <summary>
+    /// Offline ValidationURL hosts use ReceiptValidation/Validate (HMAC <c>S=</c>), distinct from portal verify links.
+    /// </summary>
+    internal static bool IsOfflineValidationUrl(string verificationUrl) =>
+        verificationUrl.Contains("ReceiptValidation", StringComparison.OrdinalIgnoreCase)
+        || verificationUrl.Contains("/Validate", StringComparison.OrdinalIgnoreCase)
+        || verificationUrl.Contains("&S=", StringComparison.Ordinal)
+        || verificationUrl.Contains("?S=", StringComparison.Ordinal);
 
     /// <summary>
     /// Renders an official MRA verification QR via QRCoder (module matrix + WPF bitmap).
