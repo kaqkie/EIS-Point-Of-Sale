@@ -338,16 +338,16 @@ public sealed class OfflineSalesQueueService
         payload = NormalizeQueuedPayloadForResubmit(payload, identity);
 
         var sellerTin = FirstNonEmpty(request?.SellerTin, identity?.SellerTin, payload.InvoiceHeader.SellerTin);
-        if (string.IsNullOrWhiteSpace(sellerTin) ||
-            sellerTin.Trim().Equals("1234567890", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(sellerTin))
         {
             return ReceiptIdentifierUpdateResult.Failed(
                 queueId,
                 payload.InvoiceHeader.InvoiceNumber,
-                "Cannot assign MRA invoice number: sellerTIN is missing or still the sandbox placeholder.");
+                "Cannot assign MRA invoice number: sellerTIN is missing.");
         }
 
         var sellerTinTrimmed = sellerTin.Trim();
+        var sellerTinIsPlaceholder = sellerTinTrimmed.Equals("1234567890", StringComparison.Ordinal);
         var sellerTinChanged = !string.Equals(
             payload.InvoiceHeader.SellerTin,
             sellerTinTrimmed,
@@ -372,6 +372,20 @@ public sealed class OfflineSalesQueueService
 
         var previousInvoiceNumber = payload.InvoiceHeader.InvoiceNumber;
         var needsRewrite = MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(previousInvoiceNumber, sellerTinTrimmed);
+
+        // Legacy ART- / non-composite numbers must be rewritten even on the sandbox developer TIN.
+        if (needsRewrite && sellerTinIsPlaceholder)
+        {
+            var isLegacyFormat = string.IsNullOrWhiteSpace(previousInvoiceNumber)
+                || previousInvoiceNumber.StartsWith("ART-", StringComparison.OrdinalIgnoreCase)
+                || !MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(previousInvoiceNumber);
+            if (!isLegacyFormat)
+            {
+                // Composite already encodes placeholder TIN — keep it; just reset status below.
+                needsRewrite = false;
+            }
+        }
+
         if (!needsRewrite && !sellerTinChanged)
         {
             // Pending + already correct: no DB write. Quarantined/Syncing still reset to PENDING
@@ -396,13 +410,25 @@ public sealed class OfflineSalesQueueService
 
         if (needsRewrite)
         {
-            payload = await EnsureCompliantInvoiceNumberAsync(payload, cancellationToken, transactionUtcOverride: transactionUtc)
+            payload = await EnsureCompliantInvoiceNumberAsync(
+                    payload,
+                    cancellationToken,
+                    transactionUtcOverride: transactionUtc,
+                    allowSandboxPlaceholderTin: true)
                 .ConfigureAwait(false);
         }
 
         if (string.IsNullOrWhiteSpace(payload.InvoiceHeader.InvoiceNumber)
             || !MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(payload.InvoiceHeader.InvoiceNumber))
         {
+            // Still reset quarantine/syncing so the operator can Force Sync after fixing identity.
+            if (!item.Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase))
+            {
+                await _queueRepository
+                    .UpdatePayloadAndResetForResubmitAsync(queueId, item.PayloadJson, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return ReceiptIdentifierUpdateResult.Failed(
                 queueId,
                 payload.InvoiceHeader.InvoiceNumber,
@@ -494,8 +520,8 @@ public sealed class OfflineSalesQueueService
             unchanged,
             failed);
 
-        // Opaque HTTP 500 / EIS outage used to permanently quarantine — release those for retry.
-        var released = await ReleaseTransientQuarantinesAsync(cancellationToken).ConfigureAwait(false);
+        // Opaque HTTP 500 / EIS outage used to permanently quarantine — release remaining open items.
+        var released = await ReleaseAllOpenQuarantinesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ReceiptIdentifierBatchRepairResult(
             candidates.Count,
@@ -504,6 +530,35 @@ public sealed class OfflineSalesQueueService
             failed,
             firstError,
             released);
+    }
+
+    /// <summary>
+    /// Moves every QUARANTINED / stuck SYNCING row back to PENDING so FIFO / Force Sync can retry.
+    /// </summary>
+    public async Task<int> ReleaseAllOpenQuarantinesAsync(CancellationToken cancellationToken = default)
+    {
+        var quarantined = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Quarantined, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+        var syncing = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Syncing, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+
+        var released = 0;
+        foreach (var item in quarantined.Concat(syncing).OrderBy(x => x.Id))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await _queueRepository
+                .UpdatePayloadAndResetForResubmitAsync(item.Id, item.PayloadJson, cancellationToken)
+                .ConfigureAwait(false);
+            released++;
+            _logger.LogInformation(
+                "Released queue {QueueId} from {Status} back to PENDING for retry.",
+                item.Id,
+                item.Status);
+        }
+
+        return released;
     }
 
     /// <summary>
@@ -833,7 +888,12 @@ public sealed class OfflineSalesQueueService
 
         if (needsInvoiceRewrite)
         {
-            normalized = await EnsureCompliantInvoiceNumberAsync(normalized, cancellationToken).ConfigureAwait(false);
+            // Sandbox developer TIN is valid on EIS sandbox — rewrite legacy ART- numbers too.
+            normalized = await EnsureCompliantInvoiceNumberAsync(
+                    normalized,
+                    cancellationToken,
+                    allowSandboxPlaceholderTin: true)
+                .ConfigureAwait(false);
         }
 
         if (hadOfflineSignature || needsInvoiceRewrite)
@@ -863,10 +923,18 @@ public sealed class OfflineSalesQueueService
     private async Task<SubmitSalesTransactionRequest> EnsureCompliantInvoiceNumberAsync(
         SubmitSalesTransactionRequest request,
         CancellationToken cancellationToken,
-        DateTime? transactionUtcOverride = null)
+        DateTime? transactionUtcOverride = null,
+        bool allowSandboxPlaceholderTin = false)
     {
-        if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(request.InvoiceHeader.SellerTin, out var taxpayerId)
-            || MraInvoiceNumberGenerator.IsSandboxPlaceholderTaxpayerId(taxpayerId))
+        if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(request.InvoiceHeader.SellerTin, out var taxpayerId))
+        {
+            _logger.LogWarning(
+                "Skipping invoice rewrite for sellerTIN={Tin}: missing numeric taxpayer id.",
+                request.InvoiceHeader.SellerTin);
+            return request;
+        }
+
+        if (MraInvoiceNumberGenerator.IsSandboxPlaceholderTaxpayerId(taxpayerId) && !allowSandboxPlaceholderTin)
         {
             // Cannot generate compliant invoice numbers without a real numeric taxpayer id.
             // Keep existing invoiceNumber so the caller can surface a meaningful MRA error.
