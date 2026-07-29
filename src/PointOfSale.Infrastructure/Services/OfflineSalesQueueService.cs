@@ -9,10 +9,13 @@ using PointOfSale.Mra.Billing;
 using PointOfSale.Infrastructure.Options;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Mra.Contracts.Configuration;
+using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Security;
 using PointOfSale.Mra.Serialization;
+using PointOfSale.Mra.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace PointOfSale.Infrastructure.Services;
 
@@ -31,6 +34,7 @@ public sealed class OfflineSalesQueueService
     private readonly IOfflineInvoiceSyncCompletedHandler? _syncCompletedHandler;
     private readonly IComplianceAuditLogger? _complianceAudit;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
+    private readonly IMraEisResponseEvaluator _responseEvaluator;
     private readonly OfflineSyncOptions _options;
     private readonly ILogger<OfflineSalesQueueService> _logger;
 
@@ -44,7 +48,8 @@ public sealed class OfflineSalesQueueService
         MraRuntimeEnvironmentState? runtimeState = null,
         IConfigurationRepository? configurationRepository = null,
         IMraInvoiceSequenceService? invoiceSequenceService = null,
-        TerminalOnboardingService? terminalOnboardingService = null)
+        TerminalOnboardingService? terminalOnboardingService = null,
+        IMraEisResponseEvaluator? responseEvaluator = null)
     {
         _queueRepository = queueRepository;
         _salesTransactionService = salesTransactionService;
@@ -56,6 +61,8 @@ public sealed class OfflineSalesQueueService
         _configurationRepository = configurationRepository;
         _invoiceSequenceService = invoiceSequenceService;
         _terminalOnboardingService = terminalOnboardingService;
+        _responseEvaluator = responseEvaluator ?? new MraEisResponseEvaluator(
+            NullLogger<MraEisResponseEvaluator>.Instance);
     }
 
     public async Task<SaleQueueResult> EnqueueAndTrySubmitAsync(
@@ -339,23 +346,47 @@ public sealed class OfflineSalesQueueService
             }
 
             // HTTP was successful, but MRA returned success=false (logical failure).
-            // There is no transport exception here, so log full validation signals.
-            var errorsJson = submit.Errors is null
-                ? "(no errors array)"
-                : JsonSerializer.Serialize(submit.Errors, MraJson.SerializerOptions);
+            // Classify known EIS status / field error codes for quarantine vs retry vs config sync.
+            var evaluation = _responseEvaluator.Evaluate(submit.StatusCode, submit.Remark, submit.Errors);
             _logger.LogWarning(
-                "MRA EIS submission returned success=false for queue {QueueId} invoice {InvoiceNumber}. Remark={Remark}. Errors={ErrorsJson}.",
+                "MRA EIS submission returned success=false for queue {QueueId} invoice {InvoiceNumber}. " +
+                "category={Category} action={Action} detail={Detail}",
                 queueId,
                 payload.InvoiceHeader.InvoiceNumber,
-                submit.Remark ?? "(null)",
-                errorsJson);
+                evaluation.Category,
+                evaluation.RecommendedAction,
+                evaluation.TechnicalDetail);
 
-            if (IsPermanentBusinessFailure(submit))
+            if (evaluation.RecommendedAction == MraEisRecommendedAction.SyncLatestConfigs
+                && _terminalOnboardingService is not null)
             {
+                try
+                {
+                    await _terminalOnboardingService.GetLatestConfigsAsync(cancellationToken).ConfigureAwait(false);
+                    _logger.LogInformation(
+                        "Triggered get-latest-configs after MRA statusCode {StatusCode} for queue {QueueId}.",
+                        submit.StatusCode,
+                        queueId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "get-latest-configs failed after outdated-config status for queue {QueueId}.", queueId);
+                }
+            }
+
+            if (evaluation.ShouldQuarantine || IsPermanentBusinessFailure(submit, evaluation))
+            {
+                var quarantineRemark = TruncateError(
+                    evaluation.TechnicalDetail.Length > 0
+                        ? evaluation.TechnicalDetail
+                        : submit.Remark ?? "MRA rejected sale.");
                 await _queueRepository
-                    .MarkQuarantinedAsync(queueId, TruncateError(submit.Remark ?? "MRA rejected sale."), cancellationToken)
+                    .MarkQuarantinedAsync(queueId, quarantineRemark, cancellationToken)
                     .ConfigureAwait(false);
-                return SaleQueueResult.Quarantined(queueId, payload.InvoiceHeader.InvoiceNumber, submit.Remark ?? "Rejected");
+                return SaleQueueResult.Quarantined(
+                    queueId,
+                    payload.InvoiceHeader.InvoiceNumber,
+                    evaluation.OperatorMessage);
             }
 
             await ScheduleRetryAsync(
@@ -367,26 +398,37 @@ public sealed class OfflineSalesQueueService
                         Status = OfflineQueueStatuses.Pending,
                         RetryCount = currentRetryCount
                     },
-                    submit.Remark ?? "MRA sale submission failed.",
+                    evaluation.TechnicalDetail.Length > 0
+                        ? evaluation.TechnicalDetail
+                        : submit.Remark ?? "MRA sale submission failed.",
                     cancellationToken)
                 .ConfigureAwait(false);
 
             await LogComplianceAsync(
                     ComplianceAuditCategories.OfflineQueue,
                     "RetryScheduled",
-                    $"Queue {queueId} retry #{currentRetryCount + 1}: {submit.Remark}",
+                    $"Queue {queueId} retry #{currentRetryCount + 1}: {evaluation.Category} / {submit.Remark}",
                     success: false,
                     correlationId: queueId.ToString(),
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            return SaleQueueResult.Queued(queueId, payload.InvoiceHeader.InvoiceNumber, submittedOnline: false, submit.Remark);
+            return SaleQueueResult.Queued(
+                queueId,
+                payload.InvoiceHeader.InvoiceNumber,
+                submittedOnline: false,
+                evaluation.OperatorMessage);
         }
-        catch (MraApiException ex) when (ex.LooksLikeValidationOrClientError())
+        catch (MraApiException ex) when (ex.LooksLikeValidationOrClientError()
+            || _responseEvaluator.EvaluateException(ex).ShouldQuarantine)
         {
+            var evaluation = _responseEvaluator.EvaluateException(ex);
             // HTTP 400, HttpClient lifetime faults, sandbox validation 500s, and opaque
             // {"message":"An internal error occurred"} — quarantine instead of retry storm.
-            var detail = TruncateError(ex.Message);
+            var detail = TruncateError(
+                string.IsNullOrWhiteSpace(evaluation.TechnicalDetail)
+                    ? ex.Message
+                    : evaluation.TechnicalDetail);
             if (ex.IsHttpClientLifetimeError())
             {
                 detail = TruncateError(
@@ -427,12 +469,13 @@ public sealed class OfflineSalesQueueService
             await _queueRepository.MarkQuarantinedAsync(queueId, detail, cancellationToken)
                 .ConfigureAwait(false);
             _logger.LogWarning(
-                "Quarantined queue id {QueueId} after MRA HTTP {Status}: {Error}. ResponseBody={ResponseBody}",
+                "Quarantined queue id {QueueId} after MRA HTTP {Status}: category={Category} action={Action}. ResponseBody={ResponseBody}",
                 queueId,
                 ex.HttpStatusCode,
-                ex.Message,
+                evaluation.Category,
+                evaluation.RecommendedAction,
                 TruncateError(ex.ResponseBody ?? string.Empty));
-            return SaleQueueResult.Quarantined(queueId, payload.InvoiceHeader.InvoiceNumber, detail);
+            return SaleQueueResult.Quarantined(queueId, payload.InvoiceHeader.InvoiceNumber, evaluation.OperatorMessage);
         }
         catch (Exception ex) when (IsTransientFailure(ex))
         {
@@ -1028,8 +1071,18 @@ public sealed class OfflineSalesQueueService
         return false;
     }
 
-    private static bool IsPermanentBusinessFailure(SalesResult<SubmitSalesTransactionResponseData> submit) =>
-        submit.Errors?.Any(e => e.ErrorCode is >= 40000 and < 50000) == true;
+    private static bool IsPermanentBusinessFailure(
+        SalesResult<SubmitSalesTransactionResponseData> submit,
+        MraEisResponseEvaluation? evaluation = null)
+    {
+        if (evaluation?.ShouldQuarantine == true)
+        {
+            return true;
+        }
+
+        // Legacy OpenAPI-style 4xxxx validation codes.
+        return submit.Errors?.Any(e => e.ErrorCode is >= 40000 and < 50000) == true;
+    }
 
     private static string FormatQueueError(Exception ex)
     {

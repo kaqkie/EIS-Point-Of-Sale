@@ -11,6 +11,7 @@ using PointOfSale.Infrastructure.Options;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Infrastructure.Workers;
 using PointOfSale.Mra.Options;
+using PointOfSale.Mra.Services;
 
 namespace PointOfSale.Infrastructure;
 
@@ -74,6 +75,7 @@ public static class DependencyInjection
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MraApiClient>>(),
             sp.GetService<IAuditLoggingService>(),
             sp.GetService<MraRuntimeEnvironmentState>()));
+        services.AddSingleton<IMraEisResponseEvaluator, MraEisResponseEvaluator>();
         services.AddScoped<IMraTerminalAuthProvider, MraTerminalAuthProvider>();
         services.AddScoped<TerminalOnboardingService>();
         services.AddScoped<StockManagementService>();

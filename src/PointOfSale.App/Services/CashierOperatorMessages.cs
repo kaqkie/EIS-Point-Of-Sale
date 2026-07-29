@@ -1,12 +1,15 @@
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PointOfSale.App.Options;
 using PointOfSale.Core.Constants;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Services;
+using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Options;
+using PointOfSale.Mra.Services;
 
 namespace PointOfSale.App.Services;
 
@@ -15,36 +18,27 @@ namespace PointOfSale.App.Services;
 /// </summary>
 public static class CashierOperatorMessages
 {
-    public static OperatorMessage FromException(Exception exception, bool mraReachable)
+    private static readonly IMraEisResponseEvaluator FallbackEvaluator =
+        new MraEisResponseEvaluator(NullLogger<MraEisResponseEvaluator>.Instance);
+
+    public static OperatorMessage FromException(Exception exception, bool mraReachable) =>
+        FromException(exception, mraReachable, FallbackEvaluator);
+
+    public static OperatorMessage FromException(
+        Exception exception,
+        bool mraReachable,
+        IMraEisResponseEvaluator evaluator)
     {
         ArgumentNullException.ThrowIfNull(exception);
+        ArgumentNullException.ThrowIfNull(evaluator);
+
+        if (exception is MraApiException mra)
+        {
+            return FromEvaluation(evaluator.EvaluateException(mra), mraReachable);
+        }
 
         return exception switch
         {
-            MraApiException { HttpStatusCode: 400 } ex =>
-                new OperatorMessage(
-                    "MRA rejected this sale",
-                    "The invoice failed MRA validation and was quarantined. " +
-                    "Check product tax rates and quantities, then use Queue Sync to review or correct the sale.\n\n" +
-                    Truncate(ex.Message),
-                    OperatorMessageSeverity.Error,
-                    SuggestOfflineFallback: false),
-
-            MraApiException { HttpStatusCode: >= 500 } =>
-                new OperatorMessage(
-                    "MRA service unavailable",
-                    "The Malawi Revenue Authority EIS is temporarily unavailable. " +
-                    "The sale can be queued offline and will sync automatically when the service recovers.",
-                    OperatorMessageSeverity.Warning,
-                    SuggestOfflineFallback: true),
-
-            MraApiException ex =>
-                new OperatorMessage(
-                    "MRA communication error",
-                    Truncate(ex.Message),
-                    OperatorMessageSeverity.Error,
-                    SuggestOfflineFallback: !mraReachable),
-
             HttpRequestException =>
                 new OperatorMessage(
                     "Network connection lost",
@@ -84,6 +78,34 @@ public static class CashierOperatorMessages
                 OperatorMessageSeverity.Error,
                 SuggestOfflineFallback: !mraReachable)
         };
+    }
+
+    public static OperatorMessage FromEvaluation(MraEisResponseEvaluation evaluation, bool mraReachable = true)
+    {
+        ArgumentNullException.ThrowIfNull(evaluation);
+
+        if (evaluation.IsSuccess)
+        {
+            return new OperatorMessage(
+                evaluation.OperatorTitle,
+                evaluation.OperatorMessage,
+                OperatorMessageSeverity.Information,
+                SuggestOfflineFallback: false);
+        }
+
+        var severity = evaluation.Category switch
+        {
+            MraEisFailureCategory.ServerError => OperatorMessageSeverity.Warning,
+            MraEisFailureCategory.AuthenticationFailure => OperatorMessageSeverity.Warning,
+            MraEisFailureCategory.OutdatedConfiguration => OperatorMessageSeverity.Warning,
+            _ => OperatorMessageSeverity.Error
+        };
+
+        return new OperatorMessage(
+            evaluation.OperatorTitle,
+            evaluation.OperatorMessage,
+            severity,
+            SuggestOfflineFallback: evaluation.SuggestOfflineFallback || (!mraReachable && evaluation.IsTransient));
     }
 
     public static OperatorMessage Quarantined(string? remark) =>
