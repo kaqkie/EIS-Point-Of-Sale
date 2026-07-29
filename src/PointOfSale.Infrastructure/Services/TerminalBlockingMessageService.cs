@@ -1,10 +1,13 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PointOfSale.Core.Constants;
 using PointOfSale.Infrastructure.Repositories;
+using PointOfSale.Mra.Contracts.Common;
 using PointOfSale.Mra.Contracts.Sales;
 using PointOfSale.Mra.Contracts.Utilities;
 using PointOfSale.Mra.Serialization;
+using PointOfSale.Mra.Services;
 
 namespace PointOfSale.Infrastructure.Services;
 
@@ -17,6 +20,7 @@ public sealed class TerminalBlockingMessageService
     private readonly MraApiClient _apiClient;
     private readonly IMraTerminalAuthProvider _authProvider;
     private readonly IConfigurationRepository _configurationRepository;
+    private readonly ITerminalBlockingMessageResponseService _responseParser;
     private readonly MraRuntimeEnvironmentState? _runtimeState;
     private readonly ILogger<TerminalBlockingMessageService> _logger;
 
@@ -25,19 +29,24 @@ public sealed class TerminalBlockingMessageService
         IMraTerminalAuthProvider authProvider,
         IConfigurationRepository configurationRepository,
         ILogger<TerminalBlockingMessageService> logger,
-        MraRuntimeEnvironmentState? runtimeState = null)
+        MraRuntimeEnvironmentState? runtimeState = null,
+        ITerminalBlockingMessageResponseService? responseParser = null)
     {
         _apiClient = apiClient;
         _authProvider = authProvider;
         _configurationRepository = configurationRepository;
         _logger = logger;
         _runtimeState = runtimeState;
+        _responseParser = responseParser
+            ?? new TerminalBlockingMessageResponseService(
+                NullLogger<TerminalBlockingMessageResponseService>.Instance);
     }
 
     /// <summary>
     /// <c>POST /api/v1/utilities/get-terminal-blocking-message</c> —
     /// <c>Accept: text/plain</c>, JSON body with <c>terminalId</c>,
     /// <c>Authorization: Bearer {jwt}</c>.
+    /// Parses the EIS envelope and evaluates whether sales must halt.
     /// </summary>
     public async Task<TerminalBlockingMessageResult> GetTerminalBlockingMessageAsync(
         GetTerminalBlockingMessageRequest? request = null,
@@ -73,29 +82,59 @@ public sealed class TerminalBlockingMessageService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        if (!response.IsSuccess || response.Data is null)
+        var parsed = _responseParser.Validate(
+            new EisApiResponse<TerminalBlockingMessageData>
+            {
+                StatusCode = response.StatusCode,
+                Remark = response.Remark,
+                Data = response.Data,
+                Errors = response.Errors
+            });
+
+        if (!parsed.Success || parsed.Data is null || parsed.Evaluation is null)
         {
             _logger.LogWarning(
                 "get-terminal-blocking-message failed for terminalId={TerminalId}. Remark={Remark}",
                 payload.TerminalId,
-                response.Remark ?? "(null)");
+                parsed.Remark ?? "(null)");
             return TerminalBlockingMessageResult.Failed(
-                response.Remark ?? "Unable to retrieve the MRA terminal blocking message.",
-                response.StatusCode,
-                response.Errors,
+                parsed.Remark ?? "Unable to retrieve the MRA terminal blocking message.",
+                parsed.StatusCode,
+                parsed.Errors,
                 payload.TerminalId);
         }
 
         _logger.LogInformation(
             "Retrieved terminal blocking message for terminalId={TerminalId} isBlocked={IsBlocked} blockedAt={BlockedAt}",
             payload.TerminalId,
-            response.Data.IsBlocked,
-            response.Data.BlockedAt);
+            parsed.Data.IsBlocked,
+            parsed.Data.BlockedAt);
 
         return TerminalBlockingMessageResult.Succeeded(
             payload.TerminalId,
-            response.Data,
-            response.Remark);
+            parsed.Data,
+            parsed.Remark,
+            parsed,
+            _responseParser.BuildOperatorDisplay(parsed));
+    }
+
+    /// <summary>
+    /// Parses a raw successful EIS JSON body and builds operator UI content for halt-sales messaging.
+    /// </summary>
+    public TerminalBlockingUiResult ProcessSuccessfulBlockingResponse(string? rawJson)
+    {
+        var parsed = _responseParser.ParseJson(rawJson);
+        var display = _responseParser.BuildOperatorDisplay(parsed);
+        return new TerminalBlockingUiResult
+        {
+            Success = parsed.Success,
+            Parse = parsed,
+            Display = display,
+            ShouldHaltSales = display.ShouldHaltSales,
+            IsBlocked = parsed.IsBlocked,
+            BlockingReason = parsed.BlockingReason,
+            BlockedAt = parsed.BlockedAt
+        };
     }
 
     /// <summary>
@@ -129,13 +168,28 @@ public sealed class TerminalBlockingMessageService
                 "MRA indicated this terminal must be blocked, but the blocking message could not be retrieved. Contact MRA / stop sales until cleared.");
         }
 
-        var reason = fetch.Data?.ResolveOperatorMessage()
+        var display = fetch.OperatorDisplay
+            ?? (fetch.Parse is not null
+                ? _responseParser.BuildOperatorDisplay(fetch.Parse)
+                : new TerminalBlockingOperatorDisplay
+                {
+                    Title = "Terminal blocked by MRA",
+                    Body = fetch.Remark
+                        ?? "This terminal has been blocked by the Malawi Revenue Authority.",
+                    ShouldHaltSales = true,
+                    IsBlocked = true,
+                    Severity = TerminalBlockingDisplaySeverity.Error
+                });
+
+        var reason = display.BlockingReason
+            ?? fetch.Data?.ResolveOperatorMessage()
             ?? fetch.Remark
             ?? "This terminal has been blocked by the Malawi Revenue Authority.";
-        var blockedAt = fetch.Data?.BlockedAt ?? DateTime.UtcNow;
+        var blockedAt = display.BlockedAt ?? fetch.Data?.BlockedAt ?? DateTime.UtcNow;
         var terminalId = fetch.TerminalId
             ?? await _authProvider.GetActiveTerminalIdAsync(cancellationToken).ConfigureAwait(false);
 
+        // Sales flags force lockout even if the utility unexpectedly returns isBlocked=false.
         var snapshot = new TerminalBlockingStateSnapshot
         {
             TerminalId = terminalId,
@@ -151,7 +205,7 @@ public sealed class TerminalBlockingMessageService
         await PersistBlockingStateAsync(snapshot, cancellationToken).ConfigureAwait(false);
         _runtimeState?.SetTerminalBlocked(true, reason, blockedAt);
 
-        return TerminalBlockHandlingResult.Blocked(snapshot, fetch);
+        return TerminalBlockHandlingResult.Blocked(snapshot, fetch, display);
     }
 
     public async Task<TerminalBlockingStateSnapshot?> GetPersistedBlockingStateAsync(
@@ -217,26 +271,37 @@ public sealed class TerminalBlockingMessageResult
     public string? TerminalId { get; init; }
     public string? Remark { get; init; }
     public int StatusCode { get; init; }
-    public IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? Errors { get; init; }
+    public IReadOnlyList<EisApiError>? Errors { get; init; }
     public TerminalBlockingMessageData? Data { get; init; }
+    public TerminalBlockingMessageParseResult? Parse { get; init; }
+    public TerminalBlockingOperatorDisplay? OperatorDisplay { get; init; }
+
+    public bool ShouldHaltSales =>
+        OperatorDisplay?.ShouldHaltSales == true
+        || Parse?.ShouldHaltSales == true
+        || Data?.IsBlocked == true;
 
     public static TerminalBlockingMessageResult Succeeded(
         string terminalId,
         TerminalBlockingMessageData data,
-        string? remark) =>
+        string? remark,
+        TerminalBlockingMessageParseResult? parse = null,
+        TerminalBlockingOperatorDisplay? operatorDisplay = null) =>
         new()
         {
             Success = true,
             StatusCode = 1,
             TerminalId = terminalId,
             Data = data,
-            Remark = remark
+            Remark = remark,
+            Parse = parse,
+            OperatorDisplay = operatorDisplay
         };
 
     public static TerminalBlockingMessageResult Failed(
         string remark,
         int statusCode = 0,
-        IReadOnlyList<PointOfSale.Mra.Contracts.Common.EisApiError>? errors = null,
+        IReadOnlyList<EisApiError>? errors = null,
         string? terminalId = null) =>
         new()
         {
@@ -254,9 +319,11 @@ public sealed class TerminalBlockHandlingResult
     public bool IsBlocked { get; init; }
     public TerminalBlockingStateSnapshot? State { get; init; }
     public TerminalBlockingMessageResult? Fetch { get; init; }
+    public TerminalBlockingOperatorDisplay? Display { get; init; }
 
     public string? OperatorMessage =>
-        State?.BlockingReason
+        Display?.Body
+        ?? State?.BlockingReason
         ?? Fetch?.Data?.ResolveOperatorMessage()
         ?? Fetch?.Remark;
 
@@ -265,14 +332,27 @@ public sealed class TerminalBlockHandlingResult
 
     public static TerminalBlockHandlingResult Blocked(
         TerminalBlockingStateSnapshot state,
-        TerminalBlockingMessageResult fetch) =>
+        TerminalBlockingMessageResult fetch,
+        TerminalBlockingOperatorDisplay? display = null) =>
         new()
         {
             Required = true,
             IsBlocked = true,
             State = state,
-            Fetch = fetch
+            Fetch = fetch,
+            Display = display
         };
+}
+
+public sealed class TerminalBlockingUiResult
+{
+    public bool Success { get; init; }
+    public bool ShouldHaltSales { get; init; }
+    public bool IsBlocked { get; init; }
+    public string? BlockingReason { get; init; }
+    public DateTime? BlockedAt { get; init; }
+    public TerminalBlockingMessageParseResult? Parse { get; init; }
+    public TerminalBlockingOperatorDisplay? Display { get; init; }
 }
 
 public sealed class TerminalBlockingStateSnapshot

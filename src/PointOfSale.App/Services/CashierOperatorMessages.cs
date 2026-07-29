@@ -7,6 +7,7 @@ using PointOfSale.Core.Constants;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Contracts.Common;
+using PointOfSale.Mra.Contracts.Utilities;
 using PointOfSale.Mra.Http;
 using PointOfSale.Mra.Options;
 using PointOfSale.Mra.Services;
@@ -133,22 +134,55 @@ public static class CashierOperatorMessages
 
     public static OperatorMessage TerminalBlockedByMra(string? officialMessage, DateTime? blockedAt = null)
     {
-        var when = blockedAt is DateTime at
-            ? $"\n\nBlocked at (UTC): {at:yyyy-MM-dd HH:mm:ss}"
-            : string.Empty;
-        var body =
-            "Albert Retail Terminal must stop all sales processing until MRA unblocks this terminal.\n\n" +
-            "Official MRA explanation:\n" +
-            Truncate(officialMessage ?? "No blocking reason was returned. Contact MRA Taxpayer Services.") +
-            when +
-            "\n\nNext steps: contact MRA / your tax consultant, then use Check Terminal Unblock Status once cleared.";
-
+        var display = BuildBlockingDisplay(officialMessage, blockedAt);
         return new OperatorMessage(
-            "Terminal blocked by MRA",
-            body,
-            OperatorMessageSeverity.Error,
+            display.Title,
+            display.Body,
+            MapSeverity(display.Severity),
             SuggestOfflineFallback: false);
     }
+
+    public static OperatorMessage FromBlockingDisplay(TerminalBlockingOperatorDisplay display)
+    {
+        ArgumentNullException.ThrowIfNull(display);
+        return new OperatorMessage(
+            display.Title,
+            display.Body,
+            MapSeverity(display.Severity),
+            SuggestOfflineFallback: false);
+    }
+
+    private static TerminalBlockingOperatorDisplay BuildBlockingDisplay(string? officialMessage, DateTime? blockedAt)
+    {
+        var parser = new TerminalBlockingMessageResponseService(
+            NullLogger<TerminalBlockingMessageResponseService>.Instance);
+        var evaluation = parser.EvaluateBlockingStatus(
+            new TerminalBlockingMessageData
+            {
+                IsBlocked = true,
+                BlockingReason = officialMessage,
+                BlockedAt = blockedAt
+            });
+        return parser.BuildOperatorDisplay(
+            TerminalBlockingMessageParseResult.Succeeded(
+                new TerminalBlockingMessageData
+                {
+                    IsBlocked = true,
+                    BlockingReason = officialMessage,
+                    BlockedAt = blockedAt
+                },
+                evaluation,
+                remark: null,
+                statusCode: 1));
+    }
+
+    private static OperatorMessageSeverity MapSeverity(TerminalBlockingDisplaySeverity severity) =>
+        severity switch
+        {
+            TerminalBlockingDisplaySeverity.Information => OperatorMessageSeverity.Information,
+            TerminalBlockingDisplaySeverity.Warning => OperatorMessageSeverity.Warning,
+            _ => OperatorMessageSeverity.Error
+        };
 
     private static string Truncate(string message) =>
         message.Length <= 400 ? message : message[..397] + "...";

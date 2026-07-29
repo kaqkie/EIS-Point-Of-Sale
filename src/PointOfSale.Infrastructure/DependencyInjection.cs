@@ -82,6 +82,7 @@ public static class DependencyInjection
         services.AddSingleton<ILastSubmittedOnlineTransactionResponseService, LastSubmittedOnlineTransactionResponseService>();
         services.AddSingleton<ITerminalSiteProductsResponseService, TerminalSiteProductsResponseService>();
         services.AddSingleton<IVat5CertificateResponseService, Vat5CertificateResponseService>();
+        services.AddSingleton<ITerminalBlockingMessageResponseService, TerminalBlockingMessageResponseService>();
         services.AddScoped<ITerminalSiteProductsCatalogSyncService, TerminalSiteProductsCatalogSyncService>();
         services.AddScoped<Vat5CertificateValidationService>();
         services.AddScoped<TerminalBlockingMessageService>();

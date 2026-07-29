@@ -10,6 +10,7 @@ using PointOfSale.Mra.Contracts.Utilities;
 using PointOfSale.Mra.Options;
 using PointOfSale.Mra.Security;
 using PointOfSale.Mra.Serialization;
+using PointOfSale.Mra.Services;
 using PointOfSale.Tests.Mocks;
 using PointOfSale.Tests.Support;
 using Xunit;
@@ -30,6 +31,77 @@ public sealed class TerminalBlockingMessageTests
           "errors": null
         }
         """;
+
+    [Fact]
+    public void Parser_MapsEnvelope_AndBuildsOperatorDisplay()
+    {
+        var parser = new TerminalBlockingMessageResponseService(
+            NullLogger<TerminalBlockingMessageResponseService>.Instance);
+
+        var parsed = parser.ParseJson(SampleBlockingJson);
+
+        Assert.True(parsed.Success);
+        Assert.True(parsed.IsBlocked);
+        Assert.True(parsed.ShouldHaltSales);
+        Assert.Contains("compliance review", parsed.BlockingReason, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(parsed.BlockedAt);
+
+        var display = parser.BuildOperatorDisplay(parsed);
+        Assert.Equal("Terminal blocked by MRA", display.Title);
+        Assert.True(display.ShouldHaltSales);
+        Assert.Contains("Official MRA explanation", display.Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("2025-05-28", display.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parser_RejectsLogicalFailure_WithErrors()
+    {
+        const string failureJson = """
+            {
+              "statusCode": 0,
+              "remark": "Unable to resolve blocking status.",
+              "data": null,
+              "errors": [
+                { "errorCode": 40001, "fieldName": "terminalId", "errorMessage": "Unknown terminal" }
+              ]
+            }
+            """;
+
+        var parser = new TerminalBlockingMessageResponseService(
+            NullLogger<TerminalBlockingMessageResponseService>.Instance);
+        var parsed = parser.ParseJson(failureJson);
+
+        Assert.False(parsed.Success);
+        Assert.False(parsed.ShouldHaltSales);
+        Assert.NotNull(parsed.Errors);
+        Assert.Contains("Unknown terminal", parsed.ErrorDetail, StringComparison.OrdinalIgnoreCase);
+
+        var display = parser.BuildOperatorDisplay(parsed);
+        Assert.True(display.ShouldHaltSales);
+        Assert.Equal(TerminalBlockingDisplaySeverity.Error, display.Severity);
+    }
+
+    [Fact]
+    public void ProcessSuccessfulBlockingResponse_SurfacesHaltSalesUi()
+    {
+        using var mock = new MockMraServer();
+        using var harness = new MraIntegrationHarness(mock);
+        var service = new TerminalBlockingMessageService(
+            harness.ApiClient,
+            harness.AuthProvider,
+            harness.ConfigurationRepository,
+            NullLogger<TerminalBlockingMessageService>.Instance);
+
+        var ui = service.ProcessSuccessfulBlockingResponse(SampleBlockingJson);
+
+        Assert.True(ui.Success);
+        Assert.True(ui.ShouldHaltSales);
+        Assert.True(ui.IsBlocked);
+        Assert.NotNull(ui.BlockedAt);
+        Assert.Contains("compliance review", ui.BlockingReason, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(ui.Display);
+        Assert.Contains("stop all sales", ui.Display!.Body, StringComparison.OrdinalIgnoreCase);
+    }
 
     [Fact]
     public async Task GetTerminalBlockingMessage_PostsBearerAcceptAndTerminalId()
@@ -76,6 +148,8 @@ public sealed class TerminalBlockingMessageTests
 
         Assert.True(result.Success);
         Assert.True(result.Data!.IsBlocked);
+        Assert.True(result.ShouldHaltSales);
+        Assert.NotNull(result.OperatorDisplay);
         Assert.Contains("compliance review", result.Data.BlockingReason, StringComparison.OrdinalIgnoreCase);
         Assert.NotNull(result.Data.BlockedAt);
 
