@@ -414,6 +414,8 @@ public sealed class OfflineSalesQueueService
                     }
                 }
 
+                await TrySyncLatestConfigIfRequestedAsync(submit.Data, cancellationToken)
+                    .ConfigureAwait(false);
                 var blockHandling = await TryHandleTerminalBlockAsync(submit.Data, cancellationToken)
                     .ConfigureAwait(false);
                 return SaleQueueResult.Submitted(
@@ -435,7 +437,9 @@ public sealed class OfflineSalesQueueService
 
             // HTTP was successful, but MRA returned success=false (logical failure).
             // Classify known EIS status / field error codes for quarantine vs retry vs config sync.
-            // Also honor shouldBlockTerminal / shouldBoardTerminal when present on failure payloads.
+            // Also honor shouldDownloadLatestConfig / shouldBlockTerminal when present on failure payloads.
+            await TrySyncLatestConfigIfRequestedAsync(submit.Data, cancellationToken)
+                .ConfigureAwait(false);
             var failureBlockHandling = await TryHandleTerminalBlockAsync(submit.Data, cancellationToken)
                 .ConfigureAwait(false);
             var evaluation = _responseEvaluator.Evaluate(submit.StatusCode, submit.Remark, submit.Errors);
@@ -1290,6 +1294,56 @@ public sealed class OfflineSalesQueueService
         _complianceAudit is null
             ? Task.CompletedTask
             : _complianceAudit.LogEventAsync(category, action, detail, success, correlationId, cancellationToken: cancellationToken);
+
+    private async Task TrySyncLatestConfigIfRequestedAsync(
+        SubmitSalesTransactionResponseData? salesData,
+        CancellationToken cancellationToken)
+    {
+        if (_terminalOnboardingService is null
+            || salesData is null
+            || !salesData.ShouldDownloadLatestConfig)
+        {
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "Sales response set shouldDownloadLatestConfig=true for invoice {InvoiceNumber}; calling get-latest-configs.",
+                salesData.InvoiceNumber ?? "(unknown)");
+
+            var result = await _terminalOnboardingService
+                .GetLatestConfigsAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            lock (LiveConfigRefreshGate)
+            {
+                _liveConfigOverlayCache = null;
+                _liveConfigRefreshUtc = DateTime.MinValue;
+            }
+
+            if (!result.Success && !result.UsedLocalFallback)
+            {
+                _logger.LogWarning(
+                    "get-latest-configs after shouldDownloadLatestConfig failed. Remark={Remark}",
+                    result.Remark ?? "(null)");
+                return;
+            }
+
+            await LogComplianceAsync(
+                    ComplianceAuditCategories.TransactionSubmission,
+                    "ConfigSyncAfterSalesFlag",
+                    $"Fetched latest configs after shouldDownloadLatestConfig for invoice {salesData.InvoiceNumber}.",
+                    success: result.Success || result.UsedLocalFallback,
+                    correlationId: salesData.InvoiceNumber,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed while handling shouldDownloadLatestConfig.");
+        }
+    }
 
     private async Task<TerminalBlockHandlingResult?> TryHandleTerminalBlockAsync(
         SubmitSalesTransactionResponseData? salesData,
