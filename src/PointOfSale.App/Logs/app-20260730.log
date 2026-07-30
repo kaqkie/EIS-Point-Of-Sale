@@ -1,0 +1,75 @@
+2026-07-30 03:42:58.949 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-30 03:42:59.031 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 412
+ClientConnectionId:a42a0abd-61d5-4ac1-863c-5b23bb4cf561
+Error Number:10611,State:1,Class:16
+2026-07-30 03:42:59.343 +02:00 [INF] Offline invoice FIFO sync worker started (interval 15s, requireConnectivity=true).
+2026-07-30 03:42:59.351 +02:00 [INF] Hardware fault-tolerance loop started (probe every 20s).
+2026-07-30 03:42:59.353 +02:00 [INF] ArchivalCompressionBackgroundService is disabled.
+2026-07-30 03:42:59.357 +02:00 [INF] Inventory alert scanner started (interval 60s).
+2026-07-30 03:42:59.371 +02:00 [INF] HealthCheckWorker started (interval 45s).
+2026-07-30 03:42:59.373 +02:00 [INF] System health monitor started (interval 45s).
+2026-07-30 03:42:59.375 +02:00 [INF] PerformanceProfilingBackgroundService started (sample 30s, flush 300s).
+2026-07-30 03:42:59.377 +02:00 [INF] DatabaseMaintenanceBackgroundService started (interval 24h).
+2026-07-30 03:42:59.669 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-30 03:42:59.948 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-30 03:43:00.018 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-30 03:43:00.023 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+System.InvalidOperationException: No activated terminal is registered for Albert Retail Terminal.
+   at PointOfSale.Infrastructure.Services.MraTerminalAuthProvider.GetActiveTerminalIdAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraTerminalAuthProvider.cs:line 35
+   at PointOfSale.Infrastructure.Services.MraTerminalAuthProvider.GetJwtContextAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraTerminalAuthProvider.cs:line 43
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 85
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 154
+2026-07-30 03:43:00.132 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 409
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 412
+ClientConnectionId:9fcd4bf3-fe80-4f18-ba5c-6f81d6f09afd
+Error Number:10611,State:1,Class:16
+2026-07-30 03:43:00.321 +02:00 [WRN] Failed refreshing latest MRA configs for payload normalize; falling back to cached identity. sellerTIN=20122074 siteId=Luchenza
+System.InvalidOperationException: No activated terminal found in dbo.Terminals.
+   at PointOfSale.Infrastructure.Services.TerminalOnboardingService.GetLatestConfigsAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\TerminalOnboardingService.cs:line 300
+   at PointOfSale.Infrastructure.Services.OfflineSalesQueueService.LoadFiscalIdentityOverlayAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\OfflineSalesQueueService.cs:line 1335
+2026-07-30 03:43:00.450 +02:00 [WRN] Failed refreshing latest MRA configs for payload normalize; falling back to cached identity. sellerTIN=20122074 siteId=Luchenza
+System.InvalidOperationException: No activated terminal found in dbo.Terminals.
+   at PointOfSale.Infrastructure.Services.TerminalOnboardingService.GetLatestConfigsAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\TerminalOnboardingService.cs:line 300
+   at PointOfSale.Infrastructure.Services.OfflineSalesQueueService.LoadFiscalIdentityOverlayAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\OfflineSalesQueueService.cs:line 1335
+2026-07-30 03:43:01.477 +02:00 [INF] Normalized queue payload for item 3010 before MRA resubmit (length 830 -> 828). sellerTIN=20122074 siteId=SITE-LUCHENZA invoiceNumber=BMwna-B-JY5D-C taxRates=A
+2026-07-30 03:43:01.506 +02:00 [INF] Offline sync drained 2 item(s) (submitted=0, quarantined=2).
+2026-07-30 03:43:07.451 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-30 03:43:07.838 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 3 null: SQL round-trip 3 ms
+2026-07-30 03:43:09.065 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 1004 404: MRA reachable (404) in 1004 ms.
+2026-07-30 03:43:09.392 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-30 03:43:09.425 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 3 null: All subsystems healthy (SQL 3 ms, disk 38.85 GB free).
+2026-07-30 03:43:11.373 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-30 03:43:15.555 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 4169 404: MRA reachable (404) in 4169 ms.
+2026-07-30 03:43:15.913 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-30 03:43:15.914 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 38.85 GB free).
+2026-07-30 03:43:16.213 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-30 03:43:16.284 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-30 03:43:17.191 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-30 03:43:19.211 +02:00 [INF] Hardware fault-tolerance loop stopped.
