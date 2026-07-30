@@ -10,6 +10,7 @@ DECLARE @TerminalId NVARCHAR(64) = N'ART-SBX-B61182AD';
 -- Drop fake/local Activated state (SecretKey + JWT came from sandbox fallback, not the portal).
 UPDATE dbo.Terminals
 SET ActivationState = N'NotActivated',
+    BranchCode = N'',
     SecretKey = NULL,
     LastSyncedAt = NULL
 WHERE TerminalId = @TerminalId;
@@ -18,12 +19,13 @@ WHERE TerminalId = @TerminalId;
 IF NOT EXISTS (SELECT 1 FROM dbo.Terminals WHERE TerminalId = @TerminalId)
 BEGIN
     INSERT INTO dbo.Terminals (TerminalId, BranchCode, ActivationState, SecretKey, LastSyncedAt)
-    VALUES (@TerminalId, N'Lilongwe', N'NotActivated', NULL, NULL);
+    VALUES (@TerminalId, N'', N'NotActivated', NULL, NULL);
 END;
 
--- Remove MRA credentials and onboarding flags.
+-- Remove MRA credentials, branch binding, and onboarding flags.
 DELETE FROM dbo.Configurations
 WHERE ConfigKey IN (
+    N'deployment.branchId',
     N'mra.auth.jwt',
     N'mra.onboarding.terminalActivationCode',
     N'mra.onboarding.pendingSecretKey',
