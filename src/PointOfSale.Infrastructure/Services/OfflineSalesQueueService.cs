@@ -118,6 +118,7 @@ public sealed class OfflineSalesQueueService
         var payload = await PreparePayloadAsync(request, forceOffline, cancellationToken).ConfigureAwait(false);
         var payloadJson = JsonSerializer.Serialize(payload, MraJson.SerializerOptions);
         var queueId = await _queueRepository.EnqueuePendingAsync(payloadJson, cancellationToken).ConfigureAwait(false);
+        await TryPersistOfflineFiscalQrAsync(queueId, payload, cancellationToken).ConfigureAwait(false);
         await LogComplianceAsync(
                 ComplianceAuditCategories.OfflineQueue,
                 "EnqueuePending",
@@ -533,6 +534,11 @@ public sealed class OfflineSalesQueueService
         // Receipts older than the MRA offline age limit cannot be uploaded — archive them locally
         // so they stop blocking the queue UI and new sales.
         var archived = await ArchiveAgedOpenReceiptsAsync(cancellationToken).ConfigureAwait(false);
+        var qrRepaired = await RepairMissingReceiptQrCodesAsync(cancellationToken).ConfigureAwait(false);
+        if (qrRepaired > 0)
+        {
+            _logger.LogInformation("Repaired missing receipt QR ValidationURL on {Count} queue invoice(s).", qrRepaired);
+        }
 
         return new ReceiptIdentifierBatchRepairResult(
             candidates.Count,
@@ -565,11 +571,34 @@ public sealed class OfflineSalesQueueService
             }
 
             var invoiceNumber = TryReadInvoiceNumber(item.PayloadJson) ?? "(unknown)";
-            var sellerTin = TryReadSellerTin(item.PayloadJson) ?? "20122074";
-            var fiscalJson =
-                $"{{\"archived\":true,\"reason\":\"tin-not-found\",\"invoiceNumber\":\"{EscapeJson(invoiceNumber)}\"," +
-                $"\"sellerTin\":\"{EscapeJson(sellerTin)}\",\"note\":\"MRA taxpayer not enrolled for EIS VAT sales; local offline receipt retained.\"," +
-                $"\"archivedAtUtc\":\"{DateTime.UtcNow:O}\"}}";
+            SubmitSalesTransactionRequest? payload = null;
+            try
+            {
+                payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(
+                    item.PayloadJson,
+                    MraJson.SerializerOptions);
+            }
+            catch
+            {
+                // fall through to minimal archive JSON
+            }
+
+            string fiscalJson;
+            if (payload is not null && !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+            {
+                fiscalJson = BuildOfflineFiscalResponseJson(
+                    payload,
+                    payload.InvoiceSummary.OfflineSignature!,
+                    archiveReason: "tin-not-found");
+            }
+            else
+            {
+                var sellerTin = TryReadSellerTin(item.PayloadJson) ?? "20122074";
+                fiscalJson =
+                    $"{{\"archived\":true,\"reason\":\"tin-not-found\",\"invoiceNumber\":\"{EscapeJson(invoiceNumber)}\"," +
+                    $"\"sellerTin\":\"{EscapeJson(sellerTin)}\",\"note\":\"MRA taxpayer not enrolled for EIS VAT sales; local offline receipt retained.\"," +
+                    $"\"archivedAtUtc\":\"{DateTime.UtcNow:O}\"}}";
+            }
 
             await _queueRepository
                 .MarkSyncedAsync(item.Id, fiscalJson, cancellationToken)
@@ -582,6 +611,190 @@ public sealed class OfflineSalesQueueService
         }
 
         return archived;
+    }
+
+    /// <summary>
+    /// Rebuilds and stores offline ValidationURL / QR fiscal JSON for every queue receipt that has
+    /// <c>offlineSignature</c> but no printable fiscal response (archived TIN-not-found / aged rows).
+    /// </summary>
+    public async Task<int> RepairMissingReceiptQrCodesAsync(CancellationToken cancellationToken = default)
+    {
+        var items = await _queueRepository
+            .GetRecentItemsAsync(500, cancellationToken)
+            .ConfigureAwait(false);
+
+        var repaired = 0;
+        foreach (var item in items.OrderBy(x => x.Id))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(item.PayloadJson))
+            {
+                continue;
+            }
+
+            if (HasPrintableFiscalResponseJson(item.FiscalResponseJson))
+            {
+                continue;
+            }
+
+            SubmitSalesTransactionRequest? payload;
+            try
+            {
+                payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(
+                    item.PayloadJson,
+                    MraJson.SerializerOptions);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (payload is null || string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+            {
+                if (payload is null || _offlineReceiptSignatureService is null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    payload = await _offlineReceiptSignatureService
+                        .AttachOfflineSignatureAsync(payload, cancellationToken)
+                        .ConfigureAwait(false);
+                    var payloadJson = JsonSerializer.Serialize(payload, MraJson.SerializerOptions);
+                    await _queueRepository
+                        .UpdatePayloadJsonAsync(item.Id, payloadJson, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed signing missing offlineSignature for queue {QueueId}.", item.Id);
+                    continue;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+            {
+                continue;
+            }
+
+            try
+            {
+                var fiscalJson = BuildOfflineFiscalResponseJson(payload, payload.InvoiceSummary.OfflineSignature!);
+                await _queueRepository
+                    .UpdateFiscalResponseJsonAsync(item.Id, fiscalJson, cancellationToken)
+                    .ConfigureAwait(false);
+                repaired++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed repairing QR fiscal JSON for queue {QueueId}.", item.Id);
+            }
+        }
+
+        return repaired;
+    }
+
+    private static bool HasPrintableFiscalResponseJson(string? fiscalResponseJson)
+    {
+        if (string.IsNullOrWhiteSpace(fiscalResponseJson))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(fiscalResponseJson);
+            if (doc.RootElement.TryGetProperty("validationURL", out var url)
+                && url.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(url.GetString()))
+            {
+                return true;
+            }
+
+            if (doc.RootElement.TryGetProperty("validationUrl", out var urlAlt)
+                && urlAlt.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(urlAlt.GetString()))
+            {
+                return true;
+            }
+
+            if (doc.RootElement.TryGetProperty("verificationUrl", out var verify)
+                && verify.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(verify.GetString()))
+            {
+                return true;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private string BuildOfflineFiscalResponseJson(
+        SubmitSalesTransactionRequest payload,
+        string offlineSignature,
+        string? archiveReason = null)
+    {
+        var rebuilt = MraOfflineReceiptSigning.RebuildFromStoredSignature(
+            payload,
+            offlineSignature,
+            offlineValidationBaseUrl: null);
+
+        var invoiceNumber = payload.InvoiceHeader.InvoiceNumber;
+        if (string.IsNullOrWhiteSpace(archiveReason))
+        {
+            return JsonSerializer.Serialize(
+                new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = invoiceNumber,
+                    FiscalSignature = rebuilt.OfflineDataSignature,
+                    ValidationUrl = rebuilt.ValidationUrl,
+                    VerificationUrl = rebuilt.ValidationUrl
+                },
+                MraJson.SerializerOptions);
+        }
+
+        return JsonSerializer.Serialize(
+            new
+            {
+                archived = true,
+                reason = archiveReason,
+                invoiceNumber,
+                fiscalSignature = rebuilt.OfflineDataSignature,
+                validationURL = rebuilt.ValidationUrl,
+                verificationUrl = rebuilt.ValidationUrl,
+                archivedAtUtc = DateTime.UtcNow
+            },
+            MraJson.SerializerOptions);
+    }
+
+    private async Task TryPersistOfflineFiscalQrAsync(
+        int queueId,
+        SubmitSalesTransactionRequest payload,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+        {
+            return;
+        }
+
+        try
+        {
+            var fiscalJson = BuildOfflineFiscalResponseJson(
+                payload,
+                payload.InvoiceSummary.OfflineSignature!);
+            await _queueRepository
+                .UpdateFiscalResponseJsonAsync(queueId, fiscalJson, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed persisting offline ValidationURL QR for queue {QueueId}.", queueId);
+        }
     }
 
     /// <summary>
@@ -622,10 +835,33 @@ public sealed class OfflineSalesQueueService
 
             var ageHours = (DateTime.UtcNow - ageAnchor).TotalHours;
             var invoiceNumber = TryReadInvoiceNumber(item.PayloadJson) ?? "(unknown)";
-            var fiscalJson =
-                $"{{\"archived\":true,\"reason\":\"exceeded offline age limit\",\"maxAgeHours\":{maxAgeHours}," +
-                $"\"ageHours\":{ageHours:0.#},\"invoiceNumber\":\"{EscapeJson(invoiceNumber)}\"," +
-                $"\"archivedAtUtc\":\"{DateTime.UtcNow:O}\"}}";
+            string fiscalJson;
+            SubmitSalesTransactionRequest? payload = null;
+            try
+            {
+                payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(
+                    item.PayloadJson,
+                    MraJson.SerializerOptions);
+            }
+            catch
+            {
+                // fall through to minimal archive JSON
+            }
+
+            if (payload is not null && !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+            {
+                fiscalJson = BuildOfflineFiscalResponseJson(
+                    payload,
+                    payload.InvoiceSummary.OfflineSignature!,
+                    archiveReason: "exceeded offline age limit");
+            }
+            else
+            {
+                fiscalJson =
+                    $"{{\"archived\":true,\"reason\":\"exceeded offline age limit\",\"maxAgeHours\":{maxAgeHours}," +
+                    $"\"ageHours\":{ageHours:0.#},\"invoiceNumber\":\"{EscapeJson(invoiceNumber)}\"," +
+                    $"\"archivedAtUtc\":\"{DateTime.UtcNow:O}\"}}";
+            }
 
             await _queueRepository
                 .MarkSyncedAsync(item.Id, fiscalJson, cancellationToken)
@@ -868,6 +1104,8 @@ public sealed class OfflineSalesQueueService
                 await _queueRepository
                     .MarkQuarantinedAsync(queueId, quarantineRemark, cancellationToken)
                     .ConfigureAwait(false);
+                await TryPersistOfflineFiscalQrAsync(queueId, payload, cancellationToken)
+                    .ConfigureAwait(false);
                 return SaleQueueResult.Quarantined(
                     queueId,
                     payload.InvoiceHeader.InvoiceNumber,
@@ -965,6 +1203,8 @@ public sealed class OfflineSalesQueueService
 
             await _queueRepository.MarkQuarantinedAsync(queueId, detail, cancellationToken)
                 .ConfigureAwait(false);
+            await TryPersistOfflineFiscalQrAsync(queueId, payload, cancellationToken)
+                .ConfigureAwait(false);
             _logger.LogWarning(
                 "Quarantined queue id {QueueId} after MRA HTTP {Status}: category={Category} action={Action}. ResponseBody={ResponseBody}",
                 queueId,
@@ -996,6 +1236,8 @@ public sealed class OfflineSalesQueueService
             var detail = TruncateError(
                 "HttpClient lifetime fault (properties mutated after first request). " + FormatQueueError(ex));
             await _queueRepository.MarkQuarantinedAsync(queueId, detail, cancellationToken)
+                .ConfigureAwait(false);
+            await TryPersistOfflineFiscalQrAsync(queueId, payload, cancellationToken)
                 .ConfigureAwait(false);
             return SaleQueueResult.Quarantined(queueId, payload.InvoiceHeader.InvoiceNumber, detail);
         }
@@ -1050,7 +1292,7 @@ public sealed class OfflineSalesQueueService
                 .ConfigureAwait(false);
         }
 
-        if (hadOfflineSignature || needsInvoiceRewrite)
+        if (hadOfflineSignature || needsInvoiceRewrite || string.IsNullOrWhiteSpace(normalized.InvoiceSummary.OfflineSignature))
         {
             normalized = await RefreshOfflineSignatureAsync(normalized, cancellationToken).ConfigureAwait(false);
         }
@@ -1632,11 +1874,9 @@ public sealed class OfflineSalesQueueService
         bool forceOffline,
         CancellationToken cancellationToken)
     {
-        if (!forceOffline)
-        {
-            return request;
-        }
-
+        // Always attach offlineSignature so quarantine / aged archive / reprint can rebuild
+        // the MRA ValidationURL QR even when the sale was first attempted online.
+        _ = forceOffline;
         return await RefreshOfflineSignatureAsync(request, cancellationToken).ConfigureAwait(false);
     }
 

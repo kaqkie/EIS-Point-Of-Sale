@@ -242,6 +242,58 @@ public static class MraOfflineReceiptSigning
         string? offlineValidationBaseUrl = null) =>
         Generate(FromSalesRequest(request), secretKey, offlineValidationBaseUrl);
 
+    /// <summary>
+    /// Rebuilds the offline ValidationURL (QR payload) from a previously stored
+    /// <c>invoiceSummary.offlineSignature</c> without needing the terminal secret again.
+    /// </summary>
+    public static MraOfflineReceiptSignatureResult RebuildFromStoredSignature(
+        SubmitSalesTransactionRequest request,
+        string offlineDataSignature,
+        string? offlineValidationBaseUrl = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(offlineDataSignature);
+
+        var signingRequest = FromSalesRequest(request);
+        var julianDate = ToJulianDate(signingRequest.TransactionDateUtc);
+        var julianDateTo64 = Base10ToBase64(julianDate);
+        var combinedString = !string.IsNullOrWhiteSpace(signingRequest.InvoiceNumber)
+            && MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(signingRequest.InvoiceNumber)
+                ? signingRequest.InvoiceNumber.Trim()
+                : GenerateCombinedString(
+                    signingRequest.TaxpayerId,
+                    signingRequest.TerminalPosition,
+                    julianDate,
+                    signingRequest.TransactionCount);
+
+        var param = BuildParameterString(
+            combinedString,
+            signingRequest.NumItems,
+            signingRequest.InvoiceTotal,
+            signingRequest.VatAmount,
+            julianDateTo64);
+
+        var signature = offlineDataSignature.Trim();
+        var urlEncodedSignature = WebUtility.UrlEncode(signature);
+        var baseUrl = NormalizeValidationBaseUrl(
+            offlineValidationBaseUrl ?? DefaultSandboxValidationBaseUrl);
+        var validationUrl = $"{baseUrl}?{param}&S={urlEncodedSignature}";
+
+        return new MraOfflineReceiptSignatureResult
+        {
+            InvoiceNumber = combinedString,
+            ParameterString = param,
+            OfflineDataSignature = signature,
+            UrlEncodedSignature = urlEncodedSignature,
+            ValidationUrl = validationUrl,
+            JulianDate = julianDate,
+            JulianDateBase64 = julianDateTo64,
+            NumItems = signingRequest.NumItems,
+            InvoiceTotal = signingRequest.InvoiceTotal,
+            VatAmount = signingRequest.VatAmount
+        };
+    }
+
     public static string NormalizeValidationBaseUrl(string baseUrl)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(baseUrl);

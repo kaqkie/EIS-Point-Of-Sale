@@ -97,12 +97,15 @@ public static class QueueReceiptPrintHelper
             return false;
         }
 
-        var enriched = FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
-            response,
-            response.InvoiceNumber ?? "UNKNOWN");
-        return !string.IsNullOrWhiteSpace(enriched.ResolveVerificationUrl())
-            || (!string.IsNullOrWhiteSpace(enriched.ResolveFiscalSignature())
-                && !FiscalReceiptEnricher.IsOfflinePlaceholder(enriched.ResolveFiscalSignature()));
+        // Require a real ValidationURL before print. Do not treat signature-only as printable —
+        // FiscalReceiptEnricher would fabricate a non-MRA ?invoice=&sig= URL and skip QR rebuild.
+        var url = response.ResolveVerificationUrl();
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return false;
+        }
+
+        return !FiscalReceiptEnricher.IsOfflinePlaceholder(response.ResolveFiscalSignature());
     }
 
     public static ReceiptPrintRequest CreatePrintRequest(

@@ -837,7 +837,7 @@ public partial class CheckoutViewModel : ObservableObject
                 }
             }
 
-            if (fiscal is null)
+            if (!QueueReceiptPrintHelper.HasPrintableFiscalData(fiscal))
             {
                 try
                 {
@@ -852,11 +852,54 @@ public partial class CheckoutViewModel : ObservableObject
                 }
                 catch
                 {
-                    fiscal = new SubmitSalesTransactionResponseData
+                    if (!string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
                     {
-                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                        FiscalSignature = payload.InvoiceSummary.OfflineSignature
-                    };
+                        try
+                        {
+                            var rebuilt = MraOfflineReceiptSigning.RebuildFromStoredSignature(
+                                payload,
+                                payload.InvoiceSummary.OfflineSignature!);
+                            fiscal = new SubmitSalesTransactionResponseData
+                            {
+                                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                                FiscalSignature = rebuilt.OfflineDataSignature,
+                                ValidationUrl = rebuilt.ValidationUrl,
+                                VerificationUrl = rebuilt.ValidationUrl
+                            };
+                        }
+                        catch
+                        {
+                            fiscal = new SubmitSalesTransactionResponseData
+                            {
+                                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                                FiscalSignature = payload.InvoiceSummary.OfflineSignature
+                            };
+                        }
+                    }
+                    else
+                    {
+                        fiscal = new SubmitSalesTransactionResponseData
+                        {
+                            InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                            FiscalSignature = FiscalReceiptEnricher.OfflinePendingPlaceholder
+                        };
+                    }
+                }
+
+                if (QueueReceiptPrintHelper.HasPrintableFiscalData(fiscal))
+                {
+                    try
+                    {
+                        var fiscalJson = System.Text.Json.JsonSerializer.Serialize(
+                            fiscal,
+                            PointOfSale.Mra.Serialization.MraJson.SerializerOptions);
+                        await _queueRepository.UpdateFiscalResponseJsonAsync(item.Id, fiscalJson)
+                            .ConfigureAwait(true);
+                    }
+                    catch
+                    {
+                        // Reprint still proceeds if persistence fails.
+                    }
                 }
             }
 
@@ -1016,6 +1059,7 @@ public partial class CheckoutViewModel : ObservableObject
                         var offlineFiscal = await BuildOfflineFiscalPayloadAsync(request, result.InvoiceNumber)
                             .ConfigureAwait(true);
                         await PrintReceiptAsync(request, offlineFiscal).ConfigureAwait(true);
+                        await PersistOfflineFiscalQrAsync(result.QueueId, offlineFiscal).ConfigureAwait(true);
                     }
                     catch (Exception printEx)
                     {
@@ -1095,6 +1139,10 @@ public partial class CheckoutViewModel : ObservableObject
                 var offlineFiscal = await BuildOfflineFiscalPayloadAsync(request, result.InvoiceNumber)
                     .ConfigureAwait(true);
                 await PrintReceiptAsync(request, offlineFiscal).ConfigureAwait(true);
+                if (result.QueueId > 0)
+                {
+                    await PersistOfflineFiscalQrAsync(result.QueueId, offlineFiscal).ConfigureAwait(true);
+                }
 
                 if (result.TerminalBlocked)
                 {
@@ -1209,6 +1257,10 @@ public partial class CheckoutViewModel : ObservableObject
             var offlineFiscal = await BuildOfflineFiscalPayloadAsync(request, result.InvoiceNumber)
                 .ConfigureAwait(true);
             await PrintReceiptAsync(request, offlineFiscal).ConfigureAwait(true);
+            if (result.QueueId > 0)
+            {
+                await PersistOfflineFiscalQrAsync(result.QueueId, offlineFiscal).ConfigureAwait(true);
+            }
             StatusMessage = $"{queued.Body} Receipt sent to printer.";
             CartItems.Clear();
             RecalculateTotals();
@@ -1390,7 +1442,30 @@ public partial class CheckoutViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Offline ValidationURL signing failed for {InvoiceNumber}; using stored signature.", invoiceNumber);
+            _logger.LogWarning(ex, "Offline ValidationURL signing failed for {InvoiceNumber}; rebuilding from stored signature.", invoiceNumber);
+            if (!string.IsNullOrWhiteSpace(request.InvoiceSummary.OfflineSignature))
+            {
+                try
+                {
+                    var rebuilt = MraOfflineReceiptSigning.RebuildFromStoredSignature(
+                        request,
+                        request.InvoiceSummary.OfflineSignature!);
+                    return FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                        new SubmitSalesTransactionResponseData
+                        {
+                            InvoiceNumber = invoiceNumber,
+                            FiscalSignature = rebuilt.OfflineDataSignature,
+                            VerificationUrl = rebuilt.ValidationUrl,
+                            ValidationUrl = rebuilt.ValidationUrl
+                        },
+                        invoiceNumber);
+                }
+                catch (Exception rebuildEx)
+                {
+                    _logger.LogWarning(rebuildEx, "Offline ValidationURL rebuild failed for {InvoiceNumber}.", invoiceNumber);
+                }
+            }
+
             return FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
                 new SubmitSalesTransactionResponseData
                 {
@@ -1399,6 +1474,26 @@ public partial class CheckoutViewModel : ObservableObject
                         ?? FiscalReceiptEnricher.OfflinePendingPlaceholder
                 },
                 invoiceNumber);
+        }
+    }
+
+    private async Task PersistOfflineFiscalQrAsync(int queueId, SubmitSalesTransactionResponseData fiscal)
+    {
+        if (!QueueReceiptPrintHelper.HasPrintableFiscalData(fiscal))
+        {
+            return;
+        }
+
+        try
+        {
+            var fiscalJson = System.Text.Json.JsonSerializer.Serialize(
+                fiscal,
+                PointOfSale.Mra.Serialization.MraJson.SerializerOptions);
+            await _queueRepository.UpdateFiscalResponseJsonAsync(queueId, fiscalJson).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed storing ValidationURL QR for queue {QueueId}.", queueId);
         }
     }
 

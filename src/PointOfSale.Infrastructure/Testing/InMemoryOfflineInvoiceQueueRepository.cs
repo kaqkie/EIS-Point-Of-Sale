@@ -158,6 +158,16 @@ public class InMemoryOfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposit
         }
     }
 
+    public Task UpdateFiscalResponseJsonAsync(int id, string fiscalResponseJson, CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            var item = _items.First(x => x.Id == id);
+            item.FiscalResponseJson = fiscalResponseJson;
+            return Task.CompletedTask;
+        }
+    }
+
     public Task UpdatePayloadAndResetForResubmitAsync(
         int id,
         string payloadJson,

@@ -187,6 +187,9 @@ public sealed class InventoryAlertPurchaseOrderTests
         public Task UpdatePayloadJsonAsync(int id, string payloadJson, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
+        public Task UpdateFiscalResponseJsonAsync(int id, string fiscalResponseJson, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
         public Task UpdatePayloadAndResetForResubmitAsync(
             int id,
             string payloadJson,

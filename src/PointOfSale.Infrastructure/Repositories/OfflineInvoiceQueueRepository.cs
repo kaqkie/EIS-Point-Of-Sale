@@ -34,6 +34,9 @@ public interface IOfflineInvoiceQueueRepository
     /// <summary>Persists a corrected/normalized payload before Force Sync / Retry resubmit.</summary>
     Task UpdatePayloadJsonAsync(int id, string payloadJson, CancellationToken cancellationToken = default);
 
+    /// <summary>Stores fiscal signature / ValidationURL JSON for receipt QR reprint without changing status.</summary>
+    Task UpdateFiscalResponseJsonAsync(int id, string fiscalResponseJson, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Writes the corrected MRA invoice payload and clears quarantine so the item is eligible
     /// for PENDING resubmit (RetryCount = 0). Internal <paramref name="id"/> stays unchanged.
@@ -293,6 +296,27 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
             new CommandDefinition(
                 sql,
                 new { Id = id, PayloadJson = payloadJson },
+                cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    public async Task UpdateFiscalResponseJsonAsync(
+        int id,
+        string fiscalResponseJson,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE dbo.OfflineInvoiceQueue
+            SET FiscalResponseJson = @FiscalResponseJson
+            WHERE Id = @Id;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                sql,
+                new { Id = id, FiscalResponseJson = fiscalResponseJson },
                 cancellationToken: cancellationToken))
             .ConfigureAwait(false);
     }

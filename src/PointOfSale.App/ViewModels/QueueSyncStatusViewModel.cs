@@ -446,7 +446,8 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
                     .GetInvoiceByNumberAsync(
                         new InvoiceNumberQueryRequest { InvoiceNumber = payload.InvoiceHeader.InvoiceNumber })
                     .ConfigureAwait(true);
-                if (lookup.Success && lookup.Data is not null)
+                if (lookup.Success && lookup.Data is not null
+                    && !string.IsNullOrWhiteSpace(lookup.Data.ValidationUrl))
                 {
                     var invoiceNumber = lookup.Data.InvoiceHeader?.InvoiceNumber
                         ?? payload.InvoiceHeader.InvoiceNumber;
@@ -465,50 +466,22 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
             }
         }
 
-        if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+        if (!QueueReceiptPrintHelper.HasPrintableFiscalData(fiscal))
         {
-            try
+            fiscal = await EnsureOfflineFiscalQrAsync(payload).ConfigureAwait(true);
+            if (QueueReceiptPrintHelper.HasPrintableFiscalData(fiscal))
             {
-                var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
-                fiscal = new SubmitSalesTransactionResponseData
+                try
                 {
-                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                    FiscalSignature = signed.OfflineDataSignature,
-                    ValidationUrl = signed.ValidationUrl,
-                    VerificationUrl = signed.ValidationUrl
-                };
-            }
-            catch
-            {
-                fiscal = new SubmitSalesTransactionResponseData
+                    var fiscalJson = JsonSerializer.Serialize(fiscal, MraJson.SerializerOptions);
+                    await _queueRepository
+                        .UpdateFiscalResponseJsonAsync(item.Id, fiscalJson)
+                        .ConfigureAwait(true);
+                }
+                catch
                 {
-                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                    FiscalSignature = payload.InvoiceSummary.OfflineSignature
-                };
-            }
-        }
-
-        if (fiscal is null &&
-            item.Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase) == false)
-        {
-            try
-            {
-                var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
-                fiscal = new SubmitSalesTransactionResponseData
-                {
-                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                    FiscalSignature = signed.OfflineDataSignature,
-                    ValidationUrl = signed.ValidationUrl,
-                    VerificationUrl = signed.ValidationUrl
-                };
-            }
-            catch
-            {
-                fiscal = new SubmitSalesTransactionResponseData
-                {
-                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                    FiscalSignature = FiscalReceiptEnricher.OfflinePendingPlaceholder
-                };
+                    // Printing still proceeds even if persistence fails.
+                }
             }
         }
 
@@ -516,6 +489,58 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         await _receiptPrintingService
             .PrintAsync(QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscal))
             .ConfigureAwait(true);
+    }
+
+    private async Task<SubmitSalesTransactionResponseData?> EnsureOfflineFiscalQrAsync(
+        SubmitSalesTransactionRequest payload)
+    {
+        try
+        {
+            // Prefer regenerating HMAC + ValidationURL with the live terminal secret.
+            var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
+            return new SubmitSalesTransactionResponseData
+            {
+                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                FiscalSignature = signed.OfflineDataSignature,
+                ValidationUrl = signed.ValidationUrl,
+                VerificationUrl = signed.ValidationUrl
+            };
+        }
+        catch
+        {
+            // Fall back to rebuilding ValidationURL from the stored offlineSignature (no secret needed).
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+        {
+            return new SubmitSalesTransactionResponseData
+            {
+                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                FiscalSignature = FiscalReceiptEnricher.OfflinePendingPlaceholder
+            };
+        }
+
+        try
+        {
+            var rebuilt = PointOfSale.Mra.Billing.MraOfflineReceiptSigning.RebuildFromStoredSignature(
+                payload,
+                payload.InvoiceSummary.OfflineSignature!);
+            return new SubmitSalesTransactionResponseData
+            {
+                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                FiscalSignature = rebuilt.OfflineDataSignature,
+                ValidationUrl = rebuilt.ValidationUrl,
+                VerificationUrl = rebuilt.ValidationUrl
+            };
+        }
+        catch
+        {
+            return new SubmitSalesTransactionResponseData
+            {
+                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                FiscalSignature = payload.InvoiceSummary.OfflineSignature
+            };
+        }
     }
 
     /// <summary>
@@ -652,9 +677,12 @@ public sealed class QueueItemViewModel
 
         try
         {
-            return JsonSerializer.Deserialize<SubmitSalesTransactionResponseData>(
+            var parsed = JsonSerializer.Deserialize<SubmitSalesTransactionResponseData>(
                 FiscalResponseJson,
                 MraJson.SerializerOptions);
+            // Archive-only JSON (no validationUrl) deserializes to an empty DTO — treat as missing
+            // so print can rebuild the offline QR from invoiceSummary.offlineSignature.
+            return QueueReceiptPrintHelper.HasPrintableFiscalData(parsed) ? parsed : null;
         }
         catch
         {
