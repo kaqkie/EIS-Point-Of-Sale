@@ -163,35 +163,45 @@ public sealed class MraApiClient
                 request.RequestUri);
         }
 
-        // Confirmation: HMAC-SHA512(TAC, secretKey) → x-signature. Sales/other POSTs: HMAC over JSON body.
-        if (context?.SecretKey is { Length: > 0 } secretKey &&
-            !string.IsNullOrWhiteSpace(signaturePlainText))
+        // Confirmation / signed POSTs.
+        if (context?.IsActivationConfirmationSignature == true)
         {
-            if (context.IsActivationConfirmationSignature)
+            // Confirmation: Bearer JWT + x-signature(HMAC-SHA512(TAC)). No x-eis-message-hash.
+            if (!string.IsNullOrWhiteSpace(context.RawSignatureHeaderValue))
             {
-                // Confirmation auth is JWT + x-signature(TAC). Do not attach x-eis-message-hash —
-                // sandbox returns opaque HTTP 500 when both are present on this route.
+                HmacSignatureService.ApplyXSignatureHeader(request, context.RawSignatureHeaderValue.Trim());
+            }
+            else if (context.SecretKey is { Length: > 0 } confirmSecret
+                     && !string.IsNullOrWhiteSpace(signaturePlainText))
+            {
                 HmacSignatureService.AttachActivationConfirmationSignature(
                     request,
                     signaturePlainText,
-                    secretKey);
-            }
-            else
-            {
-                MraEisMessageHash.SetSecretKeyOption(request, secretKey);
-                MraEisMessageHash.SetPlainTextOption(request, jsonBody ?? string.Empty);
-                MraEisMessageHash.TryAttach(request, jsonBody ?? string.Empty, secretKey);
-                HmacSignatureService.ApplyXSignatureHeader(
-                    request,
-                    ComputeSignature(signaturePlainText, secretKey));
+                    confirmSecret.Trim());
             }
 
+            _logger.LogInformation(
+                "Confirmation headers for {Path}: Authorization={HasAuth}, x-signature={HasSig}, bearer={UseBearer}",
+                request.RequestUri,
+                !string.IsNullOrWhiteSpace(context.JwtToken),
+                request.Headers.Contains(HmacSignatureService.SignatureHeaderName),
+                context.UseBearerAuthorization);
+        }
+        else if (context?.SecretKey is { Length: > 0 } secretKey &&
+            !string.IsNullOrWhiteSpace(signaturePlainText))
+        {
+            MraEisMessageHash.SetSecretKeyOption(request, secretKey);
+            MraEisMessageHash.SetPlainTextOption(request, jsonBody ?? string.Empty);
+            MraEisMessageHash.TryAttach(request, jsonBody ?? string.Empty, secretKey);
+            HmacSignatureService.ApplyXSignatureHeader(
+                request,
+                ComputeSignature(signaturePlainText, secretKey));
+
             _logger.LogDebug(
-                "Attached {Header} for {Method} {Path} (activationConfirmation={IsActivation})",
+                "Attached {Header} for {Method} {Path}",
                 HmacSignatureService.SignatureHeaderName,
                 request.Method,
-                request.RequestUri,
-                context.IsActivationConfirmationSignature);
+                request.RequestUri);
         }
         else if (context?.SecretKey is { Length: > 0 } payloadSecret &&
                  !string.IsNullOrWhiteSpace(jsonBody))
@@ -526,6 +536,12 @@ public sealed class MraRequestContext
     /// <c>POST onboarding/terminal-activated-confirmation</c> (HMAC-SHA512 → Base64 x-signature).
     /// </summary>
     public bool IsActivationConfirmationSignature { get; init; }
+
+    /// <summary>
+    /// When set with <see cref="IsActivationConfirmationSignature"/>, sent as <c>x-signature</c>
+    /// without HMAC (used to match MRA sample curls that put the JWT in that header).
+    /// </summary>
+    public string? RawSignatureHeaderValue { get; init; }
 
     /// <summary>
     /// Production-only vendor access key for <c>onboarding/activate-terminal</c>

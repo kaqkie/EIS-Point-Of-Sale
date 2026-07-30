@@ -224,7 +224,6 @@ public sealed class TerminalOnboardingService
                 "Pending secret key not found. Run ActivateTerminalAsync before confirmation.");
         }
 
-        // EIS returns 401 Unauthorized when Authorization JWT from activate-terminal is omitted.
         var jwt = await _configurationRepository
             .GetProtectedSecretPlainAsync(MraConfigurationKeys.JwtToken, cancellationToken)
             .ConfigureAwait(false);
@@ -235,22 +234,40 @@ public sealed class TerminalOnboardingService
         }
 
         var body = new TerminalActivatedConfirmationRequest { TerminalId = request.TerminalId.Trim() };
-        var tac = request.TerminalActivationCode.Trim();
-
-        var response = await _apiClient
-            .PostAsync<TerminalActivatedConfirmationRequest, bool>(
-                "onboarding/terminal-activated-confirmation",
-                body,
-                new MraRequestContext
-                {
-                    JwtToken = jwt,
-                    SecretKey = pendingSecret,
-                    SignaturePlainText = tac,
-                    IsActivationConfirmationSignature = true,
-                    AcceptHeader = "text/plain"
-                },
-                cancellationToken)
+        var tac = await ResolveConfirmationTacAsync(request.TerminalActivationCode, cancellationToken)
             .ConfigureAwait(false);
+        var secret = pendingSecret.Trim();
+        var jwtNormalized = MraJwtClaims.NormalizeAuthorizationToken(jwt);
+
+        // Live EIS requires Authorization: Bearer {jwt} plus x-signature = HMAC-SHA512(TAC, secret).
+        // Raw JWT (no Bearer) returns opaque HTTP 500; missing Authorization returns 401.
+        EisApiResponse<bool> response;
+        try
+        {
+            response = await _apiClient
+                .PostAsync<TerminalActivatedConfirmationRequest, bool>(
+                    "onboarding/terminal-activated-confirmation",
+                    body,
+                    new MraRequestContext
+                    {
+                        JwtToken = jwtNormalized,
+                        UseBearerAuthorization = true,
+                        SecretKey = secret,
+                        SignaturePlainText = tac,
+                        IsActivationConfirmationSignature = true,
+                        AcceptHeader = "text/plain"
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (MraApiException ex)
+        {
+            _logger.LogWarning(
+                "terminal-activated-confirmation HTTP {Status}: {Message}",
+                ex.HttpStatusCode,
+                ex.Message);
+            return TerminalConfirmationResult.Failed(ex.Message, errors: null);
+        }
 
         if (!response.IsSuccess || !response.Data)
         {
@@ -265,7 +282,7 @@ public sealed class TerminalOnboardingService
             return TerminalConfirmationResult.Failed(response.Remark, response.Errors);
         }
 
-        var protectedSecret = _secretProtector.Protect(pendingSecret);
+        var protectedSecret = _secretProtector.Protect(secret);
         await _terminalRepository.MarkActivatedAsync(request.TerminalId.Trim(), protectedSecret, cancellationToken)
             .ConfigureAwait(false);
 
@@ -305,6 +322,51 @@ public sealed class TerminalOnboardingService
         _logger.LogInformation("Terminal {TerminalId} confirmed with MRA.", request.TerminalId);
 
         return TerminalConfirmationResult.Succeeded(request.TerminalId, response.Remark);
+    }
+
+    private async Task<string> ResolveConfirmationTacAsync(
+        string requestedTac,
+        CancellationToken cancellationToken)
+    {
+        var requested = requestedTac?.Trim() ?? string.Empty;
+        var storedJson = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TerminalActivationCode, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(storedJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(storedJson);
+                if (doc.RootElement.TryGetProperty("code", out var codeProp))
+                {
+                    var stored = codeProp.GetString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(stored))
+                    {
+                        if (!string.Equals(stored, requested, StringComparison.OrdinalIgnoreCase)
+                            && !string.IsNullOrWhiteSpace(requested))
+                        {
+                            _logger.LogWarning(
+                                "Confirmation TAC from UI differs from stored activate TAC; signing with stored TAC.");
+                        }
+
+                        return stored;
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Could not parse stored terminal activation code; using request TAC.");
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(requested))
+        {
+            throw new InvalidOperationException(
+                "Terminal activation code not found for confirmation. Re-run activate-terminal.");
+        }
+
+        return requested;
     }
 
     public async Task<LatestConfigurationResult> GetLatestConfigsAsync(CancellationToken cancellationToken = default)
