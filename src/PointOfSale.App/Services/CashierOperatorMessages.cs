@@ -111,9 +111,16 @@ public static class CashierOperatorMessages
 
     public static OperatorMessage Quarantined(string? remark) =>
         new(
-            "Sale quarantined by MRA",
-            "This invoice was rejected and will not block later sales in the queue. " +
-            "Open Queue Sync to review details.\n\n" + Truncate(remark ?? "Validation failure."),
+            remark is not null && remark.Contains("TIN not found", StringComparison.OrdinalIgnoreCase)
+                ? "MRA VAT sales not enabled"
+                : "Sale quarantined by MRA",
+            remark is not null && remark.Contains("TIN not found", StringComparison.OrdinalIgnoreCase)
+                ? "The terminal is connected to MRA, but this TIN is not enrolled for EIS VAT sales yet. " +
+                  "Ask MRA to activate VAT rate A on the sandbox portal — then use Queue Sync → Force Sync. " +
+                  "Until then the sale is stored locally with an offline QR and will not appear on the EIS portal.\n\n" +
+                  Truncate(remark)
+                : "This invoice was rejected and will not block later sales in the queue. " +
+                  "Open Queue Sync to review details.\n\n" + Truncate(remark ?? "Validation failure."),
             OperatorMessageSeverity.Error,
             SuggestOfflineFallback: false);
 

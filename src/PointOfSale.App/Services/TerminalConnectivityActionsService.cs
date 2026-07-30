@@ -128,6 +128,7 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         var ping = await PingMraAsync(cancellationToken).ConfigureAwait(false);
         string? configRemark = null;
         var configOk = false;
+        string? vatEnrollmentRemark = null;
         var pending = 0;
         var syncing = 0;
         var quarantined = 0;
@@ -145,6 +146,25 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
                     : configs.UsedLocalFallback
                         ? $"Local config fallback active ({configs.Remark ?? "cached"})."
                         : $"Config sync: {configs.Remark ?? "failed"}";
+
+                var taxpayer = configs.Configuration?.TaxpayerConfiguration;
+                if (taxpayer is not null)
+                {
+                    var activated = taxpayer.ActivatedTaxRateIds is { Count: > 0 } ids
+                        ? string.Join(',', ids)
+                        : "(none)";
+                    var hasVatSales = taxpayer.IsVatRegistered
+                        || (taxpayer.ActivatedTaxRateIds?.Any(id =>
+                            string.Equals(id, "A", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(id, "B", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(id, "E", StringComparison.OrdinalIgnoreCase)) == true);
+
+                    vatEnrollmentRemark = hasVatSales
+                        ? $"EIS VAT sales enabled for TIN {taxpayer.Tin} (activated: {activated}). Online fiscal receipts can reach the portal."
+                        : $"MRA connected, but TIN {taxpayer.Tin} is NOT enabled for EIS VAT sales " +
+                          $"(isVATRegistered={taxpayer.IsVatRegistered}, activated={activated}). " +
+                          "Ask MRA sandbox support to activate VAT rate A for this taxpayer — until then sales stay local and will not appear on the EIS portal.";
+                }
             }
             else
             {
@@ -198,6 +218,7 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         var overallOk = ping.Success && configOk;
         var message =
             $"{ping.Message} {configRemark} " +
+            (string.IsNullOrWhiteSpace(vatEnrollmentRemark) ? string.Empty : $"{vatEnrollmentRemark} ") +
             (string.IsNullOrWhiteSpace(repairRemark) ? string.Empty : $"{repairRemark} ") +
             $"Offline queue — pending: {pending}, syncing: {syncing}, quarantined: {quarantined}. " +
             $"Connection: {_connectionStatus.StatusText}";

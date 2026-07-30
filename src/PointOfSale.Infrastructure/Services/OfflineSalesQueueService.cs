@@ -527,9 +527,9 @@ public sealed class OfflineSalesQueueService
         // Opaque HTTP 500 / EIS outage used to permanently quarantine — release remaining open items.
         var released = await ReleaseAllOpenQuarantinesAsync(cancellationToken).ConfigureAwait(false);
 
-        // TIN-not-found cannot clear on MRA until VAT sales is activated — archive as local offline
-        // SYNCED so every receipt is printable and the quarantine backlog is cleared.
-        var tinArchived = await ArchiveTinNotFoundQuarantinesAsync(cancellationToken).ConfigureAwait(false);
+        // Do NOT archive TIN-not-found as local SYNCED here — that hides the enrollment gap and
+        // prevents Force Sync from uploading once MRA activates VAT sales on the portal.
+        // Operators can still print offline ValidationURL QR from the payload signature.
 
         // Receipts older than the MRA offline age limit cannot be uploaded — archive them locally
         // so they stop blocking the queue UI and new sales.
@@ -547,7 +547,7 @@ public sealed class OfflineSalesQueueService
             failed,
             firstError,
             released,
-            archived + tinArchived);
+            archived);
     }
 
     /// <summary>
