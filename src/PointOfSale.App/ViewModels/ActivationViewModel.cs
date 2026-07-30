@@ -126,13 +126,6 @@ public partial class ActivationViewModel : ObservableObject
                 return;
             }
 
-            if (!_activation.AcceptsLicenseKey(normalized))
-            {
-                StatusMessage =
-                    "Activation key is not valid. Check the key and try again (format XXXX-XXXX-XXXX-XXXX).";
-                return;
-            }
-
             var mra = await _mraOnboarding.ActivateAndConfirmAsync(normalized).ConfigureAwait(true);
             if (!mra.Success)
             {
@@ -143,7 +136,7 @@ public partial class ActivationViewModel : ObservableObject
             MraTerminalId = mra.TerminalId;
             UsedSandboxFallback = mra.UsedSandboxLocalFallback;
 
-            var license = await _activation.ActivateAsync(normalized).ConfigureAwait(true);
+            var license = await _activation.UnlockAfterMraActivationAsync(normalized).ConfigureAwait(true);
             if (!license.Success)
             {
                 StatusMessage = license.Message;

@@ -266,7 +266,9 @@ public sealed class FirstRunBootstrapService : IFirstRunBootstrapService
 
             if (!string.IsNullOrWhiteSpace(request.LicenseKey))
             {
-                var activation = await _activation.ActivateAsync(request.LicenseKey.Trim(), cancellationToken)
+                // TAC already accepted by MRA in the wizard — unlock local software gate without ART checksum.
+                var activation = await _activation
+                    .UnlockAfterMraActivationAsync(request.LicenseKey.Trim(), cancellationToken)
                     .ConfigureAwait(false);
                 if (!activation.Success)
                 {

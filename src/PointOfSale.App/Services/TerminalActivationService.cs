@@ -20,6 +20,15 @@ public interface ITerminalActivationService
 
     Task<TerminalLicenseStatus> GetStatusAsync(CancellationToken cancellationToken = default);
     Task<TerminalActivationResult> ActivateAsync(string licenseKey, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Unlocks the local software gate after MRA EIS has already accepted the Terminal Activation Code.
+    /// Portal TACs are not Albert Retail checksum keys — do not run <see cref="AcceptsLicenseKey"/> on them.
+    /// </summary>
+    Task<TerminalActivationResult> UnlockAfterMraActivationAsync(
+        string terminalActivationCode,
+        CancellationToken cancellationToken = default);
+
     bool ValidateLicenseKeyFormat(string licenseKey, out string normalized, out string? error);
     bool AcceptsLicenseKey(string licenseKey);
 }
@@ -188,6 +197,33 @@ public sealed class TerminalActivationService : ITerminalActivationService
                 "License key is not valid. Check the key and try again (format XXXX-XXXX-XXXX-XXXX).");
         }
 
+        return await PersistActivationAsync(normalized, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<TerminalActivationResult> UnlockAfterMraActivationAsync(
+        string terminalActivationCode,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.RequireActivation)
+        {
+            _isActivated = true;
+            RaiseChanged();
+            return TerminalActivationResult.Ok("Activation not required in this environment.");
+        }
+
+        if (!ValidateLicenseKeyFormat(terminalActivationCode, out var normalized, out var error))
+        {
+            return TerminalActivationResult.Fail(error ?? "Invalid activation key format.");
+        }
+
+        // MRA already validated this TAC — persist local unlock without ART checksum.
+        return await PersistActivationAsync(normalized, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<TerminalActivationResult> PersistActivationAsync(
+        string normalized,
+        CancellationToken cancellationToken)
+    {
         using var scope = _scopeFactory.CreateScope();
         var config = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
 

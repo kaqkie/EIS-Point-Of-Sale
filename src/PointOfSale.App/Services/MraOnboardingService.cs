@@ -124,11 +124,8 @@ public sealed class MraOnboardingService : IMraOnboardingService
             return MraOnboardingResult.Fail(formatError ?? "Invalid activation key format.");
         }
 
-        if (!_licenseActivation.AcceptsLicenseKey(normalized))
-        {
-            return MraOnboardingResult.Fail(
-                "Activation key is not valid. Check the key and try again (format XXXX-XXXX-XXXX-XXXX).");
-        }
+        // MRA Terminal Activation Codes are issued by the EIS Portal — validate format only.
+        // Do not apply Albert Retail software-license checksum gating here.
 
         try
         {
@@ -250,11 +247,7 @@ public sealed class MraOnboardingService : IMraOnboardingService
             return MraOnboardingResult.Fail(formatError ?? "Invalid activation key format.");
         }
 
-        if (!_licenseActivation.AcceptsLicenseKey(normalized))
-        {
-            return MraOnboardingResult.Fail(
-                "Activation key is not valid. Check the key and try again (format XXXX-XXXX-XXXX-XXXX).");
-        }
+        // Portal TAC — MRA validates authenticity; local checksum is for ART software keys only.
 
         try
         {
