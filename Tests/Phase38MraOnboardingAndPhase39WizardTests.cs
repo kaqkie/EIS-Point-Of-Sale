@@ -19,9 +19,16 @@ public sealed class Phase38MraOnboardingAndPhase39WizardTests
     }
 
     [Fact]
-    public void SampleActivationKey_IsAcceptedForOnboardingGate()
+    public void ActivationKey_UsesChecksumValidationNotHardcodedSample()
     {
-        Assert.Equal("I4CV-M5YY-AKY6-Z9BT", TerminalActivationService.SampleLicenseKey);
+        var pepper = "AlbertRetailTerminal.License.v1";
+        var payload = "ABCD1234WXYZ";
+        var check = TerminalActivationService.ComputeChecksumGroup(payload, pepper);
+        Assert.Equal(4, check.Length);
+        Assert.False(string.Equals(
+            "I4CV-M5YY-AKY6-Z9BT",
+            $"ABCD-1234-WXYZ-{check}",
+            StringComparison.Ordinal));
     }
 
     [Fact]

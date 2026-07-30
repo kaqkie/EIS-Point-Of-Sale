@@ -127,7 +127,7 @@ public sealed class MraOnboardingService : IMraOnboardingService
         if (!_licenseActivation.AcceptsLicenseKey(normalized))
         {
             return MraOnboardingResult.Fail(
-                "Activation key is not valid. Check the key and try again (format I4CV-M5YY-AKY6-Z9BT).");
+                "Activation key is not valid. Check the key and try again (format XXXX-XXXX-XXXX-XXXX).");
         }
 
         try
@@ -253,7 +253,7 @@ public sealed class MraOnboardingService : IMraOnboardingService
         if (!_licenseActivation.AcceptsLicenseKey(normalized))
         {
             return MraOnboardingResult.Fail(
-                "Activation key is not valid. Check the key and try again (format I4CV-M5YY-AKY6-Z9BT).");
+                "Activation key is not valid. Check the key and try again (format XXXX-XXXX-XXXX-XXXX).");
         }
 
         try
@@ -463,7 +463,7 @@ public sealed class MraOnboardingService : IMraOnboardingService
 
     /// <summary>
     /// Sandbox / offline / mock path: stages DPAPI-protected <c>TerminalCredentials</c> (JWT + secret)
-    /// and Activated flag so a valid ART key (e.g. I4CV-M5YY-AKY6-Z9BT) can complete launch when live
+    /// and Activated flag so a valid ART key can complete launch when live
     /// EIS is unreachable, returns HTTP 404/5xx, or rejects with a sandbox-only status.
     /// </summary>
     private async Task<MraOnboardingResult> CompleteSandboxLocalOnboardingAsync(

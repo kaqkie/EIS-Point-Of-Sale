@@ -64,9 +64,6 @@ public partial class ActivationViewModel : ObservableObject
     private string? _mraTerminalId;
 
     [ObservableProperty]
-    private string _sampleHint = TerminalActivationService.SampleLicenseKey;
-
-    [ObservableProperty]
     private bool _usedSandboxFallback;
 
     partial void OnLicenseKeyChanged(string value)
@@ -132,7 +129,7 @@ public partial class ActivationViewModel : ObservableObject
             if (!_activation.AcceptsLicenseKey(normalized))
             {
                 StatusMessage =
-                    "Activation key is not valid. Check the key and try again (format I4CV-M5YY-AKY6-Z9BT).";
+                    "Activation key is not valid. Check the key and try again (format XXXX-XXXX-XXXX-XXXX).";
                 return;
             }
 
@@ -171,9 +168,6 @@ public partial class ActivationViewModel : ObservableObject
             ActivateCommand.NotifyCanExecuteChanged();
         }
     }
-
-    [RelayCommand]
-    private void PasteSampleKey() => LicenseKey = TerminalActivationService.SampleLicenseKey;
 
     partial void OnIsBusyChanged(bool value) => ActivateCommand.NotifyCanExecuteChanged();
 

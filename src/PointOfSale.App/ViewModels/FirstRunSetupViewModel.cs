@@ -31,8 +31,6 @@ public partial class FirstRunSetupViewModel : ObservableObject
 
     public string[] MraEnvironmentOptions { get; } = ["Sandbox", "Production"];
 
-    public string SampleLicenseHint => TerminalActivationService.SampleLicenseKey;
-
     public string LicenseKeyPlaceholder => LicenseKeyInputFormatter.Placeholder;
 
     public bool IsLicenseKeyEmpty => string.IsNullOrEmpty(LicenseKey);
@@ -217,9 +215,6 @@ public partial class FirstRunSetupViewModel : ObservableObject
             FinishCommand.NotifyCanExecuteChanged();
         }
     }
-
-    [RelayCommand]
-    private void PasteSampleLicense() => LicenseKey = TerminalActivationService.SampleLicenseKey;
 
     [RelayCommand(CanExecute = nameof(CanFinish))]
     private async Task FinishAsync()

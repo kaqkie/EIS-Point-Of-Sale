@@ -82,6 +82,6 @@ public sealed class Phase41LicenseKeyInputTests
     {
         Assert.Matches(
             new Regex(LicenseKeyInputFormatter.ExactFormatPattern, RegexOptions.CultureInvariant),
-            TerminalActivationService.SampleLicenseKey);
+            "ABCD-EFGH-IJKL-MNOP");
     }
 }

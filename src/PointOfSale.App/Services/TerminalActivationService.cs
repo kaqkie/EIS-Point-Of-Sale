@@ -58,14 +58,13 @@ public sealed class TerminalActivationResult
 }
 
 /// <summary>
-/// Validates Albert Retail Terminal software license keys (e.g. I4CV-M5YY-AKY6-Z9BT),
+/// Validates Albert Retail Terminal software license keys (XXXX-XXXX-XXXX-XXXX),
 /// persists activation in SQL Express + HKCU registry, and gates retail use until activated.
 /// </summary>
 public sealed class TerminalActivationService : ITerminalActivationService
 {
     public const string ConfigActivatedKey = "Terminal.License.Activated";
     public const string ConfigPayloadKey = "Terminal.License.Payload";
-    public const string SampleLicenseKey = "I4CV-M5YY-AKY6-Z9BT";
 
     private const string RegistryRoot = @"Software\AlbertRetail\AlbertRetailTerminal";
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -186,7 +185,7 @@ public sealed class TerminalActivationService : ITerminalActivationService
         {
             _logger.LogWarning("Rejected terminal license key {Masked}.", MaskKey(normalized));
             return TerminalActivationResult.Fail(
-                "License key is not valid. Check the key and try again (format I4CV-M5YY-AKY6-Z9BT).");
+                "License key is not valid. Check the key and try again (format XXXX-XXXX-XXXX-XXXX).");
         }
 
         using var scope = _scopeFactory.CreateScope();
@@ -240,11 +239,6 @@ public sealed class TerminalActivationService : ITerminalActivationService
 
     internal bool IsLicenseKeyAccepted(string normalizedKey)
     {
-        if (string.Equals(normalizedKey, SampleLicenseKey, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
         foreach (var extra in _options.AdditionalValidKeys ?? [])
         {
             if (ValidateLicenseKeyFormat(extra, out var n, out _)

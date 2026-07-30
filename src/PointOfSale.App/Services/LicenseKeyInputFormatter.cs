@@ -14,7 +14,7 @@ public static partial class LicenseKeyInputFormatter
     public const string ExactFormatPattern = @"^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$";
     public const string Placeholder = "XXXX-XXXX-XXXX-XXXX";
     public const string FormatErrorMessage =
-        "Activation key must match XXXX-XXXX-XXXX-XXXX (A–Z / 0–9), e.g. I4CV-M5YY-AKY6-Z9BT.";
+        "Activation key must match XXXX-XXXX-XXXX-XXXX (A–Z / 0–9).";
     public const string IncompleteHintMessage =
         "Keep typing — letters/digits only; hyphens are inserted automatically.";
 

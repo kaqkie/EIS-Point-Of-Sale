@@ -9,15 +9,15 @@ namespace PointOfSale.Tests;
 public sealed class Phase32SeedAndLicenseTests
 {
     [Fact]
-    public void SampleLicenseKey_MatchesRequiredFormat()
+    public void FormatExampleKey_MatchesRequiredFormat()
     {
         var service = CreateService(requireActivation: true);
         Assert.True(service.ValidateLicenseKeyFormat(
-            TerminalActivationService.SampleLicenseKey,
+            "ABCD-EFGH-IJKL-MNOP",
             out var normalized,
             out var error));
         Assert.Null(error);
-        Assert.Equal("I4CV-M5YY-AKY6-Z9BT", normalized);
+        Assert.Equal("ABCD-EFGH-IJKL-MNOP", normalized);
     }
 
     [Theory]
@@ -33,10 +33,10 @@ public sealed class Phase32SeedAndLicenseTests
     }
 
     [Fact]
-    public void SampleLicenseKey_IsAccepted()
+    public void FormerSampleLicenseKey_IsNotHardcodedAccepted()
     {
         var service = CreateService(requireActivation: true);
-        Assert.True(service.AcceptsLicenseKey(TerminalActivationService.SampleLicenseKey));
+        Assert.False(service.AcceptsLicenseKey("I4CV-M5YY-AKY6-Z9BT"));
     }
 
     [Fact]
@@ -60,8 +60,8 @@ public sealed class Phase32SeedAndLicenseTests
     [Fact]
     public void MaskKey_HidesMiddleGroups()
     {
-        var masked = TerminalActivationService.MaskKey("I4CV-M5YY-AKY6-Z9BT");
-        Assert.Equal("I4CV-****-****-Z9BT", masked);
+        var masked = TerminalActivationService.MaskKey("ABCD-EFGH-IJKL-MNOP");
+        Assert.Equal("ABCD-****-****-MNOP", masked);
     }
 
     [Fact]

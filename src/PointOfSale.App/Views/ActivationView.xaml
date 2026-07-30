@@ -68,18 +68,10 @@
                            Margin="0,0,0,8"
                            Visibility="{Binding IsLicenseKeyIncomplete, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
-                <DockPanel Margin="0,0,0,16">
-                    <TextBlock Text="{Binding SampleHint, StringFormat='Format example: {0}'}"
-                               Style="{StaticResource Art.Text.Caption}"
-                               VerticalAlignment="Center" />
-                    <Button DockPanel.Dock="Right"
-                            Content="Use sample"
-                            Style="{StaticResource Art.Button.Ghost}"
-                            Command="{Binding PasteSampleKeyCommand}"
-                            HorizontalAlignment="Right"
-                            Padding="12,6"
-                            MinHeight="34" />
-                </DockPanel>
+                <TextBlock Text="Enter the activation key from the MRA EIS Portal (XXXX-XXXX-XXXX-XXXX)."
+                           Style="{StaticResource Art.Text.Caption}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,16" />
 
                 <Button Content="Activate with MRA"
                         Style="{StaticResource Art.Button.Success}"
