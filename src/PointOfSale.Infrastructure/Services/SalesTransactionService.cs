@@ -89,8 +89,7 @@ public sealed class SalesTransactionService
                 new MraRequestContext
                 {
                     JwtToken = context.JwtToken,
-                    // Match utilities/ping + MRA samples: raw JWT, not "Bearer {jwt}".
-                    UseBearerAuthorization = false,
+                    UseBearerAuthorization = context.UseBearerAuthorization,
                     AcceptHeader = "text/plain"
                 },
                 cancellationToken)

@@ -50,7 +50,7 @@ public sealed class MraTerminalAuthProvider : IMraTerminalAuthProvider
             throw new InvalidOperationException("Terminal JWT is missing. Complete onboarding before stock operations.");
         }
 
-        return new MraRequestContext { JwtToken = jwt };
+        return new MraRequestContext { JwtToken = jwt, UseBearerAuthorization = true };
     }
 
     public async Task<MraRequestContext> GetSignedContextAsync(CancellationToken cancellationToken = default)
@@ -74,6 +74,12 @@ public sealed class MraTerminalAuthProvider : IMraTerminalAuthProvider
         }
 
         var secretKey = _secretProtector.Unprotect(terminal.SecretKey);
-        return new MraRequestContext { JwtToken = jwt, SecretKey = secretKey };
+        // Live EIS sandbox requires Bearer for authenticated routes (raw JWT → opaque HTTP 500).
+        return new MraRequestContext
+        {
+            JwtToken = jwt,
+            SecretKey = secretKey,
+            UseBearerAuthorization = true
+        };
     }
 }

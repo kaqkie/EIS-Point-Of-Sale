@@ -77,23 +77,24 @@ public static partial class MraFiscalPayloadNormalizer
 
             var vat = PosTaxCalculator.RoundMoney(Math.Max(0m, line.TotalVat));
 
-            // Re-align VAT only when MRA global config supplies an explicit rate for this id.
-            // Do not use the statutory fallback here — that was overwriting live EIS rates
-            // (sample A @ 16.5%) with 17.5% whenever get-latest-configs was unavailable.
-            if (TryGetConfiguredRatePercent(taxRateId, configuredRates, out var ratePercent))
+            // Re-align VAT so taxBreakDown matches line totals. Standard VAT (A/T/…) always
+            // uses statutory 16.5% — cached sandbox global configs have been seen with A@16.4,
+            // which EIS rejects ("tax breakdown entries do not match …").
+            decimal? ratePercent = null;
+            if (MraTaxRateCodes.IsStandardVatTier(taxRateId))
             {
-                if (ratePercent <= 0m)
-                {
-                    vat = 0m;
-                }
-                else
-                {
-                    var expectedVat = PosTaxCalculator.CalculateVatAmount(net, ratePercent);
-                    if (Math.Abs(expectedVat - vat) > 0.02m)
-                    {
-                        vat = expectedVat;
-                    }
-                }
+                ratePercent = PosTaxCalculator.MalawiStandardVatRatePercent;
+            }
+            else if (TryGetConfiguredRatePercent(taxRateId, configuredRates, out var configuredPercent))
+            {
+                ratePercent = configuredPercent;
+            }
+
+            if (ratePercent is decimal rate)
+            {
+                vat = rate <= 0m
+                    ? 0m
+                    : PosTaxCalculator.CalculateVatAmount(net, rate);
             }
 
             lines.Add(new InvoiceLineItemDto
@@ -171,7 +172,7 @@ public static partial class MraFiscalPayloadNormalizer
 
     /// <summary>
     /// Converts human-readable site labels (e.g. "City Center") into MRA-style codes
-    /// (<c>SITE-CITY-CENTER</c>). Already-coded values are left unchanged.
+    /// (<c>SITE-CITY-CENTER</c>). Already-coded values / portal site IDs are left unchanged.
     /// </summary>
     public static string NormalizeSiteId(string? siteId)
     {
@@ -181,11 +182,17 @@ public static partial class MraFiscalPayloadNormalizer
             return string.Empty;
         }
 
-        // Already looks like an EIS site code (SITE001, SITE-01, GUID, etc.).
+        // Portal site IDs are often a bare GUID or a short prefix + GUID (e.g. BL7a9fe868-…).
+        // Never slug these into SITE-… — EIS rejects the mangled value.
+        if (LooksLikePortalSiteId(raw))
+        {
+            return raw;
+        }
+
+        // Already looks like an EIS site code (SITE001, SITE-01, etc.).
         if (!raw.Contains(' ', StringComparison.Ordinal) &&
             !raw.Contains('\t', StringComparison.Ordinal) &&
             (raw.StartsWith("SITE", StringComparison.OrdinalIgnoreCase)
-             || Guid.TryParse(raw, out _)
              || !SiteDisplayNamePattern().IsMatch(raw)))
         {
             return raw;
@@ -201,6 +208,28 @@ public static partial class MraFiscalPayloadNormalizer
         return slug.StartsWith("SITE-", StringComparison.OrdinalIgnoreCase)
             ? slug
             : "SITE-" + slug;
+    }
+
+    private static bool LooksLikePortalSiteId(string raw)
+    {
+        if (Guid.TryParse(raw, out _))
+        {
+            return true;
+        }
+
+        // Prefix + GUID (common in MRA terminalSite.siteId caches).
+        if (raw.Length is >= 37 and <= 48)
+        {
+            for (var i = 1; i <= Math.Min(4, raw.Length - 36); i++)
+            {
+                if (Guid.TryParse(raw.AsSpan(i), out _))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public static int EnsureConfigVersion(int version) => version > 0 ? version : 1;

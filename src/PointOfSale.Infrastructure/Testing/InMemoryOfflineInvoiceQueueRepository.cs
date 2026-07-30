@@ -215,4 +215,33 @@ public class InMemoryOfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposit
             return Task.FromResult(true);
         }
     }
+
+    public Task<int> RetryQuarantinedBlockedByMissingTerminalAsync(CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            var count = 0;
+            foreach (var item in _items)
+            {
+                if (!item.Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(item.ErrorMessage)
+                    || !item.ErrorMessage.Contains("No activated terminal", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                item.Status = OfflineQueueStatuses.Pending;
+                item.RetryCount = 0;
+                item.NextRetryTime = null;
+                item.ErrorMessage = null;
+                count++;
+            }
+
+            return Task.FromResult(count);
+        }
+    }
 }

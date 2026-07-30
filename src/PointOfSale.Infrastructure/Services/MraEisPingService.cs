@@ -52,8 +52,8 @@ public sealed class MraEisPingService
                     new MraRequestContext
                     {
                         JwtToken = jwt,
-                        // Guide/sample: Authorization is the raw JWT from TAC (no Bearer prefix).
-                        UseBearerAuthorization = false,
+                        // Live EIS requires Bearer on authenticated routes (raw JWT → opaque HTTP 500).
+                        UseBearerAuthorization = true,
                         AcceptHeader = "text/plain"
                     },
                     cancellationToken)

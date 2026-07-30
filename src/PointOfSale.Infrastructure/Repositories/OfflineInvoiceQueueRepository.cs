@@ -48,6 +48,11 @@ public interface IOfflineInvoiceQueueRepository
     Task<IReadOnlyList<OfflineInvoiceQueueItem>> GetRecentItemsAsync(int take, CancellationToken cancellationToken = default);
 
     Task<bool> RetryQuarantinedAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Clears quarantine for offline sales that failed only because the till was not activated yet.
+    /// </summary>
+    Task<int> RetryQuarantinedBlockedByMissingTerminalAsync(CancellationToken cancellationToken = default);
 }
 
 public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueRepository
@@ -386,5 +391,35 @@ public sealed class OfflineInvoiceQueueRepository : IOfflineInvoiceQueueReposito
                 cancellationToken: cancellationToken))
             .ConfigureAwait(false);
         return rows == 1;
+    }
+
+    public async Task<int> RetryQuarantinedBlockedByMissingTerminalAsync(CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE dbo.OfflineInvoiceQueue
+            SET Status = @PendingStatus,
+                RetryCount = 0,
+                NextRetryTime = NULL,
+                ErrorMessage = NULL
+            WHERE Status = @QuarantinedStatus
+              AND (
+                    ErrorMessage LIKE N'%No activated terminal%'
+                 OR ErrorMessage LIKE N'%Offline compliance preparation failed: No activated terminal%'
+                 OR ErrorMessage LIKE N'%Invalid payload: No activated terminal%'
+              );
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return await connection.ExecuteAsync(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    PendingStatus = OfflineQueueStatuses.Pending,
+                    QuarantinedStatus = OfflineQueueStatuses.Quarantined
+                },
+                cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
     }
 }

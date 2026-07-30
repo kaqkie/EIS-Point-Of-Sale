@@ -233,5 +233,43 @@ public static class LocalFiscalIdentitySeeder
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+        else
+        {
+            // Repair stale sandbox caches that stored A @ 16.4 (EIS expects statutory 16.5%).
+            try
+            {
+                var existing = JsonSerializer.Deserialize<GlobalConfigurationDto>(
+                    existingGlobal,
+                    MraJson.SerializerOptions);
+                if (existing?.TaxRates is { Count: > 0 })
+                {
+                    var dirty = false;
+                    foreach (var rate in existing.TaxRates)
+                    {
+                        if (MraTaxRateCodes.IsStandardVatTier(rate.Id)
+                            && rate.Rate > 0m
+                            && Math.Abs(rate.Rate - PosTaxCalculator.MalawiStandardVatRatePercent) >= 0.05m
+                            && rate.Rate is >= 16m and <= 17m)
+                        {
+                            rate.Rate = PosTaxCalculator.MalawiStandardVatRatePercent;
+                            dirty = true;
+                        }
+                    }
+
+                    if (dirty)
+                    {
+                        await config.UpsertJsonAsync(
+                                MraConfigurationKeys.GlobalConfiguration,
+                                JsonSerializer.Serialize(existing, MraJson.SerializerOptions),
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Leave malformed cache alone.
+            }
+        }
     }
 }

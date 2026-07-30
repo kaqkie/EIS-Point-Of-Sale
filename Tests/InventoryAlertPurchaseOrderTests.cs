@@ -203,6 +203,9 @@ public sealed class InventoryAlertPurchaseOrderTests
 
         public Task<bool> RetryQuarantinedAsync(int id, CancellationToken cancellationToken = default) =>
             Task.FromResult(false);
+
+        public Task<int> RetryQuarantinedBlockedByMissingTerminalAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(0);
     }
 
     private sealed class FakeShiftRepository : ICashierShiftRepository

@@ -94,6 +94,12 @@ public sealed class MraHttpClientAndQueueErrorTests
         Assert.Equal("SITE-CITY-CENTER", MraFiscalPayloadNormalizer.NormalizeSiteId("City Center"));
         Assert.Equal("SITE-01", MraFiscalPayloadNormalizer.NormalizeSiteId("SITE-01"));
         Assert.Equal("SITE001", MraFiscalPayloadNormalizer.NormalizeSiteId("SITE001"));
+        Assert.Equal(
+            "BL7a9fe868-d512-4198-8b08-497e8f0fc10a",
+            MraFiscalPayloadNormalizer.NormalizeSiteId("BL7a9fe868-d512-4198-8b08-497e8f0fc10a"));
+        Assert.Equal(
+            "7a9fe868-d512-4198-8b08-497e8f0fc10a",
+            MraFiscalPayloadNormalizer.NormalizeSiteId("7a9fe868-d512-4198-8b08-497e8f0fc10a"));
     }
 
     [Fact]

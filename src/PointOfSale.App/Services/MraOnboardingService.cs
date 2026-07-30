@@ -406,6 +406,23 @@ public sealed class MraOnboardingService : IMraOnboardingService
 
         await MarkOnboardingCompleteFlagAsync(scope, cancellationToken).ConfigureAwait(false);
 
+        try
+        {
+            var queue = scope.ServiceProvider.GetRequiredService<OfflineSalesQueueService>();
+            var released = await queue.ReleaseTransientQuarantinesAsync(cancellationToken).ConfigureAwait(false);
+            if (released > 0)
+            {
+                _logger.LogInformation(
+                    "Released {Count} quarantine row(s) after MRA activation for terminal {TerminalId}.",
+                    released,
+                    terminalId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to release activation-blocked quarantines after confirmation.");
+        }
+
         return MraOnboardingResult.Ok(
             $"MRA onboarding complete for terminal {terminalId}. Credentials stored encrypted.",
             terminalId);

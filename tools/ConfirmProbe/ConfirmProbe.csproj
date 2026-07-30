@@ -8,7 +8,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PointOfSale.Infrastructure\PointOfSale.Infrastructure.csproj" />
-    <PackageReference Include="Dapper" Version="2.1.35" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
   </ItemGroup>
 </Project>

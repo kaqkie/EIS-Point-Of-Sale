@@ -70,6 +70,23 @@ public sealed class OfflineTransactionSyncService
             return OfflineSyncDrainResult.PausedConnectivity();
         }
 
+        // After activation (or opaque sandbox 500s), put eligible quarantines back into FIFO.
+        try
+        {
+            var released = await _queueService.ReleaseTransientQuarantinesAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (released > 0)
+            {
+                _logger.LogInformation(
+                    "Released {Count} transient/activation-blocked quarantine row(s) before offline drain.",
+                    released);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to release transient quarantines before offline drain.");
+        }
+
         var processed = 0;
         var quarantined = 0;
         var submitted = 0;

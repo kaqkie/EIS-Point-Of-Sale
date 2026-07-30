@@ -702,7 +702,9 @@ public sealed class OfflineSalesQueueService
             || errorMessage.Contains("Opaque sandbox", StringComparison.OrdinalIgnoreCase)
             || errorMessage.Contains("HTTP 500", StringComparison.OrdinalIgnoreCase)
             || errorMessage.Contains("MRA communication error", StringComparison.OrdinalIgnoreCase)
-            || errorMessage.Contains("temporary MRA", StringComparison.OrdinalIgnoreCase);
+            || errorMessage.Contains("temporary MRA", StringComparison.OrdinalIgnoreCase)
+            || errorMessage.Contains("No activated terminal", StringComparison.OrdinalIgnoreCase)
+            || errorMessage.Contains("tax breakdown", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<SaleQueueResult> TrySubmitQueuedAsync(
@@ -871,6 +873,14 @@ public sealed class OfflineSalesQueueService
                 string.IsNullOrWhiteSpace(evaluation.TechnicalDetail)
                     ? ex.Message
                     : evaluation.TechnicalDetail);
+
+            // Prefer EIS business remarks (e.g. "TIN not found") over generic ASP.NET validation titles.
+            var eisRemark = TryReadEisRemark(ex.ResponseBody);
+            if (!string.IsNullOrWhiteSpace(eisRemark)
+                && !eisRemark.Contains("One or more validation errors", StringComparison.OrdinalIgnoreCase))
+            {
+                detail = TruncateError($"MRA EIS: {eisRemark}. {detail}");
+            }
             if (ex.IsHttpClientLifetimeError())
             {
                 detail = TruncateError(
@@ -1263,9 +1273,11 @@ public sealed class OfflineSalesQueueService
                 rates?.Select(r => (r.Id, r.Rate)),
                 taxpayer?.ActivatedTaxRateIds);
 
+            // Prefer the activated terminal's EIS siteId (often a portal GUID) over deployment
+            // labels like SITE-LIMBE — wrong siteId causes opaque sales validation failures.
             var siteId = FirstNonEmpty(
-                ExtractConfiguredString(siteOverride),
-                terminal?.TerminalSite?.SiteId);
+                terminal?.TerminalSite?.SiteId,
+                ExtractConfiguredString(siteOverride));
             var sellerTin = FirstNonPlaceholderTin(
                 taxpayer?.Tin,
                 ExtractConfiguredString(tinOverride));
@@ -1294,13 +1306,22 @@ public sealed class OfflineSalesQueueService
             if (!string.IsNullOrWhiteSpace(jwtTin) &&
                 !jwtTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
             {
+                var trimmedJwtTin = jwtTin.Trim();
                 if (string.IsNullOrWhiteSpace(sellerTin) ||
-                    sellerTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
+                    sellerTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal) ||
+                    !sellerTin.Trim().Equals(trimmedJwtTin, StringComparison.Ordinal))
                 {
-                    sellerTin = jwtTin.Trim();
-                    _logger.LogInformation(
-                        "Using sellerTIN={Tin} from activation JWT (cached taxpayer TIN was missing or placeholder).",
-                        sellerTin);
+                    if (!string.IsNullOrWhiteSpace(sellerTin)
+                        && !sellerTin.Trim().Equals(trimmedJwtTin, StringComparison.Ordinal)
+                        && !sellerTin.Trim().Equals(sandboxPlaceholderTin, StringComparison.Ordinal))
+                    {
+                        _logger.LogWarning(
+                            "sellerTIN cache/deployment value {CachedTin} differs from activation JWT TIN {JwtTin}; using JWT TIN for EIS submit.",
+                            sellerTin,
+                            trimmedJwtTin);
+                    }
+
+                    sellerTin = trimmedJwtTin;
                 }
             }
 
@@ -1319,7 +1340,7 @@ public sealed class OfflineSalesQueueService
                         var cached = _liveConfigOverlayCache;
                         return new MraFiscalIdentityOverlay(
                             SellerTin: FirstNonPlaceholderTin(cached.SellerTin, sellerTin, jwtTin),
-                            SiteId: FirstNonEmpty(siteId, cached.SiteId),
+                            SiteId: FirstNonEmpty(cached.SiteId, siteId),
                             GlobalConfigVersion: cached.GlobalConfigVersion ?? ToConfigVersion(global?.VersionNo),
                             TaxpayerConfigVersion: cached.TaxpayerConfigVersion ?? ToConfigVersion(taxpayer?.VersionNo),
                             TerminalConfigVersion: cached.TerminalConfigVersion ?? ToConfigVersion(terminal?.VersionNo),
@@ -1353,7 +1374,9 @@ public sealed class OfflineSalesQueueService
                             refreshedRates?.Select(r => r),
                             refreshedTaxpayer?.ActivatedTaxRateIds);
 
-                        var refreshedSiteId = FirstNonEmpty(siteId, refreshedTerminal?.TerminalSite?.SiteId);
+                        var refreshedSiteId = FirstNonEmpty(
+                            refreshedTerminal?.TerminalSite?.SiteId,
+                            siteId);
                         // Never let cached placeholder TIN overwrite a real JWT / prior seller TIN.
                         var refreshedSellerTin = FirstNonPlaceholderTin(
                             refreshedTaxpayer?.Tin,
@@ -1793,6 +1816,54 @@ public sealed class OfflineSalesQueueService
         }
 
         return TruncateError(ex.Message);
+    }
+
+    private static string? TryReadEisRemark(string? responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            if (doc.RootElement.TryGetProperty("remark", out var remark)
+                && remark.ValueKind == JsonValueKind.String)
+            {
+                return NullIfWhiteSpace(remark.GetString());
+            }
+
+            if (doc.RootElement.TryGetProperty("errors", out var errors)
+                && errors.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in errors.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind != JsonValueKind.Array)
+                    {
+                        continue;
+                    }
+
+                    foreach (var item in prop.Value.EnumerateArray())
+                    {
+                        if (item.ValueKind == JsonValueKind.String)
+                        {
+                            var text = NullIfWhiteSpace(item.GetString());
+                            if (text is not null)
+                            {
+                                return text;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Fall through — caller keeps the existing technical detail.
+        }
+
+        return null;
     }
 
     private static string TruncateError(string message) =>
