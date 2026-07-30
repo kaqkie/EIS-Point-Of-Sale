@@ -26,7 +26,7 @@ public sealed class FinancialClosureTests
             MobileMoneySales = 1500m,
             OtherSales = 0m,
             GrossSales = 14000m,
-            TotalVat = PosTaxCalculator.CalculateVatAmount(14000m / 1.165m, PosTaxCalculator.MalawiStandardVatRatePercent),
+            TotalVat = PosTaxCalculator.CalculateVatAmount(14000m / 1.175m, PosTaxCalculator.MalawiStandardVatRatePercent),
             ExpectedCashInDrawer = 15000m,
             ClosingCashCounted = 14950m,
             CashVariance = -50m,

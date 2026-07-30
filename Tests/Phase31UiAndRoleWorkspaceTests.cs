@@ -18,11 +18,11 @@ public sealed class Phase31UiAndRoleWorkspaceTests
     }
 
     [Fact]
-    public void PosTaxCalculator_StatutoryVatMatchesEisSampleRate()
+    public void PosTaxCalculator_StatutoryVatMatchesMalawiRate()
     {
-        Assert.Equal(16.5m, PosTaxCalculator.MalawiStandardVatRatePercent);
+        Assert.Equal(17.5m, PosTaxCalculator.MalawiStandardVatRatePercent);
         var vat = PosTaxCalculator.CalculateVatAmount(1000m, PosTaxCalculator.MalawiStandardVatRatePercent);
-        Assert.Equal(165.00m, vat);
+        Assert.Equal(175.00m, vat);
     }
 
     [Fact]

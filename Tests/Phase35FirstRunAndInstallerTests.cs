@@ -66,7 +66,7 @@ public sealed class Phase35FirstRunAndInstallerTests
             BranchId = "LLW-01"
         };
         Assert.Equal("Sandbox", request.MraEnvironment);
-        Assert.Equal(16.5m, PosTaxCalculator.MalawiStandardVatRatePercent);
+        Assert.Equal(17.5m, PosTaxCalculator.MalawiStandardVatRatePercent);
     }
 
     [Fact]

@@ -78,8 +78,8 @@ public static partial class MraFiscalPayloadNormalizer
             var vat = PosTaxCalculator.RoundMoney(Math.Max(0m, line.TotalVat));
 
             // Re-align VAT so taxBreakDown matches line totals. Standard VAT (A/T/…) always
-            // uses statutory 16.5% — cached sandbox global configs have been seen with A@16.4,
-            // which EIS rejects ("tax breakdown entries do not match …").
+            // uses statutory 17.5% — stale sandbox caches (e.g. A@16.4 / 16.5) cause EIS
+            // "tax breakdown entries do not match …".
             decimal? ratePercent = null;
             if (MraTaxRateCodes.IsStandardVatTier(taxRateId))
             {

@@ -74,7 +74,7 @@ public static class MraTaxRateCodes
 
             if (IsStandardVatTier(id))
             {
-                // Prefer the activated/standard id's configured rate (MRA sample: A @ 16.5).
+                // Prefer the activated/standard id's configured rate (statutory default: A @ 17.5).
                 foreach (var rate in rates)
                 {
                     if (IsStandardVatTier(rate.Id) || rate.Rate is >= 16m and <= 18m)

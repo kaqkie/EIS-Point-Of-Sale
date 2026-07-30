@@ -5,7 +5,7 @@ namespace PointOfSale.Core.Pricing;
 /// </summary>
 public static class PosTaxCalculator
 {
-    public const decimal MalawiStandardVatRatePercent = 16.5m;
+    public const decimal MalawiStandardVatRatePercent = 17.5m;
 
     public static decimal RoundMoney(decimal value) =>
         Math.Round(value, 2, MidpointRounding.AwayFromZero);

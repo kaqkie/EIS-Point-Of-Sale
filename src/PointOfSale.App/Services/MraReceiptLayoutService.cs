@@ -143,7 +143,7 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             });
         }
 
-        // ---- 4. Tax summary: taxable + VAT (EIS sample: TAXABLE A-16.5% / VAT A-16.5%) ----
+        // ---- 4. Tax summary: taxable + VAT (statutory A-17.5%) ----
         var taxLines = new List<string> { Separator('-', charactersPerLine) };
         if (request.TaxBreakdown.Count == 0)
         {

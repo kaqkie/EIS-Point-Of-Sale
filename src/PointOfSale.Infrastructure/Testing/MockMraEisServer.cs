@@ -222,7 +222,7 @@ public class MockMraEisServer : IDisposable
                     remark = "Configs",
                     data = new
                     {
-                        globalConfiguration = new { versionNo = 1, taxRates = new[] { new { id = "A", name = "VAT-A", rate = 16.5 } } },
+                        globalConfiguration = new { versionNo = 1, taxRates = new[] { new { id = "A", name = "VAT-A", rate = 17.5 } } },
                         terminalConfiguration = new
                         {
                             versionNo = 1,

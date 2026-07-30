@@ -235,7 +235,7 @@ public static class LocalFiscalIdentitySeeder
         }
         else
         {
-            // Repair stale sandbox caches that stored A @ 16.4 (EIS expects statutory 16.5%).
+            // Repair stale sandbox caches that stored wrong A rates (statutory is 17.5%).
             try
             {
                 var existing = JsonSerializer.Deserialize<GlobalConfigurationDto>(
@@ -249,7 +249,7 @@ public static class LocalFiscalIdentitySeeder
                         if (MraTaxRateCodes.IsStandardVatTier(rate.Id)
                             && rate.Rate > 0m
                             && Math.Abs(rate.Rate - PosTaxCalculator.MalawiStandardVatRatePercent) >= 0.05m
-                            && rate.Rate is >= 16m and <= 17m)
+                            && rate.Rate is >= 16m and < 17.5m)
                         {
                             rate.Rate = PosTaxCalculator.MalawiStandardVatRatePercent;
                             dirty = true;
