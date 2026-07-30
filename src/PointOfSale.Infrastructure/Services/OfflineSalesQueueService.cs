@@ -703,8 +703,8 @@ public sealed class OfflineSalesQueueService
             || errorMessage.Contains("HTTP 500", StringComparison.OrdinalIgnoreCase)
             || errorMessage.Contains("MRA communication error", StringComparison.OrdinalIgnoreCase)
             || errorMessage.Contains("temporary MRA", StringComparison.OrdinalIgnoreCase)
-            || errorMessage.Contains("No activated terminal", StringComparison.OrdinalIgnoreCase)
-            || errorMessage.Contains("tax breakdown", StringComparison.OrdinalIgnoreCase);
+            || errorMessage.Contains("No activated terminal", StringComparison.OrdinalIgnoreCase);
+        // Do NOT treat "tax breakdown" / validation 400s as transient — that requeues forever.
     }
 
     private async Task<SaleQueueResult> TrySubmitQueuedAsync(

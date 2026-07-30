@@ -751,7 +751,7 @@ public partial class CheckoutViewModel : ObservableObject
         {
             ShowOperatorDialog(new OperatorMessage(
                 "Nothing to reprint",
-                "Complete an online fiscalized sale first, then press F9 to reprint the last receipt.",
+                "No receipt in this session yet. Complete a sale (online or offline queue), then press F9 to reprint.",
                 OperatorMessageSeverity.Information,
                 SuggestOfflineFallback: false));
             return;
@@ -886,6 +886,23 @@ public partial class CheckoutViewModel : ObservableObject
 
             if (result.IsQuarantined)
             {
+                // Sale is already on the offline queue — still print a local receipt and keep F9 reprint.
+                if (result.QueueId > 0)
+                {
+                    try
+                    {
+                        var offlineFiscal = await BuildOfflineFiscalPayloadAsync(request, result.InvoiceNumber)
+                            .ConfigureAwait(true);
+                        await PrintReceiptAsync(request, offlineFiscal).ConfigureAwait(true);
+                    }
+                    catch (Exception printEx)
+                    {
+                        _logger.LogWarning(printEx,
+                            "Printed receipt failed after quarantine for invoice {Invoice}.",
+                            result.InvoiceNumber);
+                    }
+                }
+
                 if (result.TerminalBlocked)
                 {
                     var blocked = CashierOperatorMessages.TerminalBlockedByMra(
@@ -899,6 +916,22 @@ public partial class CheckoutViewModel : ObservableObject
                     var message = CashierOperatorMessages.Quarantined(result.Remark);
                     ShowOperatorDialog(message);
                     StatusMessage = message.Title;
+                }
+
+                if (result.QueueId > 0)
+                {
+                    // Clear cart the same as a successful take — money was accepted / sale stored.
+                    CartItems.Clear();
+                    ActivePromotions.Clear();
+                    AttachedMember = null;
+                    AvailablePoints = 0;
+                    PointsToRedeem = 0;
+                    LoyaltyDiscountMwk = 0;
+                    PromoDiscountTotal = 0;
+                    RecalculateTotals();
+                    _keypadEditing = false;
+                    AmountTendered = 0;
+                    AmountTenderedText = "0.00";
                 }
 
                 await RefreshQueueBadgeAsync().ConfigureAwait(true);
