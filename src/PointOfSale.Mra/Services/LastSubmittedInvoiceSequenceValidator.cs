@@ -13,7 +13,8 @@ internal static class LastSubmittedInvoiceSequenceValidator
         string? expectedSellerTin = null,
         int? expectedTerminalPosition = null,
         long? localDailySequenceFloor = null,
-        IReadOnlyCollection<string>? pendingLocalInvoiceNumbers = null)
+        IReadOnlyCollection<string>? pendingLocalInvoiceNumbers = null,
+        long? expectedFiscalTaxpayerId = null)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -25,14 +26,18 @@ internal static class LastSubmittedInvoiceSequenceValidator
                 "invoiceNumber is not a valid MRA composite (TIN-Terminal-Julian-Count).");
         }
 
-        if (!string.IsNullOrWhiteSpace(expectedSellerTin)
-            && MraInvoiceNumberGenerator.TryParseTaxpayerId(expectedSellerTin, out var expectedTin)
-            && remote.TaxpayerId != expectedTin)
+        var expectedEncodedId = expectedFiscalTaxpayerId is > 0
+            ? expectedFiscalTaxpayerId.Value
+            : MraInvoiceNumberGenerator.TryParseTaxpayerId(expectedSellerTin, out var tinDigits)
+                ? tinDigits
+                : 0L;
+
+        if (expectedEncodedId > 0 && remote.TaxpayerId != expectedEncodedId)
         {
             return InvoiceSequenceCheck.Mismatch(
                 invoiceNumber!,
                 remote,
-                $"Encoded taxpayer id {remote.TaxpayerId} does not match expected sellerTIN {expectedTin}.");
+                $"Encoded taxpayer id {remote.TaxpayerId} does not match expected fiscal id {expectedEncodedId}.");
         }
 
         if (expectedTerminalPosition is int terminal && terminal > 0 && remote.TerminalPosition != terminal)

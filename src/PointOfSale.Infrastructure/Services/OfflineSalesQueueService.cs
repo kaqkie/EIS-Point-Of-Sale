@@ -375,7 +375,11 @@ public sealed class OfflineSalesQueueService
                 : payload.InvoiceHeader.InvoiceDateTime.ToUniversalTime());
 
         var previousInvoiceNumber = payload.InvoiceHeader.InvoiceNumber;
-        var needsRewrite = MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(previousInvoiceNumber, sellerTinTrimmed);
+        var fiscalTaxpayerId = await ReadFiscalTaxpayerIdAsync(cancellationToken).ConfigureAwait(false);
+        var needsRewrite = MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(
+            previousInvoiceNumber,
+            sellerTinTrimmed,
+            fiscalTaxpayerId);
 
         // Legacy ART- / non-composite numbers must be rewritten even on the sandbox developer TIN.
         if (needsRewrite && sellerTinIsPlaceholder)
@@ -1278,9 +1282,11 @@ public sealed class OfflineSalesQueueService
         var hadOfflineSignature = !string.IsNullOrWhiteSpace(deserialized.InvoiceSummary.OfflineSignature);
         var normalized = NormalizeQueuedPayloadForResubmit(deserialized, identity);
 
+        var fiscalTaxpayerId = await ReadFiscalTaxpayerIdAsync(cancellationToken).ConfigureAwait(false);
         var needsInvoiceRewrite = MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(
             normalized.InvoiceHeader.InvoiceNumber,
-            normalized.InvoiceHeader.SellerTin);
+            normalized.InvoiceHeader.SellerTin,
+            fiscalTaxpayerId);
 
         if (needsInvoiceRewrite)
         {
@@ -1322,7 +1328,13 @@ public sealed class OfflineSalesQueueService
         DateTime? transactionUtcOverride = null,
         bool allowSandboxPlaceholderTin = false)
     {
-        if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(request.InvoiceHeader.SellerTin, out var taxpayerId))
+        var fiscalTaxpayerId = await ReadFiscalTaxpayerIdAsync(cancellationToken).ConfigureAwait(false);
+        long taxpayerId;
+        if (fiscalTaxpayerId is > 0)
+        {
+            taxpayerId = fiscalTaxpayerId.Value;
+        }
+        else if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(request.InvoiceHeader.SellerTin, out taxpayerId))
         {
             _logger.LogWarning(
                 "Skipping invoice rewrite for sellerTIN={Tin}: missing numeric taxpayer id.",
@@ -1371,8 +1383,9 @@ public sealed class OfflineSalesQueueService
         }
 
         _logger.LogInformation(
-            "Assigned MRA invoice number {InvoiceNumber} for sellerTIN={Tin} (replaced {Previous}).",
+            "Assigned MRA invoice number {InvoiceNumber} for fiscalTaxpayerId={FiscalId} sellerTIN={Tin} (replaced {Previous}).",
             newInvoiceNumber,
+            taxpayerId,
             request.InvoiceHeader.SellerTin,
             request.InvoiceHeader.InvoiceNumber);
 
@@ -1468,6 +1481,40 @@ public sealed class OfflineSalesQueueService
         }
 
         return 1;
+    }
+
+    private async Task<long?> ReadFiscalTaxpayerIdAsync(CancellationToken cancellationToken)
+    {
+        if (_configurationRepository is null)
+        {
+            return null;
+        }
+
+        var json = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TaxpayerId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("taxpayerId", out var id)
+                && id.TryGetInt64(out var taxpayerId)
+                && taxpayerId > 0)
+            {
+                return taxpayerId;
+            }
+        }
+        catch (JsonException)
+        {
+            // ignore corrupt config
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -192,9 +192,14 @@ public static class MraInvoiceNumberGenerator
 
     /// <summary>
     /// True when the invoice number is missing, legacy ART format, non-composite,
-    /// encodes the sandbox placeholder TIN, or encodes a different taxpayer id than <paramref name="sellerTin"/>.
+    /// encodes the sandbox placeholder TIN, or encodes a different taxpayer id than expected.
+    /// Prefer <paramref name="fiscalTaxpayerId"/> (MRA activation id) over seller TIN digits —
+    /// these can differ (e.g. TIN 20122074 vs fiscal id 11234 → Base64 <c>Cvi</c>).
     /// </summary>
-    public static bool NeedsInvoiceNumberRewrite(string? invoiceNumber, string? sellerTin)
+    public static bool NeedsInvoiceNumberRewrite(
+        string? invoiceNumber,
+        string? sellerTin,
+        long? fiscalTaxpayerId = null)
     {
         if (string.IsNullOrWhiteSpace(invoiceNumber))
         {
@@ -217,20 +222,28 @@ public static class MraInvoiceNumberGenerator
             return true;
         }
 
-        // Early sandbox receipts used 1234567890 (Base64 BJlgLS) — rewrite once a real TIN is available.
+        // Early sandbox receipts used 1234567890 (Base64 BJlgLS) — rewrite once a real id is available.
         if (encodedTin == SandboxPlaceholderTaxpayerId)
         {
+            if (fiscalTaxpayerId is > 0 and not SandboxPlaceholderTaxpayerId)
+            {
+                return true;
+            }
+
             return TryParseTaxpayerId(sellerTin, out var realTin)
                 && realTin != SandboxPlaceholderTaxpayerId;
         }
 
-        if (!TryParseTaxpayerId(sellerTin, out var expectedTin)
-            || expectedTin == SandboxPlaceholderTaxpayerId)
+        var expectedId = fiscalTaxpayerId is > 0
+            ? fiscalTaxpayerId.Value
+            : TryParseTaxpayerId(sellerTin, out var tinFromSeller) ? tinFromSeller : 0L;
+
+        if (expectedId <= 0 || expectedId == SandboxPlaceholderTaxpayerId)
         {
             return false;
         }
 
-        return encodedTin != expectedTin;
+        return encodedTin != expectedId;
     }
 
     /// <summary>True when <paramref name="taxpayerId"/> is the historical sandbox seed.</summary>

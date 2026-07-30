@@ -10,6 +10,8 @@ public static class MraConfigurationKeys
     public const string PendingSecretKey = "mra.onboarding.pendingSecretKey";
     public const string ActiveTerminalId = "pos.terminal.activeId";
     public const string TerminalPosition = "mra.terminal.position";
+    /// <summary>MRA activation <c>taxpayerId</c> used in composite invoice Base64 (may differ from seller TIN).</summary>
+    public const string TaxpayerId = "mra.taxpayer.id";
     public const string DailyInvoiceSequencePrefix = "mra.sales.invoiceSequence.";
     public const string StockHsCodesCache = "mra.stock.hscodes.cache";
     public const string StockUnitsOfMeasureCache = "mra.stock.uom.cache";

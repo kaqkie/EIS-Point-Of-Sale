@@ -142,6 +142,7 @@ public sealed class TerminalOnboardingService
                 request,
                 credentials,
                 activated.TerminalPosition,
+                activated.TaxpayerId,
                 response.Data.Configuration,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -161,6 +162,7 @@ public sealed class TerminalOnboardingService
         TerminalActivationRequest request,
         TerminalCredentialsDto credentials,
         int? terminalPosition,
+        long? taxpayerId,
         EisConfigurationBundleDto? configuration,
         CancellationToken cancellationToken)
     {
@@ -199,6 +201,16 @@ public sealed class TerminalOnboardingService
             await _configurationRepository.UpsertJsonAsync(
                     MraConfigurationKeys.TerminalPosition,
                     JsonSerializer.Serialize(new { position = terminalPosition.Value }, MraJson.SerializerOptions),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        // Persist MRA taxpayerId for invoice Base64 encoding (may differ from sellerTIN digits).
+        if (taxpayerId is > 0)
+        {
+            await _configurationRepository.UpsertJsonAsync(
+                    MraConfigurationKeys.TaxpayerId,
+                    JsonSerializer.Serialize(new { taxpayerId = taxpayerId.Value }, MraJson.SerializerOptions),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

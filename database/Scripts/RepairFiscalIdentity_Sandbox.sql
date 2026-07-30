@@ -6,7 +6,9 @@
 
     LIVE FACTS (do not invent VAT registration locally):
 
-      - tin = 20122074
+      - tin (sellerTIN) = 20122074
+
+      - fiscal taxpayerId for invoice Base64 = 11234  (encodes as Cvi — matches portal receipts)
 
       - isVATRegistered = false
 
@@ -28,6 +30,8 @@ SET NOCOUNT ON;
 
 DECLARE @TaxpayerTin NVARCHAR(32) = N'20122074';
 
+DECLARE @FiscalTaxpayerId BIGINT = 11234;
+
 DECLARE @SiteId NVARCHAR(128) = N'BL7a9fe868-d512-4198-8b08-497e8f0fc10a';
 
 DECLARE @SiteName NVARCHAR(128) = N'Luchenza';
@@ -46,11 +50,25 @@ DECLARE @Email NVARCHAR(128) = N'emilynkhata@yahoo.com';
 
 DECLARE @TinJson NVARCHAR(MAX) = N'{"tin":"' + STRING_ESCAPE(@TaxpayerTin, 'json') + N'"}';
 
+DECLARE @FiscalTaxpayerIdJson NVARCHAR(MAX) = N'{"taxpayerId":' + CAST(@FiscalTaxpayerId AS NVARCHAR(32)) + N'}';
+
 
 
 MERGE dbo.Configurations AS t
 
 USING (SELECT N'deployment.taxpayer.tin' AS ConfigKey, @TinJson AS ConfigJson) AS s
+
+ON t.ConfigKey = s.ConfigKey
+
+WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
+
+WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
+
+
+
+MERGE dbo.Configurations AS t
+
+USING (SELECT N'mra.taxpayer.id' AS ConfigKey, @FiscalTaxpayerIdJson AS ConfigJson) AS s
 
 ON t.ConfigKey = s.ConfigKey
 

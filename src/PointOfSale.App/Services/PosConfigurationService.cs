@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using PointOfSale.App.Options;
 using PointOfSale.Core.Constants;
 using PointOfSale.Infrastructure.Repositories;
+using PointOfSale.Mra.Billing;
 using PointOfSale.Mra.Contracts.Configuration;
 using PointOfSale.Mra.Options;
 using PointOfSale.Mra.Serialization;
@@ -76,6 +77,7 @@ public sealed class PosConfigurationService : IPosConfigurationService
                 cancellationToken)
             .ConfigureAwait(false);
         var terminalPosition = await ReadTerminalPositionAsync(cancellationToken).ConfigureAwait(false);
+        var fiscalTaxpayerId = await ReadFiscalTaxpayerIdAsync(cancellationToken).ConfigureAwait(false);
 
         string? jwtTin = null;
         try
@@ -102,6 +104,7 @@ public sealed class PosConfigurationService : IPosConfigurationService
             HostEnvironmentName: ResolveHostEnvironmentName(),
             JwtTaxpayerTin: jwtTin,
             TerminalPosition: terminalPosition,
+            FiscalTaxpayerId: fiscalTaxpayerId,
             DeploymentMerchantAddressLines: merchantAddressOverride,
             DeploymentContactPhone: merchantPhoneOverride,
             DeploymentContactEmail: merchantEmailOverride);
@@ -166,6 +169,34 @@ public sealed class PosConfigurationService : IPosConfigurationService
         }
 
         return 1;
+    }
+
+    private async Task<long?> ReadFiscalTaxpayerIdAsync(CancellationToken cancellationToken)
+    {
+        var json = await _configurationRepository
+            .GetJsonAsync(MraConfigurationKeys.TaxpayerId, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("taxpayerId", out var idElement)
+                && idElement.TryGetInt64(out var id)
+                && id > 0)
+            {
+                return id;
+            }
+        }
+        catch (JsonException)
+        {
+            // ignore
+        }
+
+        return null;
     }
 
     /// <summary>Sandbox / Development / trial hosts may use the developer TIN seed.</summary>
@@ -316,6 +347,7 @@ public sealed record PosRuntimeContext(
     string? HostEnvironmentName = null,
     string? JwtTaxpayerTin = null,
     int TerminalPosition = 1,
+    long? FiscalTaxpayerId = null,
     IReadOnlyList<string>? DeploymentMerchantAddressLines = null,
     string? DeploymentContactPhone = null,
     string? DeploymentContactEmail = null)
@@ -324,6 +356,22 @@ public sealed record PosRuntimeContext(
         Terminal?.TradingName
         ?? Deployment?.FallbackTradingName
         ?? "Albert Retail Terminal";
+
+    /// <summary>
+    /// Numeric id encoded into MRA composite invoice numbers (Base64 first segment).
+    /// Prefers activation <c>taxpayerId</c> when it differs from seller TIN digits.
+    /// </summary>
+    public long ResolveFiscalTaxpayerId()
+    {
+        if (FiscalTaxpayerId is > 0)
+        {
+            return FiscalTaxpayerId.Value;
+        }
+
+        return MraInvoiceNumberGenerator.TryParseTaxpayerId(SellerTin, out var fromTin)
+            ? fromTin
+            : 0;
+    }
 
     /// <summary>
     /// Seller TIN for checkout + legal receipts. Prefers a non-placeholder value from

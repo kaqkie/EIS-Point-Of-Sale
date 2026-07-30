@@ -159,11 +159,20 @@ public sealed class MraFiscalCheckoutService : IMraFiscalCheckoutService
         DateTime transactionUtc,
         CancellationToken cancellationToken)
     {
-        if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(context.SellerTin, out var taxpayerId))
+        if (!MraInvoiceNumberGenerator.TryParseTaxpayerId(context.SellerTin, out _)
+            && context.ResolveFiscalTaxpayerId() <= 0)
         {
             throw new InvalidOperationException(
-                "Cannot generate MRA invoice number: seller TIN is missing or not numeric. " +
+                "Cannot generate MRA invoice number: seller TIN / fiscal taxpayer id is missing. " +
                 "Complete terminal activation and configuration sync first.");
+        }
+
+        var taxpayerId = context.ResolveFiscalTaxpayerId();
+        if (taxpayerId <= 0)
+        {
+            throw new InvalidOperationException(
+                "Cannot generate MRA invoice number: fiscal taxpayer id is missing. " +
+                "Re-activate the terminal so MRA taxpayerId is stored.");
         }
 
         var terminalPosition = context.TerminalPosition > 0 ? context.TerminalPosition : 1;

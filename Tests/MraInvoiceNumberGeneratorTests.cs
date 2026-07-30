@@ -42,6 +42,19 @@ public sealed class MraInvoiceNumberGeneratorTests
         Assert.True(MraInvoiceNumberGenerator.TryGetEncodedTaxpayerId(wrongTin, out var encoded));
         Assert.Equal(1234567890, encoded);
         Assert.False(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(wrongTin, "1234567890"));
+
+        // Fiscal taxpayerId 11234 (Cvi) differs from seller TIN 20122074 (BMwna).
+        var tinEncoded = MraInvoiceNumberGenerator.Generate(20122074, 1, new DateTime(2026, 7, 27, 0, 0, 0, DateTimeKind.Utc), 1);
+        Assert.True(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(
+            tinEncoded,
+            sellerTin: "20122074",
+            fiscalTaxpayerId: 11234));
+        var fiscalEncoded = MraInvoiceNumberGenerator.Generate(11234, 38, new DateTime(2026, 7, 27, 0, 0, 0, DateTimeKind.Utc), 1);
+        Assert.StartsWith("Cvi-", fiscalEncoded, StringComparison.Ordinal);
+        Assert.False(MraInvoiceNumberGenerator.NeedsInvoiceNumberRewrite(
+            fiscalEncoded,
+            sellerTin: "20122074",
+            fiscalTaxpayerId: 11234));
     }
 
     [Fact]
