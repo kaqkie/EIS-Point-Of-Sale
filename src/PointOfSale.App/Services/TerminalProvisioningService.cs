@@ -128,7 +128,7 @@ public sealed class TerminalProvisioningService : ITerminalProvisioningService
             ActivationStatus = isProvisioned
                 ? $"Terminal {terminalId} is activated and bound to this device."
                 : hardwareValid
-                    ? "Complete MRA terminal activation to begin fiscal sales."
+                    ? "Not activated — enter the MRA EIS Portal activation key to register this till."
                     : "Hardware binding mismatch — contact support before activating."
         };
     }

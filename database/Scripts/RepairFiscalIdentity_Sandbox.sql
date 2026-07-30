@@ -6,13 +6,25 @@ SET NOCOUNT ON;
 
 DECLARE @TaxpayerTin NVARCHAR(32) = N'20122074';
 DECLARE @SiteId NVARCHAR(128) = N'Luchenza';
-DECLARE @BranchId NVARCHAR(128) = N'Luchenza';
+DECLARE @BranchId NVARCHAR(128) = N'Lilongwe';
 DECLARE @TradingName NVARCHAR(256) = N'LUCHENZA MUNICIPALITY COUNCIL';
+DECLARE @TerminalDisplayName NVARCHAR(256) = N'Till 7';
+DECLARE @TerminalId NVARCHAR(64) = N'ART-SBX-B61182AD';
 DECLARE @TerminalLabel NVARCHAR(256) = N'GOVERNMENT COMPLIANCE UNIT';
 DECLARE @Phone NVARCHAR(64) = N'0988712686';
 DECLARE @Email NVARCHAR(128) = N'emilynkhata@yahoo.com';
 
 DECLARE @TinJson NVARCHAR(MAX) = N'{"tin":"' + STRING_ESCAPE(@TaxpayerTin, 'json') + N'"}';
+
+UPDATE dbo.Terminals
+SET BranchCode = @BranchId
+WHERE TerminalId = @TerminalId;
+
+MERGE dbo.Configurations AS t
+USING (SELECT N'deployment.terminal.displayName' AS ConfigKey, @TerminalDisplayName AS ConfigJson) AS s
+ON t.ConfigKey = s.ConfigKey
+WHEN MATCHED THEN UPDATE SET ConfigJson = s.ConfigJson, UpdatedAt = GETUTCDATE()
+WHEN NOT MATCHED THEN INSERT (ConfigKey, ConfigJson, UpdatedAt) VALUES (s.ConfigKey, s.ConfigJson, GETUTCDATE());
 
 MERGE dbo.Configurations AS t
 USING (SELECT N'deployment.taxpayer.tin' AS ConfigKey, @TinJson AS ConfigJson) AS s

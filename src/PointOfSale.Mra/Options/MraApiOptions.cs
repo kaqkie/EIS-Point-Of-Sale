@@ -75,6 +75,12 @@ public sealed class MraApiOptions
     /// </summary>
     public string VendorAccessKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// When true (lab only), a failed live EIS activate may invent local JWT/secret credentials.
+    /// Keep false when the till must be activated in the real EIS Portal.
+    /// </summary>
+    public bool AllowSandboxLocalOnboardingFallback { get; set; }
+
     public string ResolveBaseUrl()
     {
         if (!string.IsNullOrWhiteSpace(BaseUrl) && !IsLegacyUnreachableHost(BaseUrl))

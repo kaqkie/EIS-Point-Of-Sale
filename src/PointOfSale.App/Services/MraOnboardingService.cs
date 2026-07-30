@@ -439,12 +439,14 @@ public sealed class MraOnboardingService : IMraOnboardingService
         int? upstreamHttpStatus = null,
         string? upstreamDiagnostic = null)
     {
-        if (IsLiveProductionEnvironment())
+        if (IsLiveProductionEnvironment() || !_mraOptions.AllowSandboxLocalOnboardingFallback)
         {
             return MraOnboardingResult.Fail(
                 confirm
                     ? $"MRA confirmation failed: {upstreamMessage}"
-                    : $"MRA activation failed: {upstreamMessage}",
+                    : $"MRA activation failed: {upstreamMessage}. " +
+                      "Local sandbox fallback is disabled — use a real EIS Portal activation key " +
+                      "(Terminal Provisioning) once the till exists in the portal.",
                 upstreamHttpStatus,
                 upstreamDiagnostic ?? TruncateForLog(upstreamMessage));
         }
@@ -472,6 +474,15 @@ public sealed class MraOnboardingService : IMraOnboardingService
         int? upstreamHttpStatus = null,
         string? upstreamDiagnostic = null)
     {
+        if (!_mraOptions.AllowSandboxLocalOnboardingFallback)
+        {
+            return MraOnboardingResult.Fail(
+                "Local sandbox MRA onboarding is disabled. Register this till in the EIS Portal, " +
+                "then activate with the portal activation key under Terminal Provisioning.",
+                upstreamHttpStatus,
+                upstreamDiagnostic);
+        }
+
         var terminals = scope.ServiceProvider.GetRequiredService<ITerminalRepository>();
         var config = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
         var protector = scope.ServiceProvider.GetRequiredService<ISecretProtector>();
