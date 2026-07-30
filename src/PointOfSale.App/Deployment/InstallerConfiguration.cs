@@ -97,6 +97,46 @@ public static class InstallerConfiguration
         return "00:00:00:00:00:00";
     }
 
+    /// <summary>
+    /// MRA EIS activate-terminal platform fields. Authority samples use friendly names
+    /// (<c>Windows 10</c>/<c>Windows 11</c>) and dash-separated MAC (<c>AA-BB-CC-DD-EE-FF</c>),
+    /// not <c>Win32NT</c> / colon MACs.
+    /// </summary>
+    public static (string OsName, string OsVersion, string? OsBuild, string MacAddress) GetMraPlatformEnvironment()
+    {
+        var version = Environment.OSVersion.Version;
+        string osName;
+        string osVersion;
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows 11 reports as 10.0 with build >= 22000.
+            osName = version.Build >= 22000 ? "Windows 11" : "Windows 10";
+            osVersion = osName;
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            osName = "Linux";
+            osVersion = Truncate(version.ToString(), 50);
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            osName = "macOS";
+            osVersion = Truncate(version.ToString(), 50);
+        }
+        else
+        {
+            osName = Truncate(Environment.OSVersion.Platform.ToString(), 50);
+            osVersion = Truncate(version.ToString(), 50);
+        }
+
+        var osBuild = Truncate(version.ToString(), 50);
+        var mac = GetPrimaryMacAddress().Replace(':', '-').ToUpperInvariant();
+        return (osName, osVersion, osBuild, mac);
+    }
+
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..maxLength];
+
     public static string ComputeHardwareFingerprintSha256()
     {
         var builder = new StringBuilder(256);

@@ -265,9 +265,11 @@ public sealed class MraOnboardingService : IMraOnboardingService
             catch (Exception ex) when (IsRecoverableMraEndpointFailure(ex))
             {
                 LogRecoverableEndpointFailure(ex, "activate-terminal");
-                return await CompleteSandboxLocalOnboardingAsync(
+                return await TrySandboxFallbackOrFailAsync(
                         scope,
                         normalized,
+                        BuildUpstreamMessage(ex),
+                        confirm: false,
                         cancellationToken,
                         upstreamHttpStatus: ExtractHttpStatus(ex),
                         upstreamDiagnostic: ExtractDiagnostic(ex))
@@ -278,8 +280,8 @@ public sealed class MraOnboardingService : IMraOnboardingService
             {
                 LogActivationEndpointRejection(activate.Remark, activate.Errors);
 
-                // Invalid TAC from live MRA — do not silently unlock production.
-                if (IsLiveProductionEnvironment())
+                // Invalid TAC / platform / product from live MRA — surface the Authority remark.
+                if (IsLiveProductionEnvironment() || !_mraOptions.AllowSandboxLocalOnboardingFallback)
                 {
                     return MraOnboardingResult.Fail(
                         activate.OperatorMessage ?? activate.Remark ?? "MRA rejected the activation key.",
@@ -316,9 +318,11 @@ public sealed class MraOnboardingService : IMraOnboardingService
             catch (Exception ex) when (IsRecoverableMraEndpointFailure(ex))
             {
                 LogRecoverableEndpointFailure(ex, "terminal-activated-confirmation");
-                return await CompleteSandboxLocalOnboardingAsync(
+                return await TrySandboxFallbackOrFailAsync(
                         scope,
                         normalized,
+                        BuildUpstreamMessage(ex),
+                        confirm: true,
                         cancellationToken,
                         preferredTerminalId: activate.TerminalId,
                         upstreamHttpStatus: ExtractHttpStatus(ex),
@@ -333,7 +337,7 @@ public sealed class MraOnboardingService : IMraOnboardingService
                     activate.TerminalId,
                     confirm.Remark);
 
-                if (IsLiveProductionEnvironment())
+                if (IsLiveProductionEnvironment() || !_mraOptions.AllowSandboxLocalOnboardingFallback)
                 {
                     return MraOnboardingResult.Fail(
                         confirm.Remark ?? "MRA confirmation failed after activate-terminal.",
@@ -376,27 +380,39 @@ public sealed class MraOnboardingService : IMraOnboardingService
             ? branchOverride.Trim()
             : await ResolveBranchIdAsync(config, cancellationToken).ConfigureAwait(false);
 
+        var platform = InstallerConfiguration.GetMraPlatformEnvironment();
         return new TerminalActivationRequest
         {
             TerminalActivationCode = normalizedActivationKey,
             BranchCode = branch,
             Platform = new PlatformEnvironment
             {
-                OsName = Environment.OSVersion.Platform.ToString(),
-                OsVersion = Environment.OSVersion.Version.ToString(),
-                OsBuild = Environment.OSVersion.VersionString,
-                MacAddress = InstallerConfiguration.GetPrimaryMacAddress()
+                OsName = platform.OsName,
+                OsVersion = platform.OsVersion,
+                OsBuild = platform.OsBuild,
+                MacAddress = platform.MacAddress
             },
             Pos = new PosEnvironment
             {
-                ProductId = string.IsNullOrWhiteSpace(_mraOptions.ProductId)
-                    ? "MRA-desktop/AlbertRetailTerminal"
-                    : _mraOptions.ProductId,
+                ProductId = ResolveProductId(),
                 ProductVersion = string.IsNullOrWhiteSpace(_mraOptions.ProductVersion)
                     ? InstallerConfiguration.ProductVersion
                     : _mraOptions.ProductVersion
             }
         };
+    }
+
+    private string ResolveProductId()
+    {
+        var configured = _mraOptions.ProductId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(configured)
+            || configured.Contains('{', StringComparison.Ordinal)
+            || configured.Contains('}', StringComparison.Ordinal))
+        {
+            return "MRA-desktop/AlbertRetailTerminal";
+        }
+
+        return configured;
     }
 
     private async Task<string> ResolveBranchIdAsync(

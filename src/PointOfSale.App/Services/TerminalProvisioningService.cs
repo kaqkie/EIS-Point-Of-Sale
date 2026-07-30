@@ -225,13 +225,22 @@ public sealed class TerminalProvisioningService : ITerminalProvisioningService
             throw new InvalidOperationException("Branch ID is required for terminal provisioning.");
         }
 
+        var platformDetails = InstallerConfiguration.GetMraPlatformEnvironment();
         var platform = new PlatformEnvironment
         {
-            OsName = Environment.OSVersion.Platform.ToString(),
-            OsVersion = Environment.OSVersion.Version.ToString(),
-            OsBuild = Environment.OSVersion.VersionString,
-            MacAddress = InstallerConfiguration.GetPrimaryMacAddress()
+            OsName = platformDetails.OsName,
+            OsVersion = platformDetails.OsVersion,
+            OsBuild = platformDetails.OsBuild,
+            MacAddress = platformDetails.MacAddress
         };
+
+        var productId = _mraOptions.ProductId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(productId)
+            || productId.Contains('{', StringComparison.Ordinal)
+            || productId.Contains('}', StringComparison.Ordinal))
+        {
+            productId = "MRA-desktop/AlbertRetailTerminal";
+        }
 
         var activationRequest = new TerminalActivationRequest
         {
@@ -240,8 +249,10 @@ public sealed class TerminalProvisioningService : ITerminalProvisioningService
             Platform = platform,
             Pos = new PosEnvironment
             {
-                ProductId = _mraOptions.ProductId,
-                ProductVersion = _mraOptions.ProductVersion
+                ProductId = productId,
+                ProductVersion = string.IsNullOrWhiteSpace(_mraOptions.ProductVersion)
+                    ? InstallerConfiguration.ProductVersion
+                    : _mraOptions.ProductVersion
             }
         };
 
