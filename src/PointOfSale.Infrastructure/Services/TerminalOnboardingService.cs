@@ -246,7 +246,8 @@ public sealed class TerminalOnboardingService
                     JwtToken = jwt,
                     SecretKey = pendingSecret,
                     SignaturePlainText = tac,
-                    IsActivationConfirmationSignature = true
+                    IsActivationConfirmationSignature = true,
+                    AcceptHeader = "text/plain"
                 },
                 cancellationToken)
             .ConfigureAwait(false);

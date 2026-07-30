@@ -100,6 +100,7 @@ public sealed class MraIntegrationTests
         Assert.NotEqual(
             HmacSignatureService.ComputeHmacSha512(logged.Body!, secret),
             Assert.Single(sigValues));
+        Assert.False(logged.Headers.ContainsKey(MraEisMessageHash.HeaderName));
     }
 
     [Fact]

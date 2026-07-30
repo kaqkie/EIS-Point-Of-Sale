@@ -1,9 +1,9 @@
 namespace PointOfSale.Mra.Security;
 
-/// <summary>
-/// MRA EIS <c>x-eis-message-hash</c> policy — required on all requests except terminal activation
-/// (developers guide §4.1 General Request Structure).
-/// </summary>
+    /// <summary>
+    /// MRA EIS <c>x-eis-message-hash</c> policy — required on authenticated requests except
+    /// onboarding activate/confirm (developers guide §4.1 + confirmation uses <c>x-signature</c>).
+    /// </summary>
 public static class MraEisMessageHash
 {
     public const string HeaderName = "x-eis-message-hash";
@@ -20,22 +20,28 @@ public static class MraEisMessageHash
     public static readonly HttpRequestOptionsKey<string> SecretKeyOptionKey = new("mra.eis.messageHash.secretKey");
 
     /// <summary>
-    /// True for <c>onboarding/activate-terminal</c> only — confirmation and all other routes require the hash.
+    /// True for onboarding routes that must not carry <c>x-eis-message-hash</c>:
+    /// <c>activate-terminal</c> (no secret yet) and <c>terminal-activated-confirmation</c>
+    /// (auth is JWT + <c>x-signature</c> over the TAC only).
     /// </summary>
     public static bool IsTerminalActivationRequest(HttpRequestMessage request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return IsTerminalActivationPath(request.RequestUri?.ToString());
+        return IsExemptFromMessageHash(request.RequestUri?.ToString());
     }
 
-    public static bool IsTerminalActivationPath(string? pathOrUri)
+    public static bool IsTerminalActivationPath(string? pathOrUri) =>
+        IsExemptFromMessageHash(pathOrUri);
+
+    public static bool IsExemptFromMessageHash(string? pathOrUri)
     {
         if (string.IsNullOrWhiteSpace(pathOrUri))
         {
             return false;
         }
 
-        return pathOrUri.Contains("activate-terminal", StringComparison.OrdinalIgnoreCase);
+        return pathOrUri.Contains("activate-terminal", StringComparison.OrdinalIgnoreCase)
+            || pathOrUri.Contains("terminal-activated-confirmation", StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool ShouldAttach(HttpRequestMessage request) =>

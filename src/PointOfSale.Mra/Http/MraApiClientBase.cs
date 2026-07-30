@@ -62,10 +62,16 @@ public abstract class MraApiClientBase
         if (!string.IsNullOrWhiteSpace(xSignaturePlainText) &&
             !string.IsNullOrWhiteSpace(secretKeyForSignature))
         {
-            // Payload message hash (all routes except activate-terminal).
-            MraEisMessageHash.TryAttach(request, json, secretKeyForSignature);
+            var isConfirmation = relativePath.Contains(
+                "terminal-activated-confirmation",
+                StringComparison.OrdinalIgnoreCase);
 
-            // Confirmation: HMAC-SHA512(TAC) → x-signature.
+            // Confirmation: JWT + x-signature(TAC) only. Other signed routes also get message hash.
+            if (!isConfirmation)
+            {
+                MraEisMessageHash.TryAttach(request, json, secretKeyForSignature);
+            }
+
             HmacSignatureService.AttachActivationConfirmationSignature(
                 request,
                 xSignaturePlainText,

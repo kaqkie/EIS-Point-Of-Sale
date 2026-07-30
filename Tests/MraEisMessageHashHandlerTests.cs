@@ -15,10 +15,10 @@ public sealed class MraEisMessageHashHandlerTests
     [Theory]
     [InlineData("https://dev-eis-api.mra.mw/api/v1/onboarding/activate-terminal", true)]
     [InlineData("onboarding/activate-terminal", true)]
-    [InlineData("https://dev-eis-api.mra.mw/api/v1/onboarding/terminal-activated-confirmation", false)]
+    [InlineData("https://dev-eis-api.mra.mw/api/v1/onboarding/terminal-activated-confirmation", true)]
     [InlineData("sales/submit-sales-transaction", false)]
     [InlineData("configuration/get-latest-configs", false)]
-    public void IsTerminalActivationPath_ExcludesOnlyActivateTerminal(string path, bool expected) =>
+    public void IsTerminalActivationPath_ExcludesOnboardingAuthRoutes(string path, bool expected) =>
         Assert.Equal(expected, MraEisMessageHash.IsTerminalActivationPath(path));
 
     [Fact]

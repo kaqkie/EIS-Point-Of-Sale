@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -76,7 +77,7 @@ public sealed class MraApiClient
         // disposed StringContent mid-flight ("Cannot access a disposed object").
         using var request = new HttpRequestMessage(HttpMethod.Post, relativePath)
         {
-            Content = new StringContent(json, Encoding.UTF8, "application/json")
+            Content = CreateJsonContent(json)
         };
 
         ApplyContext(request, context, signaturePlainText: context?.SignaturePlainText ?? json, jsonBody: json);
@@ -122,6 +123,16 @@ public sealed class MraApiClient
     public static string ComputeSignature(string plainText, string secretKey) =>
         HmacSignatureService.ComputeHmacSha512(plainText, secretKey);
 
+    /// <summary>
+    /// JSON body without <c>charset=utf-8</c> — some EIS gateways reject or mishandle charset on Content-Type.
+    /// </summary>
+    private static StringContent CreateJsonContent(string json)
+    {
+        var content = new StringContent(json, Encoding.UTF8);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        return content;
+    }
+
     private void ApplyContext(HttpRequestMessage request, MraRequestContext? context, string? signaturePlainText, string? jsonBody)
     {
         if (context?.JwtToken is { Length: > 0 } jwt)
@@ -156,13 +167,10 @@ public sealed class MraApiClient
         if (context?.SecretKey is { Length: > 0 } secretKey &&
             !string.IsNullOrWhiteSpace(signaturePlainText))
         {
-            MraEisMessageHash.SetSecretKeyOption(request, secretKey);
-            // Message hash covers the HTTP payload (JSON body), not the TAC used for x-signature.
-            MraEisMessageHash.SetPlainTextOption(request, jsonBody ?? string.Empty);
-            MraEisMessageHash.TryAttach(request, jsonBody ?? string.Empty, secretKey);
-
             if (context.IsActivationConfirmationSignature)
             {
+                // Confirmation auth is JWT + x-signature(TAC). Do not attach x-eis-message-hash —
+                // sandbox returns opaque HTTP 500 when both are present on this route.
                 HmacSignatureService.AttachActivationConfirmationSignature(
                     request,
                     signaturePlainText,
@@ -170,6 +178,9 @@ public sealed class MraApiClient
             }
             else
             {
+                MraEisMessageHash.SetSecretKeyOption(request, secretKey);
+                MraEisMessageHash.SetPlainTextOption(request, jsonBody ?? string.Empty);
+                MraEisMessageHash.TryAttach(request, jsonBody ?? string.Empty, secretKey);
                 HmacSignatureService.ApplyXSignatureHeader(
                     request,
                     ComputeSignature(signaturePlainText, secretKey));
