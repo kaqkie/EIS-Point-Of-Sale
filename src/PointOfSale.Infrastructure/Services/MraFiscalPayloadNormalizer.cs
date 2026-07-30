@@ -58,7 +58,7 @@ public static partial class MraFiscalPayloadNormalizer
                 taxRateId = standardTaxRateId;
             }
 
-            var unitPrice = PosTaxCalculator.RoundMoney(line.UnitPrice);
+            var unitPriceIn = PosTaxCalculator.RoundMoney(line.UnitPrice);
             var quantity = RoundQuantity(line.Quantity);
             if (quantity <= 0m)
             {
@@ -66,16 +66,11 @@ public static partial class MraFiscalPayloadNormalizer
             }
 
             var discount = PosTaxCalculator.RoundMoney(Math.Max(0m, line.Discount));
-            // Recompute net from mandatory unit fields so total never drifts / nulls out.
-            var expectedNet = PosTaxCalculator.RoundMoney(
-                Math.Max(0m, (unitPrice * quantity) - discount));
-            var net = PosTaxCalculator.RoundMoney(line.Total);
-            if (Math.Abs(expectedNet - net) > 0.02m || net < 0m)
-            {
-                net = expectedNet;
-            }
-
-            var vat = PosTaxCalculator.RoundMoney(Math.Max(0m, line.TotalVat));
+            // Prefer line.Total as exclusive taxable net. Cart stores exclusive unit/total;
+            // after Item-mode normalize, unitPrice is gross — never recompute net from it.
+            var net = PosTaxCalculator.RoundMoney(Math.Max(0m, line.Total));
+            var exclusiveFromUnit = PosTaxCalculator.RoundMoney(
+                Math.Max(0m, (unitPriceIn * quantity) - discount));
 
             // Re-align VAT so taxBreakDown matches line totals. Standard VAT (A/T/…) always
             // uses statutory 17.5% — stale sandbox caches (e.g. A@16.4 / 16.5) cause EIS
@@ -90,12 +85,42 @@ public static partial class MraFiscalPayloadNormalizer
                 ratePercent = configuredPercent;
             }
 
+            // Heal drifted exclusive totals only when unitPrice still looks exclusive.
+            if (ratePercent is decimal healRate && healRate > 0m)
+            {
+                var expectedVatOnNet = PosTaxCalculator.CalculateVatAmount(net, healRate);
+                var unitLooksGross = Math.Abs(exclusiveFromUnit - PosTaxCalculator.RoundMoney(net + expectedVatOnNet)) <= 0.02m
+                    || Math.Abs(exclusiveFromUnit - PosTaxCalculator.RoundMoney(net + Math.Max(0m, line.TotalVat))) <= 0.02m;
+                if (!unitLooksGross
+                    && Math.Abs(exclusiveFromUnit - net) > 0.02m
+                    && Math.Abs(PosTaxCalculator.CalculateVatAmount(exclusiveFromUnit, healRate) - Math.Max(0m, line.TotalVat)) <= 0.05m)
+                {
+                    net = exclusiveFromUnit;
+                }
+            }
+            else if (Math.Abs(exclusiveFromUnit - net) > 0.02m && exclusiveFromUnit > 0m && net == 0m)
+            {
+                net = exclusiveFromUnit;
+            }
+
+            var vat = PosTaxCalculator.RoundMoney(Math.Max(0m, line.TotalVat));
             if (ratePercent is decimal rate)
             {
                 vat = rate <= 0m
                     ? 0m
                     : PosTaxCalculator.CalculateVatAmount(net, rate);
             }
+
+            // MRA rate A uses chargeMode Item: wire unitPrice is VAT-inclusive while
+            // total / taxBreakDown.taxableAmount stay exclusive net (proved vs sandbox).
+            var unitPrice = ResolveWireUnitPrice(
+                unitPriceIn,
+                quantity,
+                discount,
+                net,
+                vat,
+                ratePercent,
+                taxRateId);
 
             lines.Add(new InvoiceLineItemDto
             {
@@ -266,6 +291,37 @@ public static partial class MraFiscalPayloadNormalizer
         }
 
         return MraTaxRateCodes.StandardVat;
+    }
+
+    private static decimal ResolveWireUnitPrice(
+        decimal unitPriceIn,
+        decimal quantity,
+        decimal discount,
+        decimal net,
+        decimal vat,
+        decimal? ratePercent,
+        string taxRateId)
+    {
+        var exclusiveUnit = quantity > 0m
+            ? PosTaxCalculator.RoundMoney((net + discount) / quantity)
+            : net;
+
+        // Standard VAT (Item charge mode): unitPrice on the wire is gross; total stays net.
+        if (MraTaxRateCodes.IsStandardVatTier(taxRateId)
+            && ratePercent is decimal rate
+            && rate > 0m)
+        {
+            var unitVat = PosTaxCalculator.CalculateVatAmount(exclusiveUnit, rate);
+            return PosTaxCalculator.RoundMoney(exclusiveUnit + unitVat);
+        }
+
+        // Zero / non-standard: keep exclusive unit. Prefer input when it already matches.
+        if (Math.Abs(PosTaxCalculator.RoundMoney((unitPriceIn * quantity) - discount) - net) <= 0.02m)
+        {
+            return unitPriceIn;
+        }
+
+        return exclusiveUnit;
     }
 
     private static bool TryGetConfiguredRatePercent(

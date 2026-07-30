@@ -221,7 +221,7 @@ public static class LocalFiscalIdentitySeeder
                         // MRA sample get-latest-configs uses id "A" for standard VAT.
                         Id = MraTaxRateCodes.StandardVat,
                         Name = "VAT-A",
-                        ChargeMode = "G",
+                        ChargeMode = "Item",
                         Ordinal = 1,
                         Rate = PosTaxCalculator.MalawiStandardVatRatePercent
                     }
@@ -246,13 +246,21 @@ public static class LocalFiscalIdentitySeeder
                     var dirty = false;
                     foreach (var rate in existing.TaxRates)
                     {
-                        if (MraTaxRateCodes.IsStandardVatTier(rate.Id)
-                            && rate.Rate > 0m
-                            && Math.Abs(rate.Rate - PosTaxCalculator.MalawiStandardVatRatePercent) >= 0.05m
-                            && rate.Rate is >= 16m and < 17.5m)
+                        if (MraTaxRateCodes.IsStandardVatTier(rate.Id))
                         {
-                            rate.Rate = PosTaxCalculator.MalawiStandardVatRatePercent;
-                            dirty = true;
+                            if (rate.Rate > 0m
+                                && Math.Abs(rate.Rate - PosTaxCalculator.MalawiStandardVatRatePercent) >= 0.05m
+                                && rate.Rate is >= 16m and < 17.5m)
+                            {
+                                rate.Rate = PosTaxCalculator.MalawiStandardVatRatePercent;
+                                dirty = true;
+                            }
+
+                            if (!string.Equals(rate.ChargeMode, "Item", StringComparison.OrdinalIgnoreCase))
+                            {
+                                rate.ChargeMode = "Item";
+                                dirty = true;
+                            }
                         }
                     }
 

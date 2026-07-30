@@ -350,9 +350,9 @@ public sealed class MraHttpClientAndQueueErrorTests
     }
 
     [Fact]
-    public void NormalizeQueuedPayload_PreservesConfiguredVat_WhenOverlayRatesMissing()
+    public void NormalizeQueuedPayload_ItemMode_EmitsGrossUnitPrice_AndRealignsStatutoryVat()
     {
-        // EIS sample uses A @ 16.5%. Without live rates, do not overwrite with statutory fallback.
+        // Cart stores exclusive unit/total; EIS rate A (Item) expects gross unitPrice on the wire.
         var request = new SubmitSalesTransactionRequest
         {
             InvoiceHeader = new InvoiceHeaderDto
@@ -400,9 +400,17 @@ public sealed class MraHttpClientAndQueueErrorTests
                 SiteId: "Luchenza",
                 StandardTaxRateId: "A"));
 
-        Assert.Equal(858m, normalized.InvoiceLineItems[0].TotalVat);
-        Assert.Equal(6058m, normalized.InvoiceSummary.InvoiceTotal);
-        Assert.Equal(6058m, normalized.InvoiceSummary.AmountTendered);
+        Assert.Equal(5200m, normalized.InvoiceLineItems[0].Total);
+        Assert.Equal(910m, normalized.InvoiceLineItems[0].TotalVat);
+        Assert.Equal(6110m, normalized.InvoiceLineItems[0].UnitPrice);
+        Assert.Equal(6110m, normalized.InvoiceSummary.InvoiceTotal);
+        Assert.Equal(6110m, normalized.InvoiceSummary.AmountTendered);
         Assert.Equal("SITE-LUCHENZA", normalized.InvoiceHeader.SiteId);
+
+        // Final wire hop re-normalizes without overlay — must not treat gross unit as exclusive.
+        var again = OfflineSalesQueueService.NormalizeQueuedPayloadForResubmit(normalized);
+        Assert.Equal(5200m, again.InvoiceLineItems[0].Total);
+        Assert.Equal(910m, again.InvoiceLineItems[0].TotalVat);
+        Assert.Equal(6110m, again.InvoiceLineItems[0].UnitPrice);
     }
 }
