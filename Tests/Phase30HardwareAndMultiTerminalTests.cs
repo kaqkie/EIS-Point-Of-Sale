@@ -72,6 +72,7 @@ public sealed class Phase30HardwareAndMultiTerminalTests
             Options.Create(new HardwarePeripheralOptions { Enabled = true, ScannerEnabled = false }),
             Options.Create(new ThermalPrinterOptions { Enabled = false }),
             new FakeThermalPrinter(),
+            new MraReceiptLayoutService(),
             NullLogger<HardwarePeripheralService>.Instance);
 
         var snapshot = await hardware.ProbeAsync();
@@ -94,6 +95,7 @@ public sealed class Phase30HardwareAndMultiTerminalTests
             }),
             Options.Create(new ThermalPrinterOptions { Enabled = true, PreferEscPos = true }),
             printer,
+            new MraReceiptLayoutService(),
             NullLogger<HardwarePeripheralService>.Instance);
 
         await hardware.KickCashDrawerAsync();

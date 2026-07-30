@@ -18,11 +18,23 @@ public interface IMraReceiptLayoutService
 /// </summary>
 public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
 {
+    private readonly IOfflineReceiptQrBridge? _qrBridge;
+
     public const string LegalReceiptStartBanner = "*** START OF LEGAL RECEIPT ***";
     public const string LegalReceiptEndBanner = "*** END OF LEGAL RECEIPT ***";
     public const string QrPlaceholderMarker = "[MRA FISCAL QR]";
     public const string VatRegisteredBanner = "**VAT REGISTERED**";
     public const string NotVatRegisteredBanner = "**NOT VAT REGISTERED**";
+
+    public MraReceiptLayoutService()
+        : this(null)
+    {
+    }
+
+    public MraReceiptLayoutService(IOfflineReceiptQrBridge? qrBridge)
+    {
+        _qrBridge = qrBridge;
+    }
 
     public static string StatutoryVatPercentLabel =>
         $"{PosTaxCalculator.MalawiStandardVatRatePercent.ToString("0.0", CultureInfo.InvariantCulture)}%";
@@ -223,21 +235,32 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         // True placeholder (no HMAC yet) or offline ValidationURL while still queued for EIS sync.
         var showOfflinePendingBanner = isOfflinePending || isOfflineValidationUrl;
         var includeQr = hasPrintableVerificationUrl;
+        // Prefer local LAN bridge for offline QRs while MRA ReceiptValidation portal returns ISE.
+        var qrPayloadUrl = includeQr
+            ? (_qrBridge?.RewriteForScan(verificationUrl) ?? verificationUrl)
+            : null;
 
         var fiscalBody = new List<string>();
         if (showOfflinePendingBanner)
         {
-            fiscalBody.Add(Center("MRA EIS: OFFLINE — queued for sync", charactersPerLine));
+            fiscalBody.Add(Center("MRA EIS: OFFLINE QR — sync pending", charactersPerLine));
+            fiscalBody.Add(Center(
+                _qrBridge?.IsListening == true
+                    ? "Scan on store Wi-Fi to verify locally"
+                    : "Portal verify works after online sync",
+                charactersPerLine));
         }
 
         if (includeQr)
         {
-            fiscalBody.Add(Center("Scan QR to verify with MRA", charactersPerLine));
+            fiscalBody.Add(Center(
+                isOfflineValidationUrl ? "Offline ValidationURL QR" : "Scan QR to verify with MRA",
+                charactersPerLine));
             fiscalBody.Add(QrPlaceholderMarker);
         }
 
         var (qrMatrix, qrImage) = includeQr
-            ? RenderQrCoderMatrix(verificationUrl)
+            ? RenderQrCoderMatrix(qrPayloadUrl)
             : (null, null);
 
         var fiscalStatus = new MraFiscalStatusBlockViewModel
@@ -247,7 +270,7 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             IsOfflinePending = showOfflinePendingBanner,
             IncludeQrCode = includeQr,
             FiscalSignature = fiscalSignature,
-            VerificationUrl = includeQr ? verificationUrl : null,
+            VerificationUrl = includeQr ? qrPayloadUrl : null,
             QrModuleMatrix = qrMatrix,
             QrCodeImage = qrImage
         };
@@ -288,7 +311,7 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
     /// <summary>
     /// Offline ValidationURL hosts use ReceiptValidation/Validate (HMAC <c>S=</c>), distinct from portal verify links.
     /// </summary>
-    internal static bool IsOfflineValidationUrl(string verificationUrl) =>
+    public static bool IsOfflineValidationUrl(string verificationUrl) =>
         verificationUrl.Contains("ReceiptValidation", StringComparison.OrdinalIgnoreCase)
         || verificationUrl.Contains("/Validate", StringComparison.OrdinalIgnoreCase)
         || verificationUrl.Contains("&S=", StringComparison.Ordinal)

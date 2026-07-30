@@ -100,8 +100,19 @@ public sealed class MraOfflineReceiptSigningTests
             "https://dev-eis-portal.mra.mw/ReceiptValidation/Validate/?",
             result.ValidationUrl,
             StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(result.ParameterString, result.ValidationUrl, StringComparison.Ordinal);
+        Assert.Contains(result.ParameterString.Replace("+", "%2B", StringComparison.Ordinal), result.ValidationUrl, StringComparison.Ordinal);
         Assert.Contains($"&S={result.UrlEncodedSignature}", result.ValidationUrl, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EncodeParameterStringForUrl_EncodesPlusInCompactBase64()
+    {
+        var raw = "TI=BMwna-B-JY4+-C&N=2&I=6521.25&V=971.25&T=JY4+";
+        var encoded = MraOfflineReceiptSigning.EncodeParameterStringForUrl(raw);
+        Assert.Equal("TI=BMwna-B-JY4%2B-C&N=2&I=6521.25&V=971.25&T=JY4%2B", encoded);
+        // HMAC source must stay unencoded.
+        Assert.Contains("+", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("+", encoded, StringComparison.Ordinal);
     }
 
     [Fact]

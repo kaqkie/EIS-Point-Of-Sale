@@ -45,6 +45,7 @@ public sealed class HardwarePeripheralService : IHardwarePeripheralService
     private readonly HardwarePeripheralOptions _options;
     private readonly ThermalPrinterOptions _thermal;
     private readonly IThermalPrinterHardwareService _thermalPrinter;
+    private readonly IMraReceiptLayoutService _layoutService;
     private readonly ILogger<HardwarePeripheralService> _logger;
     private readonly SemaphoreSlim _ioGate = new(1, 1);
     private readonly object _scannerSync = new();
@@ -63,11 +64,13 @@ public sealed class HardwarePeripheralService : IHardwarePeripheralService
         IOptions<HardwarePeripheralOptions> options,
         IOptions<ThermalPrinterOptions> thermal,
         IThermalPrinterHardwareService thermalPrinter,
+        IMraReceiptLayoutService layoutService,
         ILogger<HardwarePeripheralService> logger)
     {
         _options = options.Value;
         _thermal = thermal.Value;
         _thermalPrinter = thermalPrinter;
+        _layoutService = layoutService;
         _logger = logger;
         _isCashDrawerReady = _options.CashDrawerEnabled && _thermal.Enabled;
         _scannerStatus = _options.ScannerEnabled ? "Stopped" : "Disabled";
@@ -169,7 +172,8 @@ public sealed class HardwarePeripheralService : IHardwarePeripheralService
         var payload = EscPosReceiptEncoder.Encode(
             request,
             _thermal.CharactersPerLineResolved,
-            highDensityMraQr: _options.PreferHighDensityMraQr);
+            highDensityMraQr: _options.PreferHighDensityMraQr,
+            layoutService: _layoutService);
         await ExecuteWithReconnectAsync(
                 () => _thermalPrinter.PrintRawAsync(payload, "Albert Retail Terminal Receipt", cancellationToken),
                 cancellationToken)

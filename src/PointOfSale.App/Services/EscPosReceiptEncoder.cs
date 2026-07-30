@@ -17,9 +17,12 @@ public static class EscPosReceiptEncoder
     }
 
     private static readonly Encoding PrinterEncoding;
-    private static readonly MraReceiptLayoutService LayoutService = new();
 
-    public static byte[] Encode(ReceiptPrintRequest request, int charactersPerLine, bool highDensityMraQr = false)
+    public static byte[] Encode(
+        ReceiptPrintRequest request,
+        int charactersPerLine,
+        bool highDensityMraQr = false,
+        IMraReceiptLayoutService? layoutService = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (charactersPerLine < 24)
@@ -27,7 +30,7 @@ public static class EscPosReceiptEncoder
             charactersPerLine = 24;
         }
 
-        var layout = LayoutService.Build(request, charactersPerLine);
+        var layout = (layoutService ?? new MraReceiptLayoutService()).Build(request, charactersPerLine);
         var fiscal = layout.FiscalStatus;
 
         using var buffer = new MemoryStream(2048);

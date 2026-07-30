@@ -59,9 +59,10 @@ public sealed class FiscalConnectivityAndReceiptTests
     }
 
     [Fact]
-    public void HasPrintableFiscalData_True_ForOnlineSignatureWithoutUrl()
+    public void HasPrintableFiscalData_False_ForSignatureWithoutValidationUrl()
     {
-        Assert.True(QueueReceiptPrintHelper.HasPrintableFiscalData(
+        // Signature-only must not count as printable — that skipped ValidationURL rebuild.
+        Assert.False(QueueReceiptPrintHelper.HasPrintableFiscalData(
             new SubmitSalesTransactionResponseData
             {
                 InvoiceNumber = "ART-3",
@@ -137,8 +138,8 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains("QTY  DESCRIPTION", text, StringComparison.Ordinal);
         Assert.Contains("AMOUNT", text, StringComparison.Ordinal);
         Assert.Contains("Bread", text, StringComparison.Ordinal);
-        Assert.Contains("TAXABLE AMOUNT A-17.5%", text, StringComparison.Ordinal);
-        Assert.Contains("VAT RATE A=17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("TAXABLE A-17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("VAT A-17.5%", text, StringComparison.Ordinal);
         Assert.Contains("TOTAL VAT", text, StringComparison.Ordinal);
         Assert.Contains("GRAND TOTAL", text, StringComparison.Ordinal);
         Assert.Contains("PAYMENT METHOD: CASH", text, StringComparison.Ordinal);
@@ -210,7 +211,7 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.DoesNotContain(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
         Assert.Contains(MraReceiptLayoutService.LegalReceiptStartBanner, text, StringComparison.Ordinal);
         Assert.Contains(MraReceiptLayoutService.LegalReceiptEndBanner, text, StringComparison.Ordinal);
-        Assert.Contains("VAT RATE A=17.5%", text, StringComparison.Ordinal);
+        Assert.Contains("VAT A-17.5%", text, StringComparison.Ordinal);
         Assert.Contains("PAYMENT METHOD: CARD", text, StringComparison.Ordinal);
         Assert.Contains("OFFLINE", text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", text, StringComparison.Ordinal);
@@ -267,9 +268,9 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.NotNull(layout.FiscalStatus.QrCodeImage);
         Assert.Equal(offlineUrl, layout.FiscalStatus.VerificationUrl);
         Assert.Contains("OFFLINE", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("queued for sync", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sync pending", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
-        Assert.Contains("Scan QR to verify with MRA", text, StringComparison.Ordinal);
+        Assert.Contains("Offline ValidationURL QR", text, StringComparison.Ordinal);
     }
 
     [Fact]

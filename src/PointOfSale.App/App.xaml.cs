@@ -108,6 +108,8 @@ public partial class App : Application
                     context.Configuration.GetSection(DatabaseMaintenanceOptions.SectionName));
                 services.Configure<MraProductionHandshakeOptions>(
                     context.Configuration.GetSection(MraProductionHandshakeOptions.SectionName));
+                services.Configure<OfflineReceiptQrBridgeOptions>(
+                    context.Configuration.GetSection(OfflineReceiptQrBridgeOptions.SectionName));
 
                 services.AddHttpClient(nameof(ApplicationUpdateService));
                 services.AddHttpClient(nameof(HeadOfficeSyncService));
@@ -188,6 +190,10 @@ public partial class App : Application
                 services.AddSingleton<IMraConnectivityMonitor, ConnectionStatusMraConnectivityMonitor>();
                 services.AddSingleton<IPosConfigurationService, PosConfigurationService>();
                 services.AddTransient<IMraFiscalCheckoutService, MraFiscalCheckoutService>();
+                services.AddSingleton<OfflineReceiptQrBridgeService>();
+                services.AddSingleton<IOfflineReceiptQrBridge>(sp =>
+                    sp.GetRequiredService<OfflineReceiptQrBridgeService>());
+                services.AddHostedService(sp => sp.GetRequiredService<OfflineReceiptQrBridgeService>());
                 services.AddSingleton<IMraReceiptLayoutService, MraReceiptLayoutService>();
                 services.AddSingleton<IReceiptPrintingService, ReceiptPrintingService>();
 

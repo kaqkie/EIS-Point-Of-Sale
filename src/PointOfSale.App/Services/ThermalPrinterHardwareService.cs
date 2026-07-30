@@ -24,20 +24,27 @@ public interface IThermalPrinterHardwareService
 public sealed class ThermalPrinterHardwareService : IThermalPrinterHardwareService
 {
     private readonly ThermalPrinterOptions _options;
+    private readonly IMraReceiptLayoutService _layoutService;
     private readonly ILogger<ThermalPrinterHardwareService> _logger;
 
     public ThermalPrinterHardwareService(
         IOptions<ThermalPrinterOptions> options,
+        IMraReceiptLayoutService layoutService,
         ILogger<ThermalPrinterHardwareService> logger)
     {
         _options = options.Value;
+        _layoutService = layoutService;
         _logger = logger;
     }
 
     public bool IsEnabled => _options.Enabled && _options.PreferEscPos;
 
     public byte[] BuildEscPosPayload(ReceiptPrintRequest request) =>
-        EscPosReceiptEncoder.Encode(request, _options.CharactersPerLineResolved);
+        EscPosReceiptEncoder.Encode(
+            request,
+            _options.CharactersPerLineResolved,
+            highDensityMraQr: false,
+            layoutService: _layoutService);
 
     public async Task PrintReceiptAsync(ReceiptPrintRequest request, CancellationToken cancellationToken = default)
     {

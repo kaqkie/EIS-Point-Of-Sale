@@ -66,6 +66,7 @@ public sealed class HardwareIntegrationService : IHardwareIntegrationService
         RegexOptions.Compiled);
 
     private readonly IHardwarePeripheralService _peripherals;
+    private readonly IMraReceiptLayoutService _layoutService;
     private readonly HardwarePeripheralOptions _options;
     private readonly ThermalPrinterOptions _thermal;
     private readonly ILogger<HardwareIntegrationService> _logger;
@@ -77,11 +78,13 @@ public sealed class HardwareIntegrationService : IHardwareIntegrationService
 
     public HardwareIntegrationService(
         IHardwarePeripheralService peripherals,
+        IMraReceiptLayoutService layoutService,
         IOptions<HardwarePeripheralOptions> options,
         IOptions<ThermalPrinterOptions> thermal,
         ILogger<HardwareIntegrationService> logger)
     {
         _peripherals = peripherals;
+        _layoutService = layoutService;
         _options = options.Value;
         _thermal = thermal.Value;
         _logger = logger;
@@ -256,7 +259,11 @@ public sealed class HardwareIntegrationService : IHardwareIntegrationService
     {
         ArgumentNullException.ThrowIfNull(request);
         var annotated = AnnotateStatutoryVat(request);
-        var body = EscPosReceiptEncoder.Encode(annotated, charactersPerLine, highDensityMraQr: true);
+        var body = EscPosReceiptEncoder.Encode(
+            annotated,
+            charactersPerLine,
+            highDensityMraQr: true,
+            layoutService: _layoutService);
 
         using var buffer = new MemoryStream(body.Length + 128);
         // ESC @ init

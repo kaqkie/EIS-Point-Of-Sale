@@ -175,7 +175,9 @@ public static class MraOfflineReceiptSigning
         var urlEncodedSignature = WebUtility.UrlEncode(offlineDataSignature);
         var baseUrl = NormalizeValidationBaseUrl(
             offlineValidationBaseUrl ?? DefaultSandboxValidationBaseUrl);
-        var validationUrl = $"{baseUrl}?{param}&S={urlEncodedSignature}";
+        // HMAC is over the raw param string (MRA guide). Encode '+' in the URL only —
+        // MRA compact Base64 uses '+' which query parsers treat as space if left raw.
+        var validationUrl = $"{baseUrl}?{EncodeParameterStringForUrl(param)}&S={urlEncodedSignature}";
 
         return new MraOfflineReceiptSignatureResult
         {
@@ -277,7 +279,7 @@ public static class MraOfflineReceiptSigning
         var urlEncodedSignature = WebUtility.UrlEncode(signature);
         var baseUrl = NormalizeValidationBaseUrl(
             offlineValidationBaseUrl ?? DefaultSandboxValidationBaseUrl);
-        var validationUrl = $"{baseUrl}?{param}&S={urlEncodedSignature}";
+        var validationUrl = $"{baseUrl}?{EncodeParameterStringForUrl(param)}&S={urlEncodedSignature}";
 
         return new MraOfflineReceiptSignatureResult
         {
@@ -292,6 +294,16 @@ public static class MraOfflineReceiptSigning
             InvoiceTotal = signingRequest.InvoiceTotal,
             VatAmount = signingRequest.VatAmount
         };
+    }
+
+    /// <summary>
+    /// Encodes characters that break query-string parsing while leaving the HMAC source string unchanged.
+    /// MRA compact Base64 alphabet includes <c>+</c>, which browsers/servers treat as space in query values.
+    /// </summary>
+    public static string EncodeParameterStringForUrl(string parameterString)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(parameterString);
+        return parameterString.Replace("+", "%2B", StringComparison.Ordinal);
     }
 
     public static string NormalizeValidationBaseUrl(string baseUrl)

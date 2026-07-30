@@ -116,10 +116,12 @@ public sealed class Phase33BackupAndHardwareIntegrationTests
             Options.Create(new HardwarePeripheralOptions { Enabled = true, ScannerEnabled = false }),
             Options.Create(new ThermalPrinterOptions { Enabled = false }),
             new FakeThermalPrinter(),
+            new MraReceiptLayoutService(),
             NullLogger<HardwarePeripheralService>.Instance);
 
         return new HardwareIntegrationService(
             peripherals,
+            new MraReceiptLayoutService(),
             Options.Create(new HardwarePeripheralOptions { Enabled = true, ScannerEnabled = false }),
             Options.Create(new ThermalPrinterOptions { Enabled = false }),
             NullLogger<HardwareIntegrationService>.Instance);

@@ -411,23 +411,14 @@ public sealed record PosRuntimeContext(
     }
 
     /// <summary>
-    /// Merchant address for legal receipts: MRA terminal config, then DB deployment override,
-    /// then appsettings <see cref="TerminalDeploymentOptions.MerchantAddressLines"/>,
+    /// Merchant address for legal receipts: DB deployment override (operator-configured site),
+    /// then MRA terminal config, then appsettings <see cref="TerminalDeploymentOptions.MerchantAddressLines"/>,
     /// then site/branch labels.
     /// </summary>
     public IReadOnlyList<string> AddressLines
     {
         get
         {
-            var fromTerminal = Terminal?.AddressLines?
-                .Where(a => !string.IsNullOrWhiteSpace(a))
-                .Select(a => a.Trim())
-                .ToList();
-            if (fromTerminal is { Count: > 0 })
-            {
-                return fromTerminal;
-            }
-
             var fromDb = DeploymentMerchantAddressLines?
                 .Where(a => !string.IsNullOrWhiteSpace(a))
                 .Select(a => a.Trim())
@@ -435,6 +426,15 @@ public sealed record PosRuntimeContext(
             if (fromDb is { Count: > 0 })
             {
                 return fromDb;
+            }
+
+            var fromTerminal = Terminal?.AddressLines?
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Select(a => a.Trim())
+                .ToList();
+            if (fromTerminal is { Count: > 0 })
+            {
+                return fromTerminal;
             }
 
             var fromOptions = Deployment?.MerchantAddressLines?
