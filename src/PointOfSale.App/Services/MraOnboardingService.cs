@@ -280,6 +280,32 @@ public sealed class MraOnboardingService : IMraOnboardingService
             {
                 LogActivationEndpointRejection(activate.Remark, activate.Errors);
 
+                // First activate already succeeded on MRA; retries get "already activated".
+                // Finish with confirmation using locally staged JWT + secret.
+                if (LooksLikeAlreadyActivated(activate.Remark))
+                {
+                    var pendingId = await ResolvePendingConfirmationTerminalIdAsync(scope, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(pendingId))
+                    {
+                        _logger.LogWarning(
+                            "MRA reports terminal already activated; retrying confirmation for pending terminal {TerminalId}.",
+                            pendingId);
+                        return await CompleteConfirmationAsync(
+                                scope,
+                                onboarding,
+                                pendingId,
+                                normalized,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    return MraOnboardingResult.Fail(
+                        "This terminal is already activated in the EIS Portal, but local credentials are missing. " +
+                        "In the portal, deactivate/reissue a new Terminal Activation Code for this till, then try again.",
+                        upstreamDiagnostic: activate.Remark);
+                }
+
                 // Invalid TAC / platform / product from live MRA — surface the Authority remark.
                 if (IsLiveProductionEnvironment() || !_mraOptions.AllowSandboxLocalOnboardingFallback)
                 {
@@ -303,61 +329,13 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 "MRA activate-terminal returned terminal {TerminalId}; TerminalCredentials stored encrypted pending confirmation.",
                 activate.TerminalId);
 
-            TerminalConfirmationResult confirm;
-            try
-            {
-                confirm = await onboarding.ConfirmTerminalActivationAsync(
-                        new TerminalActivationConfirmationRequest
-                        {
-                            TerminalId = activate.TerminalId,
-                            TerminalActivationCode = normalized
-                        },
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex) when (IsRecoverableMraEndpointFailure(ex))
-            {
-                LogRecoverableEndpointFailure(ex, "terminal-activated-confirmation");
-                return await TrySandboxFallbackOrFailAsync(
-                        scope,
-                        normalized,
-                        BuildUpstreamMessage(ex),
-                        confirm: true,
-                        cancellationToken,
-                        preferredTerminalId: activate.TerminalId,
-                        upstreamHttpStatus: ExtractHttpStatus(ex),
-                        upstreamDiagnostic: ExtractDiagnostic(ex))
-                    .ConfigureAwait(false);
-            }
-
-            if (!confirm.Success)
-            {
-                _logger.LogWarning(
-                    "MRA confirmation failed after activate-terminal for {TerminalId}: {Remark}",
+            return await CompleteConfirmationAsync(
+                    scope,
+                    onboarding,
                     activate.TerminalId,
-                    confirm.Remark);
-
-                if (IsLiveProductionEnvironment() || !_mraOptions.AllowSandboxLocalOnboardingFallback)
-                {
-                    return MraOnboardingResult.Fail(
-                        confirm.Remark ?? "MRA confirmation failed after activate-terminal.",
-                        upstreamDiagnostic: confirm.Remark);
-                }
-
-                return await CompleteSandboxLocalOnboardingAsync(
-                        scope,
-                        normalized,
-                        cancellationToken,
-                        preferredTerminalId: activate.TerminalId,
-                        upstreamDiagnostic: confirm.Remark)
-                    .ConfigureAwait(false);
-            }
-
-            await MarkOnboardingCompleteFlagAsync(scope, cancellationToken).ConfigureAwait(false);
-
-            return MraOnboardingResult.Ok(
-                $"MRA onboarding complete for terminal {activate.TerminalId}. Credentials stored encrypted.",
-                activate.TerminalId);
+                    normalized,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -367,6 +345,134 @@ public sealed class MraOnboardingService : IMraOnboardingService
                 ExtractHttpStatus(ex),
                 ExtractDiagnostic(ex));
         }
+    }
+
+    private async Task<MraOnboardingResult> CompleteConfirmationAsync(
+        IServiceScope scope,
+        TerminalOnboardingService onboarding,
+        string terminalId,
+        string normalizedTac,
+        CancellationToken cancellationToken)
+    {
+        TerminalConfirmationResult confirm;
+        try
+        {
+            confirm = await onboarding.ConfirmTerminalActivationAsync(
+                    new TerminalActivationConfirmationRequest
+                    {
+                        TerminalId = terminalId,
+                        TerminalActivationCode = normalizedTac
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsRecoverableMraEndpointFailure(ex))
+        {
+            LogRecoverableEndpointFailure(ex, "terminal-activated-confirmation");
+            return await TrySandboxFallbackOrFailAsync(
+                    scope,
+                    normalizedTac,
+                    BuildUpstreamMessage(ex),
+                    confirm: true,
+                    cancellationToken,
+                    preferredTerminalId: terminalId,
+                    upstreamHttpStatus: ExtractHttpStatus(ex),
+                    upstreamDiagnostic: ExtractDiagnostic(ex))
+                .ConfigureAwait(false);
+        }
+
+        if (!confirm.Success)
+        {
+            _logger.LogWarning(
+                "MRA confirmation failed after activate-terminal for {TerminalId}: {Remark}",
+                terminalId,
+                confirm.Remark);
+
+            if (IsLiveProductionEnvironment() || !_mraOptions.AllowSandboxLocalOnboardingFallback)
+            {
+                return MraOnboardingResult.Fail(
+                    confirm.Remark ?? "MRA confirmation failed after activate-terminal.",
+                    upstreamDiagnostic: confirm.Remark);
+            }
+
+            return await CompleteSandboxLocalOnboardingAsync(
+                    scope,
+                    normalizedTac,
+                    cancellationToken,
+                    preferredTerminalId: terminalId,
+                    upstreamDiagnostic: confirm.Remark)
+                .ConfigureAwait(false);
+        }
+
+        await MarkOnboardingCompleteFlagAsync(scope, cancellationToken).ConfigureAwait(false);
+
+        return MraOnboardingResult.Ok(
+            $"MRA onboarding complete for terminal {terminalId}. Credentials stored encrypted.",
+            terminalId);
+    }
+
+    private static bool LooksLikeAlreadyActivated(string? remark)
+    {
+        if (string.IsNullOrWhiteSpace(remark))
+        {
+            return false;
+        }
+
+        return remark.Contains("already activated", StringComparison.OrdinalIgnoreCase)
+            || remark.Contains("unable to reactivate", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<string?> ResolvePendingConfirmationTerminalIdAsync(
+        IServiceScope scope,
+        CancellationToken cancellationToken)
+    {
+        var terminals = scope.ServiceProvider.GetRequiredService<ITerminalRepository>();
+        var config = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
+
+        // Staged during activate-terminal (PendingConfirmation is not returned by GetActiveTerminalIdAsync).
+        var activeJson = await config.GetJsonAsync(MraConfigurationKeys.ActiveTerminalId, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(activeJson))
+        {
+            return null;
+        }
+
+        string? candidate = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(activeJson);
+            if (doc.RootElement.TryGetProperty("terminalId", out var idProp))
+            {
+                candidate = idProp.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return null;
+        }
+
+        var row = await terminals.GetByIdAsync(candidate, cancellationToken).ConfigureAwait(false);
+        if (row is null
+            || !string.Equals(row.ActivationState, TerminalActivationStates.PendingConfirmation, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var pendingSecret = await config
+            .GetProtectedSecretPlainAsync(MraConfigurationKeys.PendingSecretKey, cancellationToken)
+            .ConfigureAwait(false);
+        var jwt = await config
+            .GetProtectedSecretPlainAsync(MraConfigurationKeys.JwtToken, cancellationToken)
+            .ConfigureAwait(false);
+
+        return !string.IsNullOrWhiteSpace(pendingSecret) && !string.IsNullOrWhiteSpace(jwt)
+            ? candidate.Trim()
+            : null;
     }
 
     private async Task<TerminalActivationRequest> BuildActivationRequestAsync(

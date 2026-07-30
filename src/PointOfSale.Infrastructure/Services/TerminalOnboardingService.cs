@@ -224,6 +224,16 @@ public sealed class TerminalOnboardingService
                 "Pending secret key not found. Run ActivateTerminalAsync before confirmation.");
         }
 
+        // EIS returns 401 Unauthorized when Authorization JWT from activate-terminal is omitted.
+        var jwt = await _configurationRepository
+            .GetProtectedSecretPlainAsync(MraConfigurationKeys.JwtToken, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            throw new InvalidOperationException(
+                "Activation JWT not found. Run ActivateTerminalAsync before confirmation.");
+        }
+
         var body = new TerminalActivatedConfirmationRequest { TerminalId = request.TerminalId.Trim() };
         var tac = request.TerminalActivationCode.Trim();
 
@@ -233,6 +243,7 @@ public sealed class TerminalOnboardingService
                 body,
                 new MraRequestContext
                 {
+                    JwtToken = jwt,
                     SecretKey = pendingSecret,
                     SignaturePlainText = tac,
                     IsActivationConfirmationSignature = true

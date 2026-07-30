@@ -89,7 +89,8 @@ public sealed class TerminalOnboardingService
                 new TerminalActivatedConfirmationRequest { TerminalId = activated.TerminalId },
                 terminalActivationCode.Trim(),
                 credentials.SecretKey,
-                cancellationToken)
+                jwtToken: credentials.JwtToken,
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         if (!confirmResponse.IsSuccess || !confirmResponse.Data)

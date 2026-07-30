@@ -40,10 +40,12 @@ public sealed class OnboardingApiService : Http.MraApiClientBase
         TerminalActivatedConfirmationRequest request,
         string terminalActivationCode,
         string secretKey,
+        string? jwtToken = null,
         CancellationToken cancellationToken = default) =>
         PostJsonAsync<TerminalActivatedConfirmationRequest, bool>(
             TerminalActivatedConfirmationPath,
             request,
+            jwtToken: jwtToken,
             xSignaturePlainText: terminalActivationCode,
             secretKeyForSignature: secretKey,
             cancellationToken: cancellationToken);
