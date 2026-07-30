@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using PointOfSale.App.Services;
+using PointOfSale.Core.Constants;
 using PointOfSale.Core.Entities;
 using PointOfSale.Core.Pricing;
 using PointOfSale.Core.Security;
@@ -749,9 +750,22 @@ public partial class CheckoutViewModel : ObservableObject
     {
         if (_lastPrintableReceipt is null)
         {
+            try
+            {
+                _lastPrintableReceipt = await TryBuildReprintFromRecentQueueAsync().ConfigureAwait(true);
+                OnPropertyChanged(nameof(CanReprintLastReceipt));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed loading a reprintable receipt from the offline queue.");
+            }
+        }
+
+        if (_lastPrintableReceipt is null)
+        {
             ShowOperatorDialog(new OperatorMessage(
                 "Nothing to reprint",
-                "No receipt in this session yet. Complete a sale (online or offline queue), then press F9 to reprint.",
+                "No receipt in this session yet. Complete a sale, or open Queue sync and use Print Receipt on a pending/quarantined/synced invoice.",
                 OperatorMessageSeverity.Information,
                 SuggestOfflineFallback: false));
             return;
@@ -768,6 +782,114 @@ public partial class CheckoutViewModel : ObservableObject
             ShowOperatorDialog(message);
             StatusMessage = message.Title;
         }
+    }
+
+    /// <summary>
+    /// F9 session buffer is empty after restart — recover the newest printable queue invoice
+    /// (synced / pending / quarantined) so cashiers can still reprint yesterday's sales.
+    /// </summary>
+    private async Task<ReceiptPrintRequest?> TryBuildReprintFromRecentQueueAsync()
+    {
+        var recent = await _queueRepository.GetRecentItemsAsync(25).ConfigureAwait(true);
+        foreach (var item in recent)
+        {
+            if (string.IsNullOrWhiteSpace(item.PayloadJson))
+            {
+                continue;
+            }
+
+            if (!item.Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase)
+                && !item.Status.Equals(OfflineQueueStatuses.Pending, StringComparison.OrdinalIgnoreCase)
+                && !item.Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            SubmitSalesTransactionRequest? payload;
+            try
+            {
+                payload = System.Text.Json.JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(
+                    item.PayloadJson,
+                    PointOfSale.Mra.Serialization.MraJson.SerializerOptions);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (payload is null)
+            {
+                continue;
+            }
+
+            SubmitSalesTransactionResponseData? fiscal = null;
+            if (!string.IsNullOrWhiteSpace(item.FiscalResponseJson))
+            {
+                try
+                {
+                    fiscal = System.Text.Json.JsonSerializer.Deserialize<SubmitSalesTransactionResponseData>(
+                        item.FiscalResponseJson,
+                        PointOfSale.Mra.Serialization.MraJson.SerializerOptions);
+                }
+                catch
+                {
+                    fiscal = null;
+                }
+            }
+
+            if (fiscal is null)
+            {
+                try
+                {
+                    var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
+                    fiscal = new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                        FiscalSignature = signed.OfflineDataSignature,
+                        ValidationUrl = signed.ValidationUrl,
+                        VerificationUrl = signed.ValidationUrl
+                    };
+                }
+                catch
+                {
+                    fiscal = new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                        FiscalSignature = payload.InvoiceSummary.OfflineSignature
+                    };
+                }
+            }
+
+            var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+            var enriched = fiscal is null
+                ? null
+                : FiscalReceiptEnricher.EnsurePrintableFiscalPayload(
+                    fiscal,
+                    payload.InvoiceHeader.InvoiceNumber);
+            return new ReceiptPrintRequest
+            {
+                TradingName = context.TradingName,
+                SellerTin = context.SellerTin,
+                AddressLines = context.AddressLines,
+                ContactPhone = context.ContactPhone,
+                ContactEmail = context.ContactEmail,
+                BuyerTin = payload.InvoiceHeader.BuyerTin,
+                BuyerName = payload.InvoiceHeader.BuyerName,
+                InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                InvoiceDateTime = payload.InvoiceHeader.InvoiceDateTime,
+                LineItems = payload.InvoiceLineItems,
+                TaxBreakdown = payload.InvoiceSummary.TaxBreakDown,
+                SubtotalNet = payload.InvoiceSummary.InvoiceTotal - payload.InvoiceSummary.TotalVat,
+                TotalVat = payload.InvoiceSummary.TotalVat,
+                InvoiceTotal = payload.InvoiceSummary.InvoiceTotal,
+                AmountTendered = payload.InvoiceSummary.AmountTendered,
+                PaymentMethod = payload.InvoiceHeader.PaymentMethod,
+                FiscalResponse = enriched,
+                IsVatRegistered = context.Taxpayer?.IsVatRegistered
+            };
+        }
+
+        return null;
     }
 
     private bool CanCompleteSale() =>
@@ -1306,7 +1428,8 @@ public partial class CheckoutViewModel : ObservableObject
             InvoiceTotal = request.InvoiceSummary.InvoiceTotal,
             AmountTendered = request.InvoiceSummary.AmountTendered,
             PaymentMethod = request.InvoiceHeader.PaymentMethod,
-            FiscalResponse = fiscal
+            FiscalResponse = fiscal,
+            IsVatRegistered = context.Taxpayer?.IsVatRegistered
         };
 
         _lastPrintableReceipt = printRequest;

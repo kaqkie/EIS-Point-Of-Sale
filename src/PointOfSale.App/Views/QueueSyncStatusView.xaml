@@ -59,7 +59,13 @@
                     Command="{Binding FixReceiptIdsCommand}"
                     Padding="10,8"
                     FontWeight="SemiBold"
-                    ToolTip="Rewrite bad invoice numbers, release stuck/quarantined items, and archive receipts older than the 72h offline limit" />
+                    Margin="0,0,8,0"
+                    ToolTip="Rewrite bad invoice numbers, archive TIN-not-found as local offline receipts, and clear aged quarantines" />
+            <Button Content="Print All Receipts"
+                    Command="{Binding PrintAllReceiptsCommand}"
+                    Padding="10,8"
+                    FontWeight="SemiBold"
+                    ToolTip="Print every synced, pending, and quarantined invoice in the list" />
         </StackPanel>
 
         <!--

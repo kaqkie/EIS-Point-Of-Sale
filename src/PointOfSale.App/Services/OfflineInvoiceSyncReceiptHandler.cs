@@ -136,7 +136,8 @@ public static class QueueReceiptPrintHelper
             InvoiceTotal = payload.InvoiceSummary.InvoiceTotal,
             AmountTendered = payload.InvoiceSummary.AmountTendered,
             PaymentMethod = payload.InvoiceHeader.PaymentMethod,
-            FiscalResponse = enriched
+            FiscalResponse = enriched,
+            IsVatRegistered = context.Taxpayer?.IsVatRegistered
         };
     }
 }

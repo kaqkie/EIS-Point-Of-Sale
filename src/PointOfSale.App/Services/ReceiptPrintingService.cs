@@ -217,6 +217,11 @@ public sealed class ReceiptPrintRequest
     /// <summary>Payment method printed on the legal receipt (e.g. CASH, CARD, MOBILE MONEY).</summary>
     public string? PaymentMethod { get; init; }
 
+    /// <summary>
+    /// When false, prints NOT VAT REGISTERED (live MRA taxpayer flag). Null defaults to registered banner.
+    /// </summary>
+    public bool? IsVatRegistered { get; init; }
+
     public decimal ResolveSubtotalNet() =>
         SubtotalNet > 0m
             ? SubtotalNet

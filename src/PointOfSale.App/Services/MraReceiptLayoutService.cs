@@ -22,9 +22,33 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
     public const string LegalReceiptEndBanner = "*** END OF LEGAL RECEIPT ***";
     public const string QrPlaceholderMarker = "[MRA FISCAL QR]";
     public const string VatRegisteredBanner = "**VAT REGISTERED**";
+    public const string NotVatRegisteredBanner = "**NOT VAT REGISTERED**";
 
     public static string StatutoryVatPercentLabel =>
         $"{PosTaxCalculator.MalawiStandardVatRatePercent.ToString("0.0", CultureInfo.InvariantCulture)}%";
+
+    /// <summary>
+    /// Receipts must print exclusive (net) unit price. Item-mode EIS wire payloads store gross
+    /// unitPrice; derive net from line total when the stored unit looks tax-inclusive.
+    /// </summary>
+    public static decimal ResolveExclusiveUnitPrice(InvoiceLineItemDto item)
+    {
+        var quantity = item.Quantity <= 0m ? 1m : item.Quantity;
+        var exclusiveFromTotal = PosTaxCalculator.RoundMoney(
+            Math.Max(0m, (item.Total + Math.Max(0m, item.Discount)) / quantity));
+        var wireUnit = PosTaxCalculator.RoundMoney(item.UnitPrice);
+        if (item.TotalVat > 0m)
+        {
+            var wireLine = PosTaxCalculator.RoundMoney(wireUnit * quantity);
+            var grossLine = PosTaxCalculator.RoundMoney(item.Total + item.TotalVat + Math.Max(0m, item.Discount));
+            if (Math.Abs(wireLine - grossLine) <= 0.05m)
+            {
+                return exclusiveFromTotal;
+            }
+        }
+
+        return wireUnit > 0m ? wireUnit : exclusiveFromTotal;
+    }
 
     /// <summary>
     /// Formats the seller TIN from active store/terminal configuration.
@@ -102,7 +126,9 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         header.Add(Center(
             Truncate($"Merchant TIN: {FormatSellerTin(request.SellerTin)}", charactersPerLine),
             charactersPerLine));
-        header.Add(Center(VatRegisteredBanner, charactersPerLine));
+        header.Add(Center(
+            request.IsVatRegistered == false ? NotVatRegisteredBanner : VatRegisteredBanner,
+            charactersPerLine));
         header.Add(Separator('-', charactersPerLine));
 
         // ---- 2. Buyer placeholders + MRA fiscal receipt number ----
@@ -124,9 +150,10 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         foreach (var item in request.LineItems)
         {
             var taxCode = string.IsNullOrWhiteSpace(item.TaxRateId) ? "A" : item.TaxRateId.Trim().ToUpperInvariant();
+            var exclusiveUnit = ResolveExclusiveUnitPrice(item);
             var qtyPriceLine = FormatItemRow(item.Quantity, item.Description, item.Total, charactersPerLine);
             var detailLine = Columns(
-                $"  @ {item.UnitPrice:N2} x {item.Quantity:N2}",
+                $"  @ {exclusiveUnit:N2} x {item.Quantity:N2}",
                 $"VAT-{taxCode}",
                 charactersPerLine);
 
@@ -136,7 +163,7 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
                 QuantityPriceLine = qtyPriceLine,
                 VatBreakdownLine = detailLine,
                 Quantity = item.Quantity,
-                UnitPrice = item.UnitPrice,
+                UnitPrice = exclusiveUnit,
                 LineTotal = item.Total,
                 LineVat = item.TotalVat,
                 TaxRateId = taxCode

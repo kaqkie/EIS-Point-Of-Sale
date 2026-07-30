@@ -394,7 +394,8 @@ public sealed class HardwareIntegrationService : IHardwareIntegrationService
             InvoiceTotal = request.InvoiceTotal,
             AmountTendered = request.AmountTendered,
             PaymentMethod = request.PaymentMethod,
-            FiscalResponse = request.FiscalResponse
+            FiscalResponse = request.FiscalResponse,
+            IsVatRegistered = request.IsVatRegistered
         };
     }
 }

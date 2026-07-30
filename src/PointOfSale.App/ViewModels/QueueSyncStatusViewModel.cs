@@ -89,6 +89,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PrintReceiptCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PrintAllReceiptsCommand))]
     [NotifyCanExecuteChangedFor(nameof(RetryQuarantinedCommand))]
     [NotifyCanExecuteChangedFor(nameof(ForceSyncCommand))]
     [NotifyCanExecuteChangedFor(nameof(SyncNextCommand))]
@@ -150,6 +151,15 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
                 if (selectedId is int id)
                 {
                     SelectedQueueItem = QueueItems.FirstOrDefault(x => x.Id == id);
+                }
+
+                // Toolbar Force Sync / Retry stay disabled until a row is selected —
+                // default to the newest quarantined (or first) invoice so actions work immediately.
+                if (SelectedQueueItem is null && QueueItems.Count > 0)
+                {
+                    SelectedQueueItem = QueueItems.FirstOrDefault(x =>
+                            x.Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase))
+                        ?? QueueItems[0];
                 }
             });
         }
@@ -221,6 +231,52 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             StatusMessage = $"Receipt ID repair failed: {ex.Message}";
+        }
+        finally
+        {
+            EndBusy();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunIdleCommand))]
+    private async Task PrintAllReceiptsAsync()
+    {
+        var printable = QueueItems.Where(x => x.CanPrintReceipt).ToList();
+        if (printable.Count == 0)
+        {
+            StatusMessage = "No printable receipts in the current list.";
+            return;
+        }
+
+        if (!BeginBusy($"Printing {printable.Count} receipt(s)…"))
+        {
+            return;
+        }
+
+        var printed = 0;
+        var failed = 0;
+        try
+        {
+            foreach (var item in printable.OrderBy(x => x.Id))
+            {
+                try
+                {
+                    SelectedQueueItem = item;
+                    await PrintReceiptCoreAsync(item).ConfigureAwait(true);
+                    printed++;
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    _ = ex;
+                    StatusMessage = $"Print failed for #{item.Id}: {ex.Message}";
+                }
+            }
+
+            StatusMessage = failed == 0
+                ? $"Printed {printed} receipt(s)."
+                : $"Printed {printed} receipt(s); {failed} failed.";
+            await RefreshAsync().ConfigureAwait(true);
         }
         finally
         {
@@ -358,101 +414,8 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         try
         {
             SelectedQueueItem = item;
-            if (string.IsNullOrWhiteSpace(item.PayloadJson))
-            {
-                StatusMessage = $"Queue item {item.Id} has an empty payload.";
-                return;
-            }
-
-            var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions);
-            if (payload is null)
-            {
-                StatusMessage = $"Unable to parse invoice payload for item {item.Id}.";
-                return;
-            }
-
-            var fiscal = item.ResolveFiscalResponse();
-            if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceHeader.InvoiceNumber))
-            {
-                try
-                {
-                    var lookup = await _salesTransactionService
-                        .GetInvoiceByNumberAsync(
-                            new InvoiceNumberQueryRequest { InvoiceNumber = payload.InvoiceHeader.InvoiceNumber })
-                        .ConfigureAwait(true);
-                    if (lookup.Success && lookup.Data is not null)
-                    {
-                        var invoiceNumber = lookup.Data.InvoiceHeader?.InvoiceNumber
-                            ?? payload.InvoiceHeader.InvoiceNumber;
-                        fiscal = new SubmitSalesTransactionResponseData
-                        {
-                            InvoiceNumber = invoiceNumber,
-                            FiscalSignature = invoiceNumber,
-                            ValidationUrl = lookup.Data.ValidationUrl,
-                            VerificationUrl = lookup.Data.ValidationUrl
-                        };
-                    }
-                }
-                catch
-                {
-                    // Offline / unreachable MRA — fall through to local fiscal / placeholder.
-                }
-            }
-
-            if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
-            {
-                // Rebuild the official offline ValidationURL so pending reprints include a scannable MRA QR.
-                try
-                {
-                    var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
-                    fiscal = new SubmitSalesTransactionResponseData
-                    {
-                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                        FiscalSignature = signed.OfflineDataSignature,
-                        ValidationUrl = signed.ValidationUrl,
-                        VerificationUrl = signed.ValidationUrl
-                    };
-                }
-                catch
-                {
-                    fiscal = new SubmitSalesTransactionResponseData
-                    {
-                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                        FiscalSignature = payload.InvoiceSummary.OfflineSignature
-                    };
-                }
-            }
-
-            if (fiscal is null &&
-                item.Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase) == false)
-            {
-                // Still pending/quarantined without a stored offline signature — try one more sign attempt.
-                try
-                {
-                    var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
-                    fiscal = new SubmitSalesTransactionResponseData
-                    {
-                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                        FiscalSignature = signed.OfflineDataSignature,
-                        ValidationUrl = signed.ValidationUrl,
-                        VerificationUrl = signed.ValidationUrl
-                    };
-                }
-                catch
-                {
-                    fiscal = new SubmitSalesTransactionResponseData
-                    {
-                        InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
-                        FiscalSignature = FiscalReceiptEnricher.OfflinePendingPlaceholder
-                    };
-                }
-            }
-
-            var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
-            await _receiptPrintingService
-                .PrintAsync(QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscal))
-                .ConfigureAwait(true);
-            StatusMessage = $"Printed receipt for {payload.InvoiceHeader.InvoiceNumber} (queue #{item.Id}).";
+            await PrintReceiptCoreAsync(item).ConfigureAwait(true);
+            StatusMessage = $"Printed receipt for {item.InvoiceNumber} (queue #{item.Id}).";
         }
         catch (Exception ex)
         {
@@ -462,6 +425,97 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         {
             EndBusy();
         }
+    }
+
+    private async Task PrintReceiptCoreAsync(QueueItemViewModel item)
+    {
+        if (string.IsNullOrWhiteSpace(item.PayloadJson))
+        {
+            throw new InvalidOperationException($"Queue item {item.Id} has an empty payload.");
+        }
+
+        var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(item.PayloadJson, MraJson.SerializerOptions)
+            ?? throw new InvalidOperationException($"Unable to parse invoice payload for item {item.Id}.");
+
+        var fiscal = item.ResolveFiscalResponse();
+        if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceHeader.InvoiceNumber))
+        {
+            try
+            {
+                var lookup = await _salesTransactionService
+                    .GetInvoiceByNumberAsync(
+                        new InvoiceNumberQueryRequest { InvoiceNumber = payload.InvoiceHeader.InvoiceNumber })
+                    .ConfigureAwait(true);
+                if (lookup.Success && lookup.Data is not null)
+                {
+                    var invoiceNumber = lookup.Data.InvoiceHeader?.InvoiceNumber
+                        ?? payload.InvoiceHeader.InvoiceNumber;
+                    fiscal = new SubmitSalesTransactionResponseData
+                    {
+                        InvoiceNumber = invoiceNumber,
+                        FiscalSignature = invoiceNumber,
+                        ValidationUrl = lookup.Data.ValidationUrl,
+                        VerificationUrl = lookup.Data.ValidationUrl
+                    };
+                }
+            }
+            catch
+            {
+                // Offline / unreachable MRA — fall through to local fiscal / placeholder.
+            }
+        }
+
+        if (fiscal is null && !string.IsNullOrWhiteSpace(payload.InvoiceSummary.OfflineSignature))
+        {
+            try
+            {
+                var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
+                fiscal = new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                    FiscalSignature = signed.OfflineDataSignature,
+                    ValidationUrl = signed.ValidationUrl,
+                    VerificationUrl = signed.ValidationUrl
+                };
+            }
+            catch
+            {
+                fiscal = new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                    FiscalSignature = payload.InvoiceSummary.OfflineSignature
+                };
+            }
+        }
+
+        if (fiscal is null &&
+            item.Status.Equals(OfflineQueueStatuses.Synced, StringComparison.OrdinalIgnoreCase) == false)
+        {
+            try
+            {
+                var signed = await _offlineReceiptSignatureService.SignAsync(payload).ConfigureAwait(true);
+                fiscal = new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                    FiscalSignature = signed.OfflineDataSignature,
+                    ValidationUrl = signed.ValidationUrl,
+                    VerificationUrl = signed.ValidationUrl
+                };
+            }
+            catch
+            {
+                fiscal = new SubmitSalesTransactionResponseData
+                {
+                    InvoiceNumber = payload.InvoiceHeader.InvoiceNumber,
+                    FiscalSignature = FiscalReceiptEnricher.OfflinePendingPlaceholder
+                };
+            }
+        }
+
+        var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+        await _receiptPrintingService
+            .PrintAsync(QueueReceiptPrintHelper.CreatePrintRequest(context, payload, fiscal))
+            .ConfigureAwait(true);
     }
 
     /// <summary>
@@ -516,6 +570,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     private void NotifyActionCommands()
     {
         PrintReceiptCommand.NotifyCanExecuteChanged();
+        PrintAllReceiptsCommand.NotifyCanExecuteChanged();
         RetryQuarantinedCommand.NotifyCanExecuteChanged();
         ForceSyncCommand.NotifyCanExecuteChanged();
         SyncNextCommand.NotifyCanExecuteChanged();

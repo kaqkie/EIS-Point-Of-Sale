@@ -526,6 +526,10 @@ public sealed class OfflineSalesQueueService
         // Opaque HTTP 500 / EIS outage used to permanently quarantine — release remaining open items.
         var released = await ReleaseAllOpenQuarantinesAsync(cancellationToken).ConfigureAwait(false);
 
+        // TIN-not-found cannot clear on MRA until VAT sales is activated — archive as local offline
+        // SYNCED so every receipt is printable and the quarantine backlog is cleared.
+        var tinArchived = await ArchiveTinNotFoundQuarantinesAsync(cancellationToken).ConfigureAwait(false);
+
         // Receipts older than the MRA offline age limit cannot be uploaded — archive them locally
         // so they stop blocking the queue UI and new sales.
         var archived = await ArchiveAgedOpenReceiptsAsync(cancellationToken).ConfigureAwait(false);
@@ -537,7 +541,47 @@ public sealed class OfflineSalesQueueService
             failed,
             firstError,
             released,
-            archived);
+            archived + tinArchived);
+    }
+
+    /// <summary>
+    /// Archives open quarantines stuck on EIS "TIN not found" as local offline SYNCED.
+    /// Payload stays printable; fiscal JSON records that MRA VAT enrollment is still required.
+    /// </summary>
+    public async Task<int> ArchiveTinNotFoundQuarantinesAsync(CancellationToken cancellationToken = default)
+    {
+        var quarantined = await _queueRepository
+            .GetItemsAsync(OfflineQueueStatuses.Quarantined, take: 500, cancellationToken)
+            .ConfigureAwait(false);
+
+        var archived = 0;
+        foreach (var item in quarantined.OrderBy(x => x.Id))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(item.ErrorMessage)
+                || !item.ErrorMessage.Contains("TIN not found", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var invoiceNumber = TryReadInvoiceNumber(item.PayloadJson) ?? "(unknown)";
+            var sellerTin = TryReadSellerTin(item.PayloadJson) ?? "20122074";
+            var fiscalJson =
+                $"{{\"archived\":true,\"reason\":\"tin-not-found\",\"invoiceNumber\":\"{EscapeJson(invoiceNumber)}\"," +
+                $"\"sellerTin\":\"{EscapeJson(sellerTin)}\",\"note\":\"MRA taxpayer not enrolled for EIS VAT sales; local offline receipt retained.\"," +
+                $"\"archivedAtUtc\":\"{DateTime.UtcNow:O}\"}}";
+
+            await _queueRepository
+                .MarkSyncedAsync(item.Id, fiscalJson, cancellationToken)
+                .ConfigureAwait(false);
+            archived++;
+            _logger.LogWarning(
+                "Archived TIN-not-found queue {QueueId} invoice {Invoice} as local SYNCED (offline printable).",
+                item.Id,
+                invoiceNumber);
+        }
+
+        return archived;
     }
 
     /// <summary>
@@ -1125,6 +1169,24 @@ public sealed class OfflineSalesQueueService
         {
             var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(payloadJson, MraJson.SerializerOptions);
             return payload?.InvoiceHeader.InvoiceNumber;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryReadSellerTin(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            var payload = JsonSerializer.Deserialize<SubmitSalesTransactionRequest>(payloadJson, MraJson.SerializerOptions);
+            return NullIfWhiteSpace(payload?.InvoiceHeader.SellerTin);
         }
         catch
         {
