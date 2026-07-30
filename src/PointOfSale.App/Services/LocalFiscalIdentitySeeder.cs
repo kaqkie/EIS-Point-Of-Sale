@@ -99,6 +99,7 @@ public static class LocalFiscalIdentitySeeder
             {
                 VersionNo = 1,
                 Tin = resolvedTin,
+                // Prefer live get-latest-configs; local seed stays conservative until MRA confirms VAT.
                 IsVatRegistered = false,
                 TaxOfficeCode = "SBX",
                 ActivatedTaxRateIds = ["A"]
@@ -115,14 +116,23 @@ public static class LocalFiscalIdentitySeeder
             try
             {
                 var existing = JsonSerializer.Deserialize<TaxpayerConfigurationDto>(existingTaxpayer, MraJson.SerializerOptions);
-                if (existing is not null && PosConfigurationService.IsPlaceholderTaxpayerTin(existing.Tin))
+                if (existing is not null)
                 {
-                    existing.Tin = resolvedTin;
-                    await config.UpsertJsonAsync(
-                            MraConfigurationKeys.TaxpayerConfiguration,
-                            JsonSerializer.Serialize(existing, MraJson.SerializerOptions),
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                    var dirty = false;
+                    if (PosConfigurationService.IsPlaceholderTaxpayerTin(existing.Tin))
+                    {
+                        existing.Tin = resolvedTin;
+                        dirty = true;
+                    }
+
+                    if (dirty)
+                    {
+                        await config.UpsertJsonAsync(
+                                MraConfigurationKeys.TaxpayerConfiguration,
+                                JsonSerializer.Serialize(existing, MraJson.SerializerOptions),
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
                 }
             }
             catch (JsonException)

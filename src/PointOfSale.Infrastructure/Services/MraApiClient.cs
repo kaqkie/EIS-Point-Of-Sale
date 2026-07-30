@@ -110,6 +110,7 @@ public sealed class MraApiClient
     /// <summary>
     /// Official MRA OpenAPI: <c>POST /api/v1/configuration/get-latest-configs</c>
     /// with Authorization JWT and an empty JSON body (no x-signature).
+    /// Live EIS requires <c>Bearer</c> — raw JWT returns opaque HTTP 500 (same as ping/sales).
     /// </summary>
     public Task<EisApiResponse<TResponse>> GetLatestConfigsAsync<TResponse>(
         string jwtToken,
@@ -117,7 +118,11 @@ public sealed class MraApiClient
         PostAsync<object, TResponse>(
             "configuration/get-latest-configs",
             new { },
-            new MraRequestContext { JwtToken = jwtToken },
+            new MraRequestContext
+            {
+                JwtToken = jwtToken,
+                UseBearerAuthorization = true
+            },
             cancellationToken);
 
     public static string ComputeSignature(string plainText, string secretKey) =>

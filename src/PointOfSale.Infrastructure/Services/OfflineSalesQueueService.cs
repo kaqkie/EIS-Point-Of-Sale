@@ -880,6 +880,7 @@ public sealed class OfflineSalesQueueService
                 && !eisRemark.Contains("One or more validation errors", StringComparison.OrdinalIgnoreCase))
             {
                 detail = TruncateError($"MRA EIS: {eisRemark}. {detail}");
+                detail = TruncateError(EnrichTinNotFoundGuidance(detail, payload.InvoiceHeader.SellerTin));
             }
             if (ex.IsHttpClientLifetimeError())
             {
@@ -1347,7 +1348,11 @@ public sealed class OfflineSalesQueueService
                             StandardTaxRateId: cached.StandardTaxRateId ?? standardId,
                             ConfiguredTaxRates: cached.ConfiguredTaxRates is { Count: > 0 }
                                 ? cached.ConfiguredTaxRates
-                                : rates);
+                                : rates,
+                            IsVatRegistered: cached.IsVatRegistered ?? taxpayer?.IsVatRegistered,
+                            ActivatedTaxRateIds: cached.ActivatedTaxRateIds is { Count: > 0 }
+                                ? cached.ActivatedTaxRateIds
+                                : taxpayer?.ActivatedTaxRateIds);
                     }
                 }
 
@@ -1394,7 +1399,10 @@ public sealed class OfflineSalesQueueService
                             TaxpayerConfigVersion: ToConfigVersion(refreshedTaxpayer?.VersionNo ?? taxpayer?.VersionNo) ?? 1,
                             TerminalConfigVersion: ToConfigVersion(refreshedTerminal?.VersionNo ?? terminal?.VersionNo) ?? 1,
                             StandardTaxRateId: effectiveStandardId,
-                            ConfiguredTaxRates: effectiveRates);
+                            ConfiguredTaxRates: effectiveRates,
+                            IsVatRegistered: refreshedTaxpayer?.IsVatRegistered ?? taxpayer?.IsVatRegistered,
+                            ActivatedTaxRateIds: refreshedTaxpayer?.ActivatedTaxRateIds
+                                ?? taxpayer?.ActivatedTaxRateIds);
 
                         if (latest.Success)
                         {
@@ -1405,10 +1413,12 @@ public sealed class OfflineSalesQueueService
                             }
 
                             _logger.LogInformation(
-                                "Refreshed fiscal identity from get-latest-configs. sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate} versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
+                                "Refreshed fiscal identity from get-latest-configs. sellerTIN={Tin} siteId={SiteId} taxRateId={TaxRate} vatReg={VatReg} activated=[{Activated}] versions g/t/tp={Global}/{Terminal}/{Taxpayer}",
                                 overlay.SellerTin,
                                 overlay.SiteId,
                                 overlay.StandardTaxRateId,
+                                overlay.IsVatRegistered,
+                                string.Join(',', overlay.ActivatedTaxRateIds ?? []),
                                 overlay.GlobalConfigVersion ?? 0,
                                 overlay.TerminalConfigVersion ?? 0,
                                 overlay.TaxpayerConfigVersion ?? 0);
@@ -1458,7 +1468,9 @@ public sealed class OfflineSalesQueueService
                 TaxpayerConfigVersion: ToConfigVersion(taxpayer?.VersionNo),
                 TerminalConfigVersion: ToConfigVersion(terminal?.VersionNo),
                 StandardTaxRateId: standardId,
-                ConfiguredTaxRates: rates);
+                ConfiguredTaxRates: rates,
+                IsVatRegistered: taxpayer?.IsVatRegistered,
+                ActivatedTaxRateIds: taxpayer?.ActivatedTaxRateIds);
         }
         catch (Exception ex)
         {
@@ -1816,6 +1828,41 @@ public sealed class OfflineSalesQueueService
         }
 
         return TruncateError(ex.Message);
+    }
+
+    private static string EnrichTinNotFoundGuidance(string detail, string? sellerTin)
+    {
+        if (!detail.Contains("TIN not found", StringComparison.OrdinalIgnoreCase))
+        {
+            return detail;
+        }
+
+        MraFiscalIdentityOverlay? overlay;
+        lock (LiveConfigRefreshGate)
+        {
+            overlay = _liveConfigOverlayCache;
+        }
+
+        var activated = overlay?.ActivatedTaxRateIds is { Count: > 0 } ids
+            ? string.Join(',', ids)
+            : "(unknown)";
+        var vatReg = overlay?.IsVatRegistered;
+        var hasSalesVatRate = overlay?.ActivatedTaxRateIds?.Any(id =>
+            MraTaxRateCodes.IsStandardVatTier(id)
+            || id.Equals(MraTaxRateCodes.Exempt, StringComparison.OrdinalIgnoreCase)
+            || id.Equals("B", StringComparison.OrdinalIgnoreCase)) == true;
+
+        if (vatReg == false || !hasSalesVatRate)
+        {
+            return detail +
+                   $" POS sellerTIN={sellerTin ?? "(null)"} matches activation, but MRA taxpayer is not enabled for EIS VAT sales " +
+                   $"(isVATRegistered={vatReg?.ToString() ?? "unknown"}, activatedTaxRateIds=[{activated}]). " +
+                   "Ask MRA to activate VAT rate A for this TIN on the sandbox portal.";
+        }
+
+        return detail +
+               $" POS is already sending sellerTIN={sellerTin ?? "(null)"}. " +
+               "Ask MRA to link this TIN to the activated terminal for EIS sales.";
     }
 
     private static string? TryReadEisRemark(string? responseBody)

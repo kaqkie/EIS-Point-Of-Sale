@@ -72,17 +72,22 @@ public static partial class MraFiscalPayloadNormalizer
             var exclusiveFromUnit = PosTaxCalculator.RoundMoney(
                 Math.Max(0m, (unitPriceIn * quantity) - discount));
 
-            // Re-align VAT so taxBreakDown matches line totals. Standard VAT (A/T/…) always
-            // uses statutory 17.5% — stale sandbox caches (e.g. A@16.4 / 16.5) cause EIS
-            // "tax breakdown entries do not match …".
+            // Prefer live get-latest-configs rate for standard VAT when available (sandbox A is
+            // currently 16.4). Fall back to statutory 17.5% only when config rates are missing.
             decimal? ratePercent = null;
-            if (MraTaxRateCodes.IsStandardVatTier(taxRateId))
+            if (TryGetConfiguredRatePercent(taxRateId, configuredRates, out var configuredPercent))
+            {
+                ratePercent = configuredPercent;
+            }
+            else if (MraTaxRateCodes.IsStandardVatTier(taxRateId))
             {
                 ratePercent = PosTaxCalculator.MalawiStandardVatRatePercent;
             }
-            else if (TryGetConfiguredRatePercent(taxRateId, configuredRates, out var configuredPercent))
+
+            // Non-VAT-registered taxpayers must not ship standard VAT amounts.
+            if (identity?.IsVatRegistered == false && MraTaxRateCodes.IsStandardVatTier(taxRateId))
             {
-                ratePercent = configuredPercent;
+                ratePercent = 0m;
             }
 
             // Heal drifted exclusive totals only when unitPrice still looks exclusive.
@@ -403,4 +408,6 @@ public sealed record MraFiscalIdentityOverlay(
     int? TaxpayerConfigVersion = null,
     int? TerminalConfigVersion = null,
     string? StandardTaxRateId = null,
-    IReadOnlyList<(string Id, decimal Rate)>? ConfiguredTaxRates = null);
+    IReadOnlyList<(string Id, decimal Rate)>? ConfiguredTaxRates = null,
+    bool? IsVatRegistered = null,
+    IReadOnlyList<string>? ActivatedTaxRateIds = null);
