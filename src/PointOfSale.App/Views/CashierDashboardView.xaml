@@ -8,72 +8,137 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Style="{StaticResource Art.Card}" Margin="0,0,0,10" Padding="16,12">
-            <DockPanel>
-                <StackPanel>
-                    <TextBlock Text="Cashier workspace" Style="{StaticResource Art.Text.Title}"
-                               Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                    <TextBlock Text="Cash Register"
-                               Style="{StaticResource Art.Text.Title}"
-                               Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                    <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Art.Text.Subtitle}" TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                    <Border Style="{StaticResource Art.Badge.Success}" Margin="0,0,8,0">
-                        <TextBlock Text="{Binding StatutoryVatPercentLabel}"
-                                   Foreground="{StaticResource Art.Brush.Success}"
-                                   FontWeight="SemiBold" />
-                    </Border>
-                    <Border Background="{StaticResource Art.Brush.AccentSoft}" CornerRadius="8" Padding="10,6" Margin="0,0,8,0">
-                        <TextBlock Text="{Binding IsCashDrawerReady, StringFormat='Drawer ready: {0}'}"
-                                   Foreground="{StaticResource Art.Brush.AccentHover}"
-                                   FontWeight="SemiBold" />
-                    </Border>
+        <Border Grid.Row="0" Style="{StaticResource Art.Card}" Margin="0,0,0,10" Padding="14,12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0">
+                    <StackPanel>
+                        <TextBlock Text="Cashier workspace" Style="{StaticResource Art.Text.Title}"
+                                   Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Text="Cash Register"
+                                   Style="{StaticResource Art.Text.Title}"
+                                   Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Text="Search items · tender on keypad · Paid to complete. Cart stays when you switch views."
+                                   Style="{StaticResource Art.Text.Subtitle}"
+                                   Margin="0,2,0,0"
+                                   Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Border Style="{StaticResource Art.Badge.Success}" Margin="0,0,8,0" Padding="8,4">
+                            <TextBlock Text="{Binding StatutoryVatPercentLabel}"
+                                       Foreground="{StaticResource Art.Brush.Success}"
+                                       FontWeight="SemiBold"
+                                       FontSize="12" />
+                        </Border>
+                        <Border Background="{StaticResource Art.Brush.AccentSoft}" CornerRadius="8" Padding="8,4">
+                            <TextBlock Text="{Binding IsCashDrawerReady, StringFormat='Drawer: {0}'}"
+                                       Foreground="{StaticResource Art.Brush.AccentHover}"
+                                       FontWeight="SemiBold"
+                                       FontSize="12" />
+                        </Border>
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- Always-visible action feedback (sync / ping / updates / product reload) -->
+                <Border Grid.Row="1"
+                        Margin="0,10,0,0"
+                        CornerRadius="8"
+                        Padding="12,8"
+                        Background="#EFF6FF"
+                        BorderBrush="#BFDBFE"
+                        BorderThickness="1">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="{Binding ToolbarBusyLabel}"
+                                   FontWeight="SemiBold"
+                                   Foreground="#1D4ED8"
+                                   Margin="0,0,10,0"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   TextWrapping="Wrap"
+                                   FontSize="13"
+                                   Foreground="{StaticResource Art.Brush.TextPrimary}" />
+                    </DockPanel>
+                </Border>
+
+                <WrapPanel Grid.Row="2" Margin="0,10,0,0">
                     <Button Content="Ping MRA"
                             Style="{StaticResource Art.Button.Ghost}"
                             Command="{Binding PingMraCommand}"
-                            Margin="0,0,8,0"
-                            MinWidth="100"
+                            Margin="0,0,8,6"
+                            MinWidth="96"
+                            MinHeight="36"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
                             FocusVisualStyle="{x:Null}"
-                            ToolTip="Ping Malawi Revenue Authority EIS and show success or failure" />
+                            ToolTip="Ping Malawi Revenue Authority EIS" />
                     <Button Content="Check updates"
                             Style="{StaticResource Art.Button.Ghost}"
                             Command="{Binding CheckTerminalUpdatesCommand}"
-                            Margin="0,0,8,0"
+                            Margin="0,0,8,6"
                             MinWidth="120"
+                            MinHeight="36"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
                             FocusVisualStyle="{x:Null}"
                             ToolTip="Check for Albert Retail Terminal software updates" />
                     <Button Content="Sync APIs"
-                            Style="{StaticResource Art.Button.Secondary}"
+                            Style="{StaticResource Art.Button.Primary}"
                             Command="{Binding VerifyAndSyncApisCommand}"
-                            Margin="0,0,8,0"
-                            MinWidth="100"
+                            Margin="0,0,8,6"
+                            MinWidth="110"
+                            MinHeight="36"
+                            FontWeight="SemiBold"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
                             FocusVisualStyle="{x:Null}"
-                            ToolTip="Ping MRA, sync latest configs, and report offline queue status" />
+                            ToolTip="Ping MRA, sync configs, pull EIS site products, report queue" />
+                    <Button Content="Reload products"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding ReloadProductsCommand}"
+                            Margin="0,0,8,6"
+                            MinWidth="130"
+                            MinHeight="36"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                            FocusVisualStyle="{x:Null}"
+                            ToolTip="Refresh Find item list from local inventory (after Sync APIs)" />
                     <Button Content="Shift tools"
                             Style="{StaticResource Art.Button.Secondary}"
                             Command="{Binding ReturnToFullWorkspaceCommand}"
-                            Margin="0,0,8,0"
-                            MinWidth="140"
+                            Margin="0,0,8,6"
+                            MinWidth="110"
+                            MinHeight="36"
                             FontWeight="SemiBold"
                             FocusVisualStyle="{x:Null}"
                             Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <Button Content="Cash Register"
                             Style="{StaticResource Art.Button.Primary}"
                             Command="{Binding ToggleCashRegisterModeCommand}"
-                            Margin="0,0,8,0"
-                            MinWidth="150"
+                            Margin="0,0,8,6"
+                            MinWidth="130"
+                            MinHeight="36"
                             FocusVisualStyle="{x:Null}"
                             Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <Button Content="Queue"
                             Style="{StaticResource Art.Button.Ghost}"
                             Command="{Binding OpenQueueCommand}"
-                            Margin="0,0,8,0"
+                            Margin="0,0,8,6"
+                            MinHeight="36"
                             FocusVisualStyle="{x:Null}"
                             Visibility="{Binding IsFullWorkspaceMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                    <Button Content="Kick drawer" Style="{StaticResource Art.Button.Success}" Command="{Binding KickDrawerCommand}" FocusVisualStyle="{x:Null}" />
-                </StackPanel>
-            </DockPanel>
+                    <Button Content="Kick drawer"
+                            Style="{StaticResource Art.Button.Success}"
+                            Command="{Binding KickDrawerCommand}"
+                            Margin="0,0,0,6"
+                            MinWidth="110"
+                            MinHeight="36"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                            FocusVisualStyle="{x:Null}" />
+                </WrapPanel>
+            </Grid>
         </Border>
 
         <!-- ===== Cash Register terminal layout ===== -->
@@ -106,29 +171,71 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox Text="{Binding Checkout.SearchText, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource Art.TextBox}"
                                          FontSize="16"
                                          MinHeight="44"
-                                         Margin="0,0,8,0" />
+                                         Margin="0,0,8,0"
+                                         ToolTip="{Binding Checkout.InventorySearchHint}" />
                                 <Button Grid.Column="1"
                                         Content="Add"
                                         Style="{StaticResource Art.Pos.PayCash}"
                                         Command="{Binding Checkout.AddSelectedToCartCommand}"
                                         MinWidth="88"
                                         MinHeight="44"
-                                        Margin="0" />
+                                        Margin="0,0,8,0" />
+                                <Button Grid.Column="2"
+                                        Content="Reload"
+                                        Style="{StaticResource Art.Button.Secondary}"
+                                        Command="{Binding ReloadProductsCommand}"
+                                        MinWidth="88"
+                                        MinHeight="44"
+                                        Margin="0"
+                                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                                        ToolTip="Reload products from inventory" />
                             </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock Text="Sale:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"
+                                           Foreground="{StaticResource Art.Brush.TextSecondary}" />
+                                <ComboBox Width="90"
+                                          MinHeight="32"
+                                          ItemsSource="{Binding Checkout.SaleTypeOptions}"
+                                          SelectedItem="{Binding Checkout.SaleType, Mode=TwoWay}"
+                                          ToolTip="B2C walk-in or B2B with buyer TIN" />
+                                <TextBox Width="140"
+                                         MinHeight="32"
+                                         Margin="8,0,0,0"
+                                         FontSize="13"
+                                         Style="{StaticResource Art.TextBox}"
+                                         Text="{Binding Checkout.BuyerTin, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{Binding Checkout.IsBusinessSale, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                         ToolTip="Buyer TIN (required for B2B)" />
+                                <TextBox Width="160"
+                                         MinHeight="32"
+                                         Margin="8,0,0,0"
+                                         FontSize="13"
+                                         Style="{StaticResource Art.TextBox}"
+                                         Text="{Binding Checkout.BuyerName, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{Binding Checkout.IsBusinessSale, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                         ToolTip="Buyer name (optional)" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Checkout.InventorySearchHint}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource Art.Brush.TextSecondary}"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap" />
                             <ListBox ItemsSource="{Binding Checkout.FilteredProducts}"
                                      SelectedItem="{Binding Checkout.SelectedProduct}"
-                                     Height="96"
+                                     Height="140"
                                      Margin="0,8,0,0"
                                      BorderBrush="{StaticResource Art.Brush.Border}"
                                      BorderThickness="1"
                                      FontSize="14"
                                      MouseDoubleClick="ProductQuickPick_OnMouseDoubleClick"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock TextTrimming="CharacterEllipsis">

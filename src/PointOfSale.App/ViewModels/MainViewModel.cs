@@ -352,8 +352,16 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task RefreshConnectionAsync() =>
+    private async Task RefreshConnectionAsync()
+    {
         await _connectionStatusService.RefreshAsync().ConfigureAwait(true);
+        RefreshConnectionState();
+
+        if (CurrentViewModel is CashierDashboardViewModel cashier)
+        {
+            await cashier.ReloadProductsCommand.ExecuteAsync(null).ConfigureAwait(true);
+        }
+    }
 
     [RelayCommand]
     private async Task SignOutAsync()

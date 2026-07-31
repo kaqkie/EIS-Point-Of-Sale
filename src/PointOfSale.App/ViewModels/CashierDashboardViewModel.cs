@@ -93,6 +93,9 @@ public partial class CashierDashboardViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    /// <summary>Shown next to StatusMessage while a toolbar action runs.</summary>
+    public string ToolbarBusyLabel => "Working…";
+
     [ObservableProperty]
     private string _mraPingStatus = "MRA ping: not run yet.";
 
@@ -140,6 +143,7 @@ public partial class CashierDashboardViewModel : ObservableObject
         if (value)
         {
             SelectedWorkspaceTab = 0;
+            _ = ReloadProductsAsync();
         }
     }
 
@@ -434,6 +438,24 @@ public partial class CashierDashboardViewModel : ObservableObject
     private void OpenStandaloneCheckout() => ShowCashRegisterMode(enabled: true);
 
     [RelayCommand]
+    private async Task ReloadProductsAsync()
+    {
+        try
+        {
+            await Checkout.LoadProductsCommand.ExecuteAsync(null).ConfigureAwait(true);
+            var count = Checkout.Products.Count;
+            StatusMessage = count == 0
+                ? "No products in local inventory. Press Sync APIs to pull EIS site products."
+                : $"Product list ready — {count} item(s). Type to search, then Add.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Reload products failed.");
+            StatusMessage = $"Could not reload products: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
     private async Task PingMraAsync()
     {
         if (IsBusy)
@@ -500,12 +522,16 @@ public partial class CashierDashboardViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            StatusMessage = "Verifying MRA APIs and syncing…";
+            StatusMessage = "Syncing MRA APIs and EIS products…";
             var result = await _connectivityActions.VerifyAndSyncApisAsync().ConfigureAwait(true);
             MraPingStatus = result.Ping.Message;
+
+            await Checkout.LoadProductsCommand.ExecuteAsync(null).ConfigureAwait(true);
+            var productCount = Checkout.Products.Count;
+
             StatusMessage = result.Success
-                ? $"API sync OK — {result.Message}"
-                : $"API sync issues — {result.Message}";
+                ? $"Sync OK — {productCount} product(s) loaded. {result.Message}"
+                : $"Sync issues — {productCount} product(s) local. {result.Message}";
         }
         catch (Exception ex)
         {

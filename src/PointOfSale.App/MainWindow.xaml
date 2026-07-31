@@ -288,7 +288,10 @@
                             <Button Content="Refresh"
                                     Style="{StaticResource Art.Button.Secondary}"
                                     Command="{Binding RefreshConnectionCommand}"
-                                    Margin="8,0,0,0" />
+                                    Margin="8,0,0,0"
+                                    MinWidth="96"
+                                    MinHeight="36"
+                                    ToolTip="Refresh online/MRA status and reload Cash Register products" />
                             <Button Content="Sign out"
                                     Style="{StaticResource Art.Button.Danger}"
                                     Command="{Binding SignOutCommand}"

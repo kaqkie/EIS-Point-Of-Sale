@@ -369,6 +369,9 @@ public partial class CheckoutViewModel : ObservableObject
         OnPropertyChanged(nameof(FilteredProducts));
         OnPropertyChanged(nameof(FilteredProductCount));
         OnPropertyChanged(nameof(InventorySearchHint));
+        StatusMessage = Products.Count == 0
+            ? "No products loaded — Sync APIs to pull EIS catalog."
+            : $"Loaded {Products.Count} product(s).";
     }
 
     [RelayCommand]
