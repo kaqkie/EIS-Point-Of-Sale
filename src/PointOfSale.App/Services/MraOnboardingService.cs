@@ -423,6 +423,20 @@ public sealed class MraOnboardingService : IMraOnboardingService
             _logger.LogWarning(ex, "Failed to release activation-blocked quarantines after confirmation.");
         }
 
+        try
+        {
+            // Ensure latest configs (portal siteId) are local before catalog pull.
+            await onboarding.GetLatestConfigsAsync(cancellationToken).ConfigureAwait(false);
+            var productsRemark = await TerminalConnectivityActionsService
+                .SyncTerminalSiteProductsAsync(scope, cancellationToken)
+                .ConfigureAwait(false);
+            _logger.LogInformation("Post-activation site products: {Remark}", productsRemark);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Post-activation get-terminal-site-products sync failed.");
+        }
+
         return MraOnboardingResult.Ok(
             $"MRA onboarding complete for terminal {terminalId}. Credentials stored encrypted.",
             terminalId);

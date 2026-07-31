@@ -199,6 +199,17 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
             _logger.LogWarning(ex, "VerifyAndSyncApis receipt ID repair failed.");
         }
 
+        string? productsRemark = null;
+        try
+        {
+            productsRemark = await SyncTerminalSiteProductsAsync(scope, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            productsRemark = $"Site products sync error: {ex.Message}";
+            _logger.LogWarning(ex, "VerifyAndSyncApis site products sync failed.");
+        }
+
         try
         {
             var queue = scope.ServiceProvider.GetService<IOfflineInvoiceQueueRepository>();
@@ -219,6 +230,7 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         var message =
             $"{ping.Message} {configRemark} " +
             (string.IsNullOrWhiteSpace(vatEnrollmentRemark) ? string.Empty : $"{vatEnrollmentRemark} ") +
+            (string.IsNullOrWhiteSpace(productsRemark) ? string.Empty : $"{productsRemark} ") +
             (string.IsNullOrWhiteSpace(repairRemark) ? string.Empty : $"{repairRemark} ") +
             $"Offline queue — pending: {pending}, syncing: {syncing}, quarantined: {quarantined}. " +
             $"Connection: {_connectionStatus.StatusText}";
@@ -232,6 +244,52 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
             pending,
             syncing,
             quarantined);
+    }
+
+    /// <summary>
+    /// Pulls EIS <c>get-terminal-site-products</c> into local inventory using the activated TIN + portal siteId.
+    /// </summary>
+    internal static async Task<string> SyncTerminalSiteProductsAsync(
+        IServiceScope scope,
+        CancellationToken cancellationToken)
+    {
+        var stock = scope.ServiceProvider.GetService<StockManagementService>();
+        var posConfig = scope.ServiceProvider.GetService<PointOfSale.App.Services.IPosConfigurationService>();
+        if (stock is null || posConfig is null)
+        {
+            return "Site products sync unavailable.";
+        }
+
+        var context = await posConfig.GetRuntimeContextAsync(cancellationToken).ConfigureAwait(false);
+        var tin = context.SellerTin?.Trim();
+        // Prefer raw portal site GUID over FiscalSiteId slug — EIS rejects mangled SITE-… values here.
+        var siteId = context.SiteId?.Trim();
+        if (string.IsNullOrWhiteSpace(tin) || string.IsNullOrWhiteSpace(siteId))
+        {
+            return "Site products sync skipped — TIN or siteId missing after activation.";
+        }
+
+        var result = await stock
+            .GetTerminalSiteProductsAsync(
+                new PointOfSale.Mra.Contracts.Utilities.GetTerminalSiteProductsRequest
+                {
+                    Tin = tin,
+                    SiteId = siteId
+                },
+                reconcileLocalInventory: true,
+                preserveLocalStock: true,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!result.Success)
+        {
+            return $"Site products sync failed: {result.Remark ?? "rejected by EIS"}.";
+        }
+
+        var count = result.Data?.Count ?? 0;
+        return count == 0
+            ? "Site products sync OK — EIS returned 0 products for this site (assign products in the portal)."
+            : $"Site products synced ({count} from EIS).";
     }
 
     private static string Truncate(string value, int max) =>

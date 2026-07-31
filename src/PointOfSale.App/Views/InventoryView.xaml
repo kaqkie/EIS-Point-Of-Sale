@@ -15,12 +15,19 @@
                     Padding="12,8"
                     Margin="0,0,8,0"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
-            <Button Content="Sync Warehouse (MRA)"
+            <Button Content="Sync EIS Products"
                     Style="{StaticResource Art.Button.Primary}"
-                    Command="{Binding SyncWarehouseCommand}"
+                    Command="{Binding SyncSiteProductsCommand}"
                     Padding="12,8"
                     Margin="0,0,8,0"
                     FontWeight="SemiBold"
+                    ToolTip="Pull products assigned to this terminal site from MRA EIS"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+            <Button Content="Sync Warehouse (MRA)"
+                    Style="{StaticResource Art.Button.Secondary}"
+                    Command="{Binding SyncWarehouseCommand}"
+                    Padding="12,8"
+                    Margin="0,0,8,0"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
             <Button Content="Load demo catalog"
                     Style="{StaticResource Art.Button.Ghost}"
@@ -59,7 +66,7 @@
                                Style="{StaticResource Art.Text.Title}"
                                FontSize="18"
                                Margin="0,0,0,8" />
-                    <TextBlock Text="The local catalog is empty. Sync from MRA warehouse when online, or load the starter demo catalog to continue checkout testing."
+                    <TextBlock Text="The local catalog is empty. Sync EIS Products after terminal activation (products assigned to this site in the MRA portal), or load the demo catalog for testing."
                                Style="{StaticResource Art.Text.Subtitle}"
                                TextWrapping="Wrap" />
                 </StackPanel>

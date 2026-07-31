@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using PointOfSale.App.Services;
 using PointOfSale.Core.Entities;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Contracts.Stock;
+using PointOfSale.Mra.Contracts.Utilities;
 
 namespace PointOfSale.App.ViewModels;
 
@@ -13,15 +15,18 @@ public partial class InventoryViewModel : ObservableObject
 {
     private readonly ILocalInventoryRepository _inventoryRepository;
     private readonly StockManagementService _stockManagementService;
+    private readonly IPosConfigurationService _posConfigurationService;
     private readonly ILogger<InventoryViewModel> _logger;
 
     public InventoryViewModel(
         ILocalInventoryRepository inventoryRepository,
         StockManagementService stockManagementService,
+        IPosConfigurationService posConfigurationService,
         ILogger<InventoryViewModel> logger)
     {
         _inventoryRepository = inventoryRepository;
         _stockManagementService = stockManagementService;
+        _posConfigurationService = posConfigurationService;
         _logger = logger;
         Items = new ObservableCollection<LocalInventoryItem>();
         StatusMessage = "Loading inventory…";
@@ -59,7 +64,7 @@ public partial class InventoryViewModel : ObservableObject
             ShowEmptyState = !HasItems;
             StatusMessage = HasItems
                 ? $"Loaded {Items.Count} local items."
-                : "No local inventory items found. Use Sync Warehouse (MRA) or Load demo catalog.";
+                : "No local inventory items found. Use Sync EIS Products or Sync Warehouse.";
             _logger.LogInformation("Inventory refresh returned {Count} items.", Items.Count);
         }
         catch (Exception ex)
@@ -68,6 +73,52 @@ public partial class InventoryViewModel : ObservableObject
             ShowEmptyState = !HasItems;
             StatusMessage = $"Inventory load failed: {ex.Message}";
             _logger.LogError(ex, "Failed to load LocalInventory into the inventory grid.");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SyncSiteProductsAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+            var tin = context.SellerTin?.Trim();
+            var siteId = context.SiteId?.Trim();
+            if (string.IsNullOrWhiteSpace(tin) || string.IsNullOrWhiteSpace(siteId))
+            {
+                StatusMessage = "Activate the terminal first — TIN/siteId required to pull EIS products.";
+                return;
+            }
+
+            var response = await _stockManagementService
+                .GetTerminalSiteProductsAsync(
+                    new GetTerminalSiteProductsRequest { Tin = tin, SiteId = siteId },
+                    reconcileLocalInventory: true,
+                    preserveLocalStock: true)
+                .ConfigureAwait(true);
+
+            if (!response.Success)
+            {
+                StatusMessage = response.Remark ?? "EIS site products sync failed.";
+                _logger.LogWarning("get-terminal-site-products failed: {Remark}", StatusMessage);
+                return;
+            }
+
+            await RefreshAsync().ConfigureAwait(true);
+            var count = response.Data?.Count ?? 0;
+            StatusMessage = count == 0
+                ? "EIS returned 0 products for this site. Assign products to the site in the MRA portal."
+                : $"EIS site products synchronized ({count} items).";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"EIS site products sync failed: {ex.Message}";
+            _logger.LogError(ex, "get-terminal-site-products threw.");
         }
         finally
         {
