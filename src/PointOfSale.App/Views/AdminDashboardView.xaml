@@ -86,11 +86,37 @@
                             <Button Content="Hardware" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenHardwareCommand}" />
                         </UniformGrid>
 
-                        <Border Style="{StaticResource Art.Card}">
+                        <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" Text="Stock threshold alerts" Style="{StaticResource Art.Text.Title}" FontSize="16" Margin="0,0,0,8" />
                                 <ListBox ItemsSource="{Binding LowStockItems}" BorderThickness="0" MinHeight="140" />
                             </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Art.Card}"
+                                BorderBrush="{StaticResource Art.Brush.Danger}"
+                                BorderThickness="1"
+                                Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Danger zone — terminal reset"
+                                           Style="{StaticResource Art.Text.Title}"
+                                           FontSize="16"
+                                           Foreground="{StaticResource Art.Brush.Danger}"
+                                           Margin="0,0,0,6" />
+                                <TextBlock Text="Erase all local receipts, products, MRA activation caches, and license mirrors so this till can be activated as a brand-new terminal. Operators are kept."
+                                           Style="{StaticResource Art.Text.Subtitle}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,12" />
+                                <Button Content="Reset terminal (erase receipts + products)"
+                                        Style="{StaticResource Art.Button.Danger}"
+                                        Command="{Binding ResetTerminalFactoryCommand}"
+                                        HorizontalAlignment="Left"
+                                        MinHeight="40"
+                                        Padding="16,8"
+                                        FontWeight="SemiBold"
+                                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                                        ToolTip="Factory-reset this POS: receipts, inventory, and terminal identity" />
+                            </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>

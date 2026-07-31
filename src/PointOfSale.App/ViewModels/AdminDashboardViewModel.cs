@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Options;
@@ -20,6 +21,9 @@ public partial class AdminDashboardViewModel : ObservableObject
     private readonly INavigationService _navigation;
     private readonly IConfigurationRepository _config;
     private readonly ITerminalConnectivityActionsService _connectivityActions;
+    private readonly ITerminalFactoryResetService _factoryReset;
+    private readonly IFirstRunBootstrapService _firstRun;
+    private readonly ITerminalActivationService _activation;
     private readonly MraApiOptions _mra;
 
     public AdminDashboardViewModel(
@@ -31,6 +35,9 @@ public partial class AdminDashboardViewModel : ObservableObject
         INavigationService navigation,
         IConfigurationRepository config,
         ITerminalConnectivityActionsService connectivityActions,
+        ITerminalFactoryResetService factoryReset,
+        IFirstRunBootstrapService firstRun,
+        ITerminalActivationService activation,
         IOptions<MraApiOptions> mra)
     {
         InventoryWorkspace = inventoryWorkspace;
@@ -41,6 +48,9 @@ public partial class AdminDashboardViewModel : ObservableObject
         _navigation = navigation;
         _config = config;
         _connectivityActions = connectivityActions;
+        _factoryReset = factoryReset;
+        _firstRun = firstRun;
+        _activation = activation;
         _mra = mra.Value;
         LowStockItems = new ObservableCollection<string>();
         SelectedAdminTab = 0;
@@ -249,6 +259,99 @@ public partial class AdminDashboardViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ResetTerminalFactoryAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        try
+        {
+            _auth.EnsurePermission(OperatorPermissions.ProvisionTerminal);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            return;
+        }
+
+        if (!OperatorWorkspace.IsAdminConsoleRole(_auth.CurrentOperator?.Role))
+        {
+            StatusMessage = "Terminal reset requires Store Manager or Administrator.";
+            return;
+        }
+
+        var first = MessageBox.Show(
+            "This will ERASE this terminal's local data:\n\n" +
+            "• All receipts / offline invoice queue\n" +
+            "• All local products / inventory\n" +
+            "• MRA activation, JWT, site & taxpayer caches\n" +
+            "• License / first-run registry mirrors\n\n" +
+            "Operators are kept so you can sign in again.\n" +
+            "You must complete first-run activation with a new TAC.\n\n" +
+            "Continue?",
+            "Terminal reset — confirm",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (first != MessageBoxResult.Yes)
+        {
+            StatusMessage = "Terminal reset cancelled.";
+            return;
+        }
+
+        var second = MessageBox.Show(
+            "FINAL CONFIRMATION\n\nErase receipts, products, and terminal identity now?\nThis cannot be undone from the POS.",
+            "Terminal reset — final confirm",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Stop,
+            MessageBoxResult.No);
+
+        if (second != MessageBoxResult.Yes)
+        {
+            StatusMessage = "Terminal reset cancelled.";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            StatusMessage = "Resetting terminal — clearing receipts, products, and identity…";
+            var result = await _factoryReset.ResetAsync().ConfigureAwait(true);
+            StatusMessage = result.Message;
+
+            if (!result.Success)
+            {
+                return;
+            }
+
+            ProductCount = 0;
+            LowStockCount = 0;
+            LowStockItems.Clear();
+
+            await _firstRun.RefreshStatusAsync().ConfigureAwait(true);
+            await _activation.GetStatusAsync().ConfigureAwait(true);
+            await _auth.SignOutAsync().ConfigureAwait(true);
+
+            MessageBox.Show(
+                result.Message + "\n\nYou will return to sign-in / first-run setup.",
+                "Terminal reset complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Terminal reset error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 

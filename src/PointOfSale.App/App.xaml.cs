@@ -136,6 +136,7 @@ public partial class App : Application
                 services.AddSingleton<IFirstRunBootstrapService, FirstRunBootstrapService>();
                 services.AddSingleton<IApplicationUpdateService, ApplicationUpdateService>();
                 services.AddSingleton<ITerminalConnectivityActionsService, TerminalConnectivityActionsService>();
+                services.AddSingleton<ITerminalFactoryResetService, TerminalFactoryResetService>();
                 services.AddHostedService<ApplicationUpdateBackgroundService>();
                 services.AddSingleton<IMraCertificationAuditStore, PointOfSale.App.Services.Compliance.MraCertificationAuditStore>();
                 services.AddSingleton<IComplianceCertificationService, ComplianceCertificationService>();
