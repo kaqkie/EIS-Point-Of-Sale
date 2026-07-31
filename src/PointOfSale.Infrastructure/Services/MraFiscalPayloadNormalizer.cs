@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using PointOfSale.Core.Pricing;
 using PointOfSale.Mra.Contracts.Sales;
-using PointOfSale.Mra.Contracts.Utilities;
 
 namespace PointOfSale.Infrastructure.Services;
 
@@ -132,9 +131,7 @@ public static partial class MraFiscalPayloadNormalizer
             {
                 Id = i + 1,
                 ProductCode = string.IsNullOrWhiteSpace(line.ProductCode) ? $"LINE-{i + 1}" : line.ProductCode.Trim(),
-                Description = string.IsNullOrWhiteSpace(line.Description)
-                    ? "Item"
-                    : TerminalSiteProductDto.NormalizeWhitespace(line.Description) ?? "Item",
+                Description = string.IsNullOrWhiteSpace(line.Description) ? "Item" : line.Description.Trim(),
                 UnitPrice = unitPrice,
                 Quantity = quantity,
                 Discount = discount,
