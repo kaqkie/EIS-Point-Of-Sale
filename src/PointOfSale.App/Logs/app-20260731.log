@@ -2295,3 +2295,18 @@ PointOfSale.Mra.Http.MraApiException: Invalid MRA EIS response JSON.
 2026-07-31 09:52:05.280 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
 2026-07-31 09:52:05.492 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 23 null: SQL round-trip 23 ms
 2026-07-31 09:52:05.717 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 09:52:05.908 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=203
+2026-07-31 09:52:06.027 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 310 1: MRA ping ok in 310 ms.
+2026-07-31 09:52:06.109 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 09:52:06.167 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 23 null: All subsystems healthy (SQL 23 ms, disk 29.16 GB free).
+2026-07-31 09:52:06.266 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=157
+2026-07-31 09:52:06.361 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 09:52:06.362 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.16 GB free).
+2026-07-31 09:52:06.555 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 09:52:09.679 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3125
+2026-07-31 09:52:09.705 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 09:52:09.772 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 09:52:18.119 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 09:52:18.153 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 09:52:18.174 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 09:52:21.089 +02:00 [INF] Inventory alert scan complete: 102 products, low=2, stockout=0, overstock=0, fast=0.
