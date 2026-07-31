@@ -70,8 +70,15 @@ public sealed class TerminalSiteProductDto
     public string ResolveProductCode() =>
         FirstNonEmpty(ProductCode, Barcode) ?? string.Empty;
 
+    /// <summary>
+    /// Fiscal line description must match the EIS site catalog exactly.
+    /// Prefer <c>description</c> over display <c>productName</c> (MRA rejects mismatches).
+    /// </summary>
     public string ResolveName() =>
-        FirstNonEmpty(ProductName, Description, ProductCode, Barcode) ?? string.Empty;
+        NormalizeWhitespace(FirstNonEmpty(Description, ProductName, ProductCode, Barcode)) ?? string.Empty;
+
+    /// <summary>Authoritative EIS description used on sales submit (same as <see cref="ResolveName"/>).</summary>
+    public string ResolveFiscalDescription() => ResolveName();
 
     private static string? FirstNonEmpty(params string?[] values)
     {
@@ -84,6 +91,19 @@ public sealed class TerminalSiteProductDto
         }
 
         return null;
+    }
+
+    /// <summary>Collapse internal whitespace so EIS exact-match checks do not fail on double spaces.</summary>
+    public static string? NormalizeWhitespace(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return string.Join(
+            ' ',
+            value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 }
 

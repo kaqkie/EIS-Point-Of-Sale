@@ -243,7 +243,7 @@ public sealed class GetTerminalSiteProductsTests
 
         var cola = await harness.InventoryRepository.GetByProductCodeAsync("1234567890123");
         Assert.NotNull(cola);
-        Assert.Equal("Coca Cola 500ml", cola!.Name);
+        Assert.Equal("Carbonated soft drink", cola!.Name);
         Assert.Equal(1500m, cola.UnitPrice);
         Assert.Equal(10m, cola.MinReorderQty);
 
