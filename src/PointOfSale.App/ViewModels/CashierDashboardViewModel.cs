@@ -522,16 +522,20 @@ public partial class CashierDashboardViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            StatusMessage = "Syncing MRA APIs and EIS products…";
+            StatusMessage = "Syncing MRA APIs and EIS inventory products…";
             var result = await _connectivityActions.VerifyAndSyncApisAsync().ConfigureAwait(true);
             MraPingStatus = result.Ping.Message;
 
             await Checkout.LoadProductsCommand.ExecuteAsync(null).ConfigureAwait(true);
             var productCount = Checkout.Products.Count;
 
+            var inventoryBit = result.InventorySynced
+                ? $"{result.ProductsSynced} from EIS / {productCount} in Find item"
+                : (result.InventoryRemark ?? "inventory sync incomplete");
+
             StatusMessage = result.Success
-                ? $"Sync OK — {productCount} product(s) loaded. {result.Message}"
-                : $"Sync issues — {productCount} product(s) local. {result.Message}";
+                ? $"Sync OK — {inventoryBit}. {result.Message}"
+                : $"Sync issues — {inventoryBit}. {result.Message}";
         }
         catch (Exception ex)
         {

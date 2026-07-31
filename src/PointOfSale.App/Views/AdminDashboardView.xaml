@@ -29,7 +29,7 @@
                             Style="{StaticResource Art.Button.Ghost}"
                             Command="{Binding VerifyAndSyncApisCommand}"
                             Margin="0,0,8,0"
-                            ToolTip="Ping MRA, refresh connection, sync latest configs, report offline queue" />
+                            ToolTip="Ping MRA, sync configs, pull EIS site products into inventory, report offline queue" />
                     <Button Content="Refresh" Style="{StaticResource Art.Button.Secondary}" Command="{Binding RefreshOverviewCommand}" Margin="0,0,8,0" />
                     <Button Content="Hardware" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenHardwareCommand}" Margin="0,0,8,0" />
                     <Button Content="Compliance audit" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenComplianceAuditCommand}" />
@@ -166,7 +166,8 @@
                                             Margin="0,0,8,0" />
                                     <Button Content="Sync APIs"
                                             Style="{StaticResource Art.Button.Success}"
-                                            Command="{Binding VerifyAndSyncApisCommand}" />
+                                            Command="{Binding VerifyAndSyncApisCommand}"
+                                            ToolTip="Ping MRA, sync configs, and pull EIS site products into inventory" />
                                 </StackPanel>
                                 <Button Content="Snapshot endpoints for audit"
                                         Style="{StaticResource Art.Button.Primary}"

@@ -16,7 +16,7 @@ public interface ITerminalConnectivityActionsService
     Task<TerminalUpdateActionResult> CheckTerminalUpdatesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Ping EIS, refresh connection status, sync latest configs when JWT is available,
+    /// Ping EIS, sync latest configs, pull EIS site products into local inventory,
     /// and report offline-queue backlog.
     /// </summary>
     Task<TerminalApiSyncActionResult> VerifyAndSyncApisAsync(CancellationToken cancellationToken = default);
@@ -200,12 +200,19 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         }
 
         string? productsRemark = null;
+        var productsSynced = 0;
+        var productsOk = true;
         try
         {
-            productsRemark = await SyncTerminalSiteProductsAsync(scope, cancellationToken).ConfigureAwait(false);
+            var productSync = await SyncTerminalSiteProductsDetailedAsync(scope, cancellationToken)
+                .ConfigureAwait(false);
+            productsRemark = productSync.Remark;
+            productsSynced = productSync.ProductCount;
+            productsOk = productSync.Success;
         }
         catch (Exception ex)
         {
+            productsOk = false;
             productsRemark = $"Site products sync error: {ex.Message}";
             _logger.LogWarning(ex, "VerifyAndSyncApis site products sync failed.");
         }
@@ -226,7 +233,7 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
             _logger.LogDebug(ex, "Unable to read offline queue counts during API verify.");
         }
 
-        var overallOk = ping.Success && configOk;
+        var overallOk = ping.Success && configOk && productsOk;
         var message =
             $"{ping.Message} {configRemark} " +
             (string.IsNullOrWhiteSpace(vatEnrollmentRemark) ? string.Empty : $"{vatEnrollmentRemark} ") +
@@ -243,7 +250,10 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
             configRemark,
             pending,
             syncing,
-            quarantined);
+            quarantined,
+            productsOk,
+            productsSynced,
+            productsRemark);
     }
 
     /// <summary>
@@ -253,11 +263,22 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         IServiceScope scope,
         CancellationToken cancellationToken)
     {
+        var detailed = await SyncTerminalSiteProductsDetailedAsync(scope, cancellationToken).ConfigureAwait(false);
+        return detailed.Remark;
+    }
+
+    internal static async Task<TerminalSiteProductsSyncSummary> SyncTerminalSiteProductsDetailedAsync(
+        IServiceScope scope,
+        CancellationToken cancellationToken)
+    {
         var stock = scope.ServiceProvider.GetService<StockManagementService>();
-        var posConfig = scope.ServiceProvider.GetService<PointOfSale.App.Services.IPosConfigurationService>();
+        var posConfig = scope.ServiceProvider.GetService<IPosConfigurationService>();
         if (stock is null || posConfig is null)
         {
-            return "Site products sync unavailable.";
+            return new TerminalSiteProductsSyncSummary(
+                false,
+                0,
+                "Site products sync unavailable (stock/config services missing).");
         }
 
         var context = await posConfig.GetRuntimeContextAsync(cancellationToken).ConfigureAwait(false);
@@ -266,7 +287,10 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         var siteId = context.SiteId?.Trim();
         if (string.IsNullOrWhiteSpace(tin) || string.IsNullOrWhiteSpace(siteId))
         {
-            return "Site products sync skipped — TIN or siteId missing after activation.";
+            return new TerminalSiteProductsSyncSummary(
+                false,
+                0,
+                "Site products sync skipped — TIN or siteId missing after activation.");
         }
 
         var result = await stock
@@ -283,18 +307,26 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
 
         if (!result.Success)
         {
-            return $"Site products sync failed: {result.Remark ?? "rejected by EIS"}.";
+            return new TerminalSiteProductsSyncSummary(
+                false,
+                0,
+                $"Site products sync failed: {result.Remark ?? "rejected by EIS"}.");
         }
 
         var count = result.Data?.Count ?? 0;
-        return count == 0
-            ? "Site products sync OK — EIS returned 0 products for this site (assign products in the portal)."
-            : $"Site products synced ({count} from EIS).";
+        return new TerminalSiteProductsSyncSummary(
+            true,
+            count,
+            count == 0
+                ? "Inventory sync OK — EIS returned 0 products for this site (assign products in the portal)."
+                : $"Inventory synced — {count} EIS product(s) pulled into local catalog.");
     }
 
     private static string Truncate(string value, int max) =>
         value.Length <= max ? value : value[..max] + "…";
 }
+
+public sealed record TerminalSiteProductsSyncSummary(bool Success, int ProductCount, string Remark);
 
 public sealed record TerminalPingActionResult(
     bool Success,
@@ -335,4 +367,7 @@ public sealed record TerminalApiSyncActionResult(
     string? ConfigRemark,
     int PendingQueueCount,
     int SyncingQueueCount,
-    int QuarantinedQueueCount);
+    int QuarantinedQueueCount,
+    bool InventorySynced = false,
+    int ProductsSynced = 0,
+    string? InventoryRemark = null);

@@ -190,13 +190,26 @@ public partial class AdminDashboardViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            StatusMessage = "Verifying MRA APIs and syncing configs…";
+            StatusMessage = "Syncing MRA APIs, configs, and EIS inventory…";
             var result = await _connectivityActions.VerifyAndSyncApisAsync().ConfigureAwait(true);
             ApiSyncStatus = result.Message;
             MraPingStatus = result.Ping.Message;
+
+            // Refresh admin inventory workspace + overview counters after product pull.
+            if (InventoryWorkspace.RefreshCommand.CanExecute(null))
+            {
+                await InventoryWorkspace.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+            }
+
+            await RefreshOverviewAsync().ConfigureAwait(true);
+
+            var inventoryBit = result.InventorySynced
+                ? $"{result.ProductsSynced} product(s) in local inventory"
+                : (result.InventoryRemark ?? "inventory sync incomplete");
+
             StatusMessage = result.Success
-                ? $"API sync OK — {result.Message}"
-                : $"API sync issues — {result.Message}";
+                ? $"API + inventory sync OK — {inventoryBit}. {result.Message}"
+                : $"Sync issues — {inventoryBit}. {result.Message}";
         }
         catch (Exception ex)
         {
