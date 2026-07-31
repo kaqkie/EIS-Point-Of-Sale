@@ -4406,3 +4406,15 @@ PointOfSale.Mra.Http.MraApiException: Invalid MRA EIS response JSON.
 2026-07-31 10:26:38.408 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
 2026-07-31 10:26:38.589 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=188
 2026-07-31 10:26:38.697 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:26:40.473 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 10:26:40.587 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:26:43.683 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3094
+2026-07-31 10:26:43.692 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3104 1: MRA ping ok in 3104 ms.
+2026-07-31 10:26:43.758 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:26:43.777 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 10:26:43.783 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:26:43.783 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.09 GB free).
+2026-07-31 10:26:43.872 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:26:43.889 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 10:26:43.892 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:26:43.944 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
