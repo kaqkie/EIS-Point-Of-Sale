@@ -4368,3 +4368,41 @@ PointOfSale.Mra.Http.MraApiException: Invalid MRA EIS response JSON.
 2026-07-31 10:26:18.607 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=156
 2026-07-31 10:26:18.756 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
 2026-07-31 10:26:23.848 +02:00 [INF] Inventory alert scan complete: 102 products, low=2, stockout=0, overstock=0, fast=0.
+2026-07-31 10:26:33.904 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 10:26:34.371 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=469
+2026-07-31 10:26:34.381 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: Invalid MRA EIS response JSON.
+ ---> System.Text.Json.JsonException: The JSON value could not be converted to System.Decimal. Path: $.data.invoiceSummary.amountTendered | LineNumber: 0 | BytePositionInLine: 1153.
+ ---> System.InvalidOperationException: Cannot get the value of a token type 'Null' as a number.
+   at System.Text.Json.ThrowHelper.ThrowInvalidOperationException_ExpectedNumber(JsonTokenType tokenType)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, JsonSerializerOptions options, ReadStack& state)
+   --- End of inner exception stack trace ---
+   at System.Text.Json.ThrowHelper.ReThrowWithPath(ReadStack& state, Utf8JsonReader& reader, Exception ex)
+   at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, JsonSerializerOptions options, ReadStack& state)
+   at System.Text.Json.JsonSerializer.ReadFromSpan[TValue](ReadOnlySpan`1 json, JsonTypeInfo`1 jsonTypeInfo)
+   at System.Text.Json.JsonSerializer.Deserialize[TValue](String json, JsonSerializerOptions options)
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 309
+   --- End of inner exception stack trace ---
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 323
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 249
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-31 10:26:37.241 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 10:26:37.501 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 42 null: SQL round-trip 42 ms
+2026-07-31 10:26:37.680 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 71 null: Performance profile sample (FPS 0.0)
+2026-07-31 10:26:37.737 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:26:37.771 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 10:26:38.048 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 312 1: MRA ping ok in 312 ms.
+2026-07-31 10:26:38.142 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 42 null: All subsystems healthy (SQL 42 ms, disk 29.09 GB free).
+2026-07-31 10:26:38.408 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:26:38.589 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=188
+2026-07-31 10:26:38.697 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
