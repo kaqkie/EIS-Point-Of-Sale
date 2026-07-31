@@ -376,3 +376,604 @@ System.InvalidOperationException: No activated terminal is registered for Albert
 2026-07-31 06:18:08.004 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
 2026-07-31 06:18:12.558 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
 2026-07-31 06:18:19.338 +02:00 [INF] Hardware fault-tolerance loop stopped.
+2026-07-31 08:39:18.046 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-31 08:39:18.360 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 411
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 411
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 414
+ClientConnectionId:3500cc7a-0528-49e0-8721-04bc0c007ccd
+Error Number:10611,State:1,Class:16
+2026-07-31 08:39:18.517 +02:00 [INF] Offline invoice FIFO sync worker started (interval 15s, requireConnectivity=true).
+2026-07-31 08:39:18.539 +02:00 [INF] Hardware fault-tolerance loop started (probe every 20s).
+2026-07-31 08:39:18.541 +02:00 [INF] ArchivalCompressionBackgroundService is disabled.
+2026-07-31 08:39:18.545 +02:00 [INF] Inventory alert scanner started (interval 60s).
+2026-07-31 08:39:18.556 +02:00 [INF] HealthCheckWorker started (interval 45s).
+2026-07-31 08:39:18.558 +02:00 [INF] System health monitor started (interval 45s).
+2026-07-31 08:39:18.560 +02:00 [INF] PerformanceProfilingBackgroundService started (sample 30s, flush 300s).
+2026-07-31 08:39:18.563 +02:00 [INF] DatabaseMaintenanceBackgroundService started (interval 24h).
+2026-07-31 08:39:18.742 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+System.InvalidOperationException: No activated terminal is registered for Albert Retail Terminal.
+   at PointOfSale.Infrastructure.Services.MraTerminalAuthProvider.GetActiveTerminalIdAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraTerminalAuthProvider.cs:line 35
+   at PointOfSale.Infrastructure.Services.MraTerminalAuthProvider.GetJwtContextAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraTerminalAuthProvider.cs:line 43
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 85
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-31 08:39:18.972 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:39:19.467 +02:00 [ERR] Failed to start offline receipt QR bridge on http://10.10.46.135:18787/ReceiptValidation/Validate/. QR scans may still hit MRA portal ISE.
+System.Net.HttpListenerException (5): Access is denied.
+   at System.Net.HttpListener.AddPrefixCore(String registeredPrefix)
+   at System.Net.HttpListener.AddAllPrefixes()
+   at System.Net.HttpListener.Start()
+   at PointOfSale.App.Services.OfflineReceiptQrBridgeService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\OfflineReceiptQrBridgeService.cs:line 103
+2026-07-31 08:39:19.518 +02:00 [INF] SQL Express schema ready (version 32).
+2026-07-31 08:39:19.523 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 411
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 411
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 414
+ClientConnectionId:c8faf147-ba3b-4daf-94ac-1d691518b155
+Error Number:10611,State:1,Class:16
+2026-07-31 08:39:26.673 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:39:27.164 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 3 null: SQL round-trip 3 ms
+2026-07-31 08:39:27.585 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 195 404: MRA reachable (404) in 195 ms.
+2026-07-31 08:39:27.778 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:39:27.795 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 3 null: All subsystems healthy (SQL 3 ms, disk 29.63 GB free).
+2026-07-31 08:39:30.291 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:39:30.579 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:39:30.747 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 40 404: MRA reachable (404) in 40 ms.
+2026-07-31 08:39:30.786 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 9 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:39:30.855 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:39:30.855 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:39:30.944 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:39:31.043 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:39:50.304 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:40:00.823 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:40:10.286 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:40:12.864 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:40:13.445 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:40:13.583 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 33 404: MRA reachable (404) in 33 ms.
+2026-07-31 08:40:16.061 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:40:16.152 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 34 404: MRA reachable (404) in 34 ms.
+2026-07-31 08:40:16.156 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:40:16.215 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:40:17.179 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:40:17.180 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.63 GB free).
+2026-07-31 08:40:19.018 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:40:30.286 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:40:30.863 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:40:50.314 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:40:50.322 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+System.InvalidOperationException: No activated terminal is registered for Albert Retail Terminal.
+   at PointOfSale.Infrastructure.Services.MraTerminalAuthProvider.GetActiveTerminalIdAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraTerminalAuthProvider.cs:line 35
+   at PointOfSale.Infrastructure.Services.MraTerminalAuthProvider.GetJwtContextAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraTerminalAuthProvider.cs:line 43
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 85
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-31 08:41:00.924 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:41:01.225 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:41:02.209 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:41:02.237 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:41:02.271 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 25 404: MRA reachable (404) in 25 ms.
+2026-07-31 08:41:02.346 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:41:02.346 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:41:04.030 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 2774 404: MRA reachable (404) in 2774 ms.
+2026-07-31 08:41:04.122 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:41:04.123 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:41:04.184 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:41:04.225 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:41:10.302 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:41:19.050 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:41:30.732 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:41:30.981 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:41:47.358 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:41:47.368 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:41:47.449 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 71 404: MRA reachable (404) in 71 ms.
+2026-07-31 08:41:47.557 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:41:47.558 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:41:49.232 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:41:49.325 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 74 404: MRA reachable (404) in 74 ms.
+2026-07-31 08:41:52.498 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:41:52.499 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:41:52.587 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:41:52.627 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:42:01.033 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:42:10.347 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:42:19.064 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:42:25.374 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+System.InvalidOperationException: No activated terminal is registered for Albert Retail Terminal.
+   at PointOfSale.Infrastructure.Services.MraTerminalAuthProvider.GetActiveTerminalIdAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraTerminalAuthProvider.cs:line 35
+   at PointOfSale.Infrastructure.Services.MraTerminalAuthProvider.GetJwtContextAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraTerminalAuthProvider.cs:line 43
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 85
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-31 08:42:30.280 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:42:31.126 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:42:32.578 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:42:32.588 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:42:35.705 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3107 404: MRA reachable (404) in 3107 ms.
+2026-07-31 08:42:35.795 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:42:35.795 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:42:37.637 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:42:37.678 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 31 404: MRA reachable (404) in 31 ms.
+2026-07-31 08:42:37.744 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:42:37.745 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:42:37.811 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:42:37.857 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:42:50.289 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:43:01.148 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:43:10.286 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:43:19.081 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:43:20.802 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:43:20.810 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:43:20.857 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 43 404: MRA reachable (404) in 43 ms.
+2026-07-31 08:43:22.888 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:43:22.928 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 37 404: MRA reachable (404) in 37 ms.
+2026-07-31 08:43:22.931 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:43:22.986 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:43:24.012 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:43:24.012 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.63 GB free).
+2026-07-31 08:43:30.302 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:43:31.244 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:43:44.713 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/onboarding/activate-terminal"
+2026-07-31 08:43:44.714 +02:00 [INF] MRA EIS request payload for "https://dev-eis-api.mra.mw/api/v1/onboarding/activate-terminal": {"terminalActivationCode":"4WGW-Q26L-E8TP-3RAE","environment":{"platform":{"osName":"Windows 10","osVersion":"Windows 10","osBuild":"10.0.19045.0","macAddress":"44-A8-42-F7-4C-BA"},"pos":{"productID":"MRA-desktop/AlbertRetailTerminal","productVersion":"1.0.0"}}}
+2026-07-31 08:43:44.909 +02:00 [INF] MRA POST /api/v1/onboarding/activate-terminal status=200 success=true durationMs=172
+2026-07-31 08:43:45.487 +02:00 [INF] Terminal 95e768d0-2dcf-417a-bf09-4d3c7862ea62 activated pending MRA confirmation (productionAccessKey=false).
+2026-07-31 08:43:45.487 +02:00 [INF] MRA activate-terminal returned terminal 95e768d0-2dcf-417a-bf09-4d3c7862ea62; TerminalCredentials stored encrypted pending confirmation.
+2026-07-31 08:43:45.628 +02:00 [INF] Confirmation headers for "onboarding/terminal-activated-confirmation": Authorization=true, x-signature=true, bearer=true
+2026-07-31 08:43:45.631 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/onboarding/terminal-activated-confirmation"
+2026-07-31 08:43:45.631 +02:00 [INF] MRA EIS request payload for "https://dev-eis-api.mra.mw/api/v1/onboarding/terminal-activated-confirmation": {"terminalId":"95e768d0-2dcf-417a-bf09-4d3c7862ea62"}
+2026-07-31 08:43:45.665 +02:00 [INF] MRA POST /api/v1/onboarding/terminal-activated-confirmation status=200 success=true durationMs=31
+2026-07-31 08:43:45.725 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/configuration/get-latest-configs"
+2026-07-31 08:43:45.725 +02:00 [INF] MRA EIS request payload for "https://dev-eis-api.mra.mw/api/v1/configuration/get-latest-configs": {}
+2026-07-31 08:43:45.776 +02:00 [INF] MRA POST /api/v1/configuration/get-latest-configs status=200 success=true durationMs=47
+2026-07-31 08:43:45.792 +02:00 [INF] Cached get-latest-configs for 95e768d0-2dcf-417a-bf09-4d3c7862ea62. sellerTIN=31018345, siteId=BLc4f27da3-6c8e-4014-84b1-140886944c25, versions g/t/tp=1/1/1
+2026-07-31 08:43:45.792 +02:00 [INF] Terminal 95e768d0-2dcf-417a-bf09-4d3c7862ea62 confirmed with MRA.
+2026-07-31 08:43:46.856 +02:00 [INF] Terminal license activated (4WGW-****-****-3RAE).
+2026-07-31 08:43:50.270 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:43:50.289 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:43:50.355 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:44:01.283 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:44:05.363 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 08:44:05.460 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=94
+2026-07-31 08:44:05.515 +02:00 [WRN] MRA EIS last-submitted-offline-transaction returned success=false. Remark=Invoice details not found. Errors=[]. statusCode=1
+2026-07-31 08:44:08.004 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:44:08.021 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:08.050 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:44:08.057 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 35 1: MRA ping ok in 35 ms.
+2026-07-31 08:44:08.110 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:09.026 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:44:09.036 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:44:09.049 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:09.082 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:44:09.100 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 50 1: MRA ping ok in 50 ms.
+2026-07-31 08:44:09.673 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.63 GB free).
+2026-07-31 08:44:11.180 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3063
+2026-07-31 08:44:11.199 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:44:11.200 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.63 GB free).
+2026-07-31 08:44:11.276 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:11.302 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:44:11.312 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:44:11.369 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:44:19.115 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:44:30.267 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:30.296 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:44:30.352 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:44:31.327 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:44:50.276 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:50.301 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:44:50.357 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:44:54.694 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:44:54.700 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:44:54.704 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:54.766 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=62
+2026-07-31 08:44:54.780 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 75 1: MRA ping ok in 75 ms.
+2026-07-31 08:44:54.872 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:54.901 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:44:55.065 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:44:55.066 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.63 GB free).
+2026-07-31 08:44:56.379 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:44:56.567 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:56.589 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:44:56.592 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 24 1: MRA ping ok in 24 ms.
+2026-07-31 08:44:56.647 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:56.666 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:44:56.671 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:44:56.671 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.62 GB free).
+2026-07-31 08:44:56.749 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:44:56.771 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:44:56.776 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:44:56.831 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:45:01.381 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:45:10.284 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:45:10.304 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:45:10.359 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:45:19.169 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:45:30.266 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:45:30.298 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:45:30.305 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:45:31.412 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:45:40.080 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:45:40.128 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:45:40.145 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:45:40.181 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:45:40.189 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 43 1: MRA ping ok in 43 ms.
+2026-07-31 08:45:40.271 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:45:40.304 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:45:40.323 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:45:40.324 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.63 GB free).
+2026-07-31 08:45:40.381 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 08:45:41.841 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:45:41.877 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:45:42.010 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=125
+2026-07-31 08:45:42.019 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 141 1: MRA ping ok in 141 ms.
+2026-07-31 08:45:42.101 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:45:42.167 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=63
+2026-07-31 08:45:42.184 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:45:42.185 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.63 GB free).
+2026-07-31 08:45:42.254 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:45:42.298 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=47
+2026-07-31 08:45:42.314 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:45:42.385 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:45:43.542 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=3156
+2026-07-31 08:45:43.555 +02:00 [WRN] MRA EIS last-submitted-offline-transaction returned success=false. Remark=Invoice details not found. Errors=[]. statusCode=1
+2026-07-31 08:45:50.279 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:45:50.315 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=47
+2026-07-31 08:45:50.326 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:46:01.535 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:46:10.253 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:46:10.278 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:46:10.284 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:46:19.202 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:46:25.363 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:46:25.376 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 3 null: SQL round-trip 3 ms
+2026-07-31 08:46:25.384 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:46:25.411 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:46:25.418 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 34 1: MRA ping ok in 34 ms.
+2026-07-31 08:46:25.488 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:46:27.405 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:46:27.412 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:46:27.441 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:46:27.446 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 34 1: MRA ping ok in 34 ms.
+2026-07-31 08:46:27.450 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.63 GB free).
+2026-07-31 08:46:27.520 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:46:28.590 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3094
+2026-07-31 08:46:28.596 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:46:28.597 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 3 null: All subsystems healthy (SQL 3 ms, disk 29.63 GB free).
+2026-07-31 08:46:30.266 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:46:30.288 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:46:30.297 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:46:31.571 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:46:50.266 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:46:50.292 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:46:50.322 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:47:02.537 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:47:10.279 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:10.303 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:47:10.306 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:47:12.530 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:47:12.540 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:13.612 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:47:13.622 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:47:13.631 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:13.651 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:47:13.656 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 24 1: MRA ping ok in 24 ms.
+2026-07-31 08:47:13.709 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:13.728 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:47:13.731 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:47:13.732 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:47:13.737 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 08:47:15.628 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3094
+2026-07-31 08:47:15.635 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3095 1: MRA ping ok in 3095 ms.
+2026-07-31 08:47:15.712 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:15.722 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=1984
+2026-07-31 08:47:15.725 +02:00 [WRN] MRA EIS last-submitted-offline-transaction returned success=false. Remark=Invoice details not found. Errors=[]. statusCode=1
+2026-07-31 08:47:15.731 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:47:15.734 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:47:15.735 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:47:15.794 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:15.817 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:47:15.820 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:47:15.864 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:47:19.238 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:47:30.278 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:30.306 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:47:30.420 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:47:32.672 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:47:50.277 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:50.300 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:47:50.328 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:47:58.747 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:47:58.788 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:47:58.794 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:58.848 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=62
+2026-07-31 08:47:58.856 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 62 1: MRA ping ok in 62 ms.
+2026-07-31 08:47:58.912 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:47:58.929 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:47:58.933 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:47:58.933 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.62 GB free).
+2026-07-31 08:48:00.940 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 61 null: SQL round-trip 61 ms
+2026-07-31 08:48:01.126 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:01.185 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=47
+2026-07-31 08:48:01.189 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 62 1: MRA ping ok in 62 ms.
+2026-07-31 08:48:01.301 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:01.321 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:48:01.351 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:48:01.351 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 61 null: All subsystems healthy (SQL 61 ms, disk 29.62 GB free).
+2026-07-31 08:48:01.407 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:01.426 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:48:01.544 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:48:01.597 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:48:02.732 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:48:10.259 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:10.278 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:48:10.285 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:48:19.252 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:48:30.286 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:30.306 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:48:30.368 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:48:32.758 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:48:43.957 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:48:43.972 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:48:43.991 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:44.063 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=78
+2026-07-31 08:48:44.070 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 78 1: MRA ping ok in 78 ms.
+2026-07-31 08:48:44.119 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:44.137 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:48:44.141 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:48:44.141 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:48:46.601 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:48:46.626 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:49.706 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3078
+2026-07-31 08:48:49.716 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3089 1: MRA ping ok in 3089 ms.
+2026-07-31 08:48:49.774 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:49.793 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:48:49.796 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:48:49.797 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.62 GB free).
+2026-07-31 08:48:49.802 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 08:48:49.846 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:49.911 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=109
+2026-07-31 08:48:49.914 +02:00 [WRN] MRA EIS last-submitted-offline-transaction returned success=false. Remark=Invoice details not found. Errors=[]. statusCode=1
+2026-07-31 08:48:49.927 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=79
+2026-07-31 08:48:49.931 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:48:49.996 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:48:50.293 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:48:50.312 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:48:50.315 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:49:02.813 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:49:10.252 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:49:10.283 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:49:10.289 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:49:19.279 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:49:29.160 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:49:29.172 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:49:29.182 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:49:29.208 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:49:29.213 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 31 1: MRA ping ok in 31 ms.
+2026-07-31 08:49:29.262 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:49:32.374 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3109
+2026-07-31 08:49:32.378 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:49:32.379 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:49:32.914 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:49:35.002 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:49:35.006 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:49:35.030 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:49:35.034 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 27 1: MRA ping ok in 27 ms.
+2026-07-31 08:49:35.093 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:49:35.113 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:49:35.116 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:49:35.117 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.62 GB free).
+2026-07-31 08:49:35.178 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:49:35.203 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:49:35.207 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:49:35.261 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:49:50.284 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:49:50.310 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:49:50.321 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:50:02.946 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:50:10.273 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:50:10.305 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:50:10.311 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:50:17.405 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:50:17.423 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:50:17.431 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:50:17.452 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:50:17.457 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 26 1: MRA ping ok in 26 ms.
+2026-07-31 08:50:17.509 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:50:17.528 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:50:17.533 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:50:17.533 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:50:19.295 +02:00 [INF] Inventory alert scan complete: 8 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:50:20.276 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:50:20.383 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:50:20.405 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:50:20.416 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 33 1: MRA ping ok in 33 ms.
+2026-07-31 08:50:20.517 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:50:20.550 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:50:20.598 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:50:20.599 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:50:20.631 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 08:50:20.706 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:50:20.727 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=93
+2026-07-31 08:50:20.740 +02:00 [WRN] MRA EIS last-submitted-offline-transaction returned success=false. Remark=Invoice details not found. Errors=[]. statusCode=1
+2026-07-31 08:50:20.749 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:50:20.761 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:50:20.830 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:50:30.273 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:50:30.303 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:50:30.307 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:50:32.989 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:50:50.271 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:50:50.302 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:50:50.310 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:02.554 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:51:02.575 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:51:02.584 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:02.617 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:51:02.620 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 36 1: MRA ping ok in 36 ms.
+2026-07-31 08:51:02.669 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:03.010 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:51:05.769 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3109
+2026-07-31 08:51:05.848 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:51:05.892 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:05.894 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:51:05.932 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:05.955 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:51:05.958 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 26 1: MRA ping ok in 26 ms.
+2026-07-31 08:51:06.007 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:06.038 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:51:06.042 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:06.042 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:51:06.091 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:06.139 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=47
+2026-07-31 08:51:06.143 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:06.187 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:51:10.276 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:10.328 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=63
+2026-07-31 08:51:10.351 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:19.332 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:51:30.275 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:30.307 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:51:30.316 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:33.039 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:51:50.266 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:50.294 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:51:50.310 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:50.965 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:51:51.015 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:51:51.027 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:51.201 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:51:51.210 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:51.514 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=297
+2026-07-31 08:51:51.558 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 348 1: MRA ping ok in 348 ms.
+2026-07-31 08:51:51.637 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:51.669 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:51:51.697 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:51.698 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:51:51.711 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 08:51:51.792 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:51.822 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=109
+2026-07-31 08:51:51.828 +02:00 [WRN] MRA EIS last-submitted-offline-transaction returned success=false. Remark=Invoice details not found. Errors=[]. statusCode=1
+2026-07-31 08:51:51.844 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=62
+2026-07-31 08:51:51.922 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:51.972 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:51:54.131 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3110
+2026-07-31 08:51:54.444 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3417 1: MRA ping ok in 3417 ms.
+2026-07-31 08:51:54.513 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:51:54.545 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:51:54.561 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:51:54.561 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:52:03.127 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:52:10.283 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:52:10.309 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:52:10.317 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:52:19.350 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:52:30.337 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:52:30.398 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=62
+2026-07-31 08:52:30.414 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:52:33.160 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:52:36.986 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:52:37.026 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:52:37.061 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:52:37.112 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 85 1: MRA ping ok in 85 ms.
+2026-07-31 08:52:37.180 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:52:37.229 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=46
+2026-07-31 08:52:37.233 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:52:37.233 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:52:37.308 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:52:39.584 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:52:39.594 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:52:39.663 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:52:39.734 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=78
+2026-07-31 08:52:39.766 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 102 1: MRA ping ok in 102 ms.
+2026-07-31 08:52:39.778 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.62 GB free).
+2026-07-31 08:52:40.465 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3156
+2026-07-31 08:52:40.472 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:52:40.543 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:52:50.278 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:52:50.307 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:52:50.310 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:53:03.217 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:53:10.273 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:53:10.302 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:53:10.309 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:53:19.368 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:53:24.795 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:53:24.813 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:53:24.820 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:53:25.332 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 08:53:25.423 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=94
+2026-07-31 08:53:25.432 +02:00 [WRN] MRA EIS last-submitted-offline-transaction returned success=false. Remark=Invoice details not found. Errors=[]. statusCode=1
+2026-07-31 08:53:25.559 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:53:25.564 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:53:25.618 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=47
+2026-07-31 08:53:25.621 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 56 1: MRA ping ok in 56 ms.
+2026-07-31 08:53:25.683 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:53:25.700 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 08:53:25.705 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:53:25.706 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:53:25.773 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:53:25.792 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:53:25.795 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:53:25.840 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:53:27.896 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3078
+2026-07-31 08:53:27.906 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3086 1: MRA ping ok in 3086 ms.
+2026-07-31 08:53:27.962 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:53:27.990 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:53:28.062 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:53:28.063 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.62 GB free).
+2026-07-31 08:53:30.266 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:53:30.301 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:53:30.307 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:53:33.287 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:53:50.260 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:53:50.285 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:53:50.292 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:54:03.327 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:54:10.266 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:54:10.299 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:54:10.307 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:54:10.858 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 08:54:10.867 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:54:13.268 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 08:54:13.272 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: SQL round-trip 0 ms
+2026-07-31 08:54:13.276 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:54:13.299 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 08:54:13.302 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 25 1: MRA ping ok in 25 ms.
+2026-07-31 08:54:13.348 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:54:13.370 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 08:54:13.374 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:54:13.374 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 29.62 GB free).
+2026-07-31 08:54:14.010 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3141
+2026-07-31 08:54:14.020 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3153 1: MRA ping ok in 3153 ms.
+2026-07-31 08:54:14.092 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:54:14.125 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=47
+2026-07-31 08:54:14.129 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:54:14.129 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.62 GB free).
+2026-07-31 08:54:14.186 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:54:14.216 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 08:54:14.220 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:54:14.269 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 08:54:19.388 +02:00 [INF] Inventory alert scan complete: 0 products, low=0, stockout=0, overstock=0, fast=0.
+2026-07-31 08:54:30.290 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 08:54:30.350 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=62
+2026-07-31 08:54:30.373 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 08:54:33.544 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 25 null: Performance profile sample (FPS 0.0)
+2026-07-31 08:54:39.318 +02:00 [INF] Hardware fault-tolerance loop stopped.
