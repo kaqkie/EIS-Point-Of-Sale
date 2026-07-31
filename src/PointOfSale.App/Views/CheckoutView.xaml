@@ -177,6 +177,45 @@
                                    Margin="0,0,0,8"
                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="Sale type:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox Width="160"
+                                      MinHeight="40"
+                                      ItemsSource="{Binding SaleTypeOptions}"
+                                      SelectedItem="{Binding SaleType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="B2C = walk-in customer; B2B = business buyer with TIN" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding SaleTypeHint}"
+                                   FontSize="12"
+                                   Foreground="#475569"
+                                   Margin="0,0,0,8"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Margin="0,0,0,8"
+                                    Visibility="{Binding IsBusinessSale, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="Buyer TIN:"
+                                           Width="88"
+                                           VerticalAlignment="Center" />
+                                <TextBox Width="200"
+                                         MinHeight="40"
+                                         FontSize="16"
+                                         Style="{StaticResource Art.TextBox}"
+                                         Text="{Binding BuyerTin, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Required for B2B — buyer's Malawi TIN (digits)" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Buyer name:"
+                                           Width="88"
+                                           VerticalAlignment="Center" />
+                                <TextBox Width="200"
+                                         MinHeight="40"
+                                         FontSize="16"
+                                         Style="{StaticResource Art.TextBox}"
+                                         Text="{Binding BuyerName, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Optional business / buyer display name" />
+                            </StackPanel>
+                        </StackPanel>
+
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <TextBlock Text="Payment:" VerticalAlignment="Center" Margin="0,0,8,0" />
                             <ComboBox Width="160"

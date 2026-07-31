@@ -165,6 +165,16 @@ public partial class CheckoutViewModel : ObservableObject
     [ObservableProperty]
     private decimal _promoDiscountTotal;
 
+    /// <summary>B2C (walk-in) or B2B (buyer TIN required).</summary>
+    [ObservableProperty]
+    private string _saleType = "B2C";
+
+    [ObservableProperty]
+    private string _buyerTin = string.Empty;
+
+    [ObservableProperty]
+    private string _buyerName = string.Empty;
+
     /// <summary>Change owed to the customer: Amount Tendered − Grand Total (never negative).</summary>
     public decimal ChangeDue => Math.Max(0m, AmountTendered - CartGrandTotal);
 
@@ -205,6 +215,28 @@ public partial class CheckoutViewModel : ObservableObject
     public bool CanReprintLastReceipt => _lastPrintableReceipt is not null;
 
     public IReadOnlyList<string> PaymentMethodOptions { get; } = ["Cash", "Card", "MobileMoney"];
+
+    public IReadOnlyList<string> SaleTypeOptions { get; } = ["B2C", "B2B"];
+
+    public bool IsBusinessSale =>
+        string.Equals(SaleType, "B2B", StringComparison.OrdinalIgnoreCase);
+
+    public string SaleTypeHint =>
+        IsBusinessSale
+            ? "B2B — enter the buyer's TIN (name optional)."
+            : "B2C — walk-in customer (no buyer TIN).";
+
+    partial void OnSaleTypeChanged(string value)
+    {
+        if (!IsBusinessSale)
+        {
+            BuyerTin = string.Empty;
+            BuyerName = string.Empty;
+        }
+
+        OnPropertyChanged(nameof(IsBusinessSale));
+        OnPropertyChanged(nameof(SaleTypeHint));
+    }
 
     public IEnumerable<LocalInventoryItem> FilteredProducts =>
         string.IsNullOrWhiteSpace(SearchText)
@@ -958,6 +990,17 @@ public partial class CheckoutViewModel : ObservableObject
             return;
         }
 
+        if (!TryResolveBuyerForSale(out var buyerError))
+        {
+            ShowOperatorDialog(new OperatorMessage(
+                "Buyer details required",
+                buyerError ?? "Enter a valid buyer TIN for B2B sales.",
+                OperatorMessageSeverity.Warning,
+                SuggestOfflineFallback: false));
+            StatusMessage = buyerError ?? "B2B buyer TIN required.";
+            return;
+        }
+
         IsBusy = true;
         CompleteSaleCommand.NotifyCanExecuteChanged();
         ProcessPaymentCommand.NotifyCanExecuteChanged();
@@ -1087,17 +1130,7 @@ public partial class CheckoutViewModel : ObservableObject
                 if (result.QueueId > 0)
                 {
                     // Clear cart the same as a successful take — money was accepted / sale stored.
-                    CartItems.Clear();
-                    ActivePromotions.Clear();
-                    AttachedMember = null;
-                    AvailablePoints = 0;
-                    PointsToRedeem = 0;
-                    LoyaltyDiscountMwk = 0;
-                    PromoDiscountTotal = 0;
-                    RecalculateTotals();
-                    _keypadEditing = false;
-                    AmountTendered = 0;
-                    AmountTenderedText = "0.00";
+                    ResetCheckoutAfterSale();
                 }
 
                 await RefreshQueueBadgeAsync().ConfigureAwait(true);
@@ -1172,17 +1205,7 @@ public partial class CheckoutViewModel : ObservableObject
                     .ConfigureAwait(true);
             }
 
-            CartItems.Clear();
-            ActivePromotions.Clear();
-            AttachedMember = null;
-            AvailablePoints = 0;
-            PointsToRedeem = 0;
-            LoyaltyDiscountMwk = 0;
-            PromoDiscountTotal = 0;
-            RecalculateTotals();
-            _keypadEditing = false;
-            AmountTendered = 0;
-            AmountTenderedText = "0.00";
+            ResetCheckoutAfterSale();
             await RefreshQueueBadgeAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -1244,6 +1267,17 @@ public partial class CheckoutViewModel : ObservableObject
                 return;
             }
 
+            if (!TryResolveBuyerForSale(out var buyerError))
+            {
+                ShowOperatorDialog(new OperatorMessage(
+                    "Buyer details required",
+                    buyerError ?? "Enter a valid buyer TIN for B2B sales.",
+                    OperatorMessageSeverity.Warning,
+                    SuggestOfflineFallback: false));
+                StatusMessage = buyerError ?? "B2B buyer TIN required.";
+                return;
+            }
+
             ApplyFiscalRatesFromContext(context);
             RecalculateTotals();
             var request = BuildSubmitSalesRequest(context, invoiceNumber);
@@ -1262,11 +1296,7 @@ public partial class CheckoutViewModel : ObservableObject
                 await PersistOfflineFiscalQrAsync(result.QueueId, offlineFiscal).ConfigureAwait(true);
             }
             StatusMessage = $"{queued.Body} Receipt sent to printer.";
-            CartItems.Clear();
-            RecalculateTotals();
-            _keypadEditing = false;
-            AmountTendered = 0;
-            AmountTenderedText = "0.00";
+            ResetCheckoutAfterSale();
             await RefreshQueueBadgeAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -1275,6 +1305,56 @@ public partial class CheckoutViewModel : ObservableObject
             ShowOperatorDialog(message);
             StatusMessage = message.Title;
         }
+    }
+
+    private void ResetCheckoutAfterSale()
+    {
+        CartItems.Clear();
+        ActivePromotions.Clear();
+        AttachedMember = null;
+        AvailablePoints = 0;
+        PointsToRedeem = 0;
+        LoyaltyDiscountMwk = 0;
+        PromoDiscountTotal = 0;
+        SaleType = "B2C";
+        BuyerTin = string.Empty;
+        BuyerName = string.Empty;
+        RecalculateTotals();
+        _keypadEditing = false;
+        AmountTendered = 0;
+        AmountTenderedText = "0.00";
+    }
+
+    /// <summary>
+    /// B2C: no buyer identity. B2B: buyer TIN required (digits only, 5–15).
+    /// </summary>
+    internal bool TryResolveBuyerForSale(out string? error)
+    {
+        error = null;
+        if (!IsBusinessSale)
+        {
+            return true;
+        }
+
+        if (NormalizeBuyerTin(BuyerTin) is null)
+        {
+            error = "B2B sales need a valid buyer TIN (5–15 digits).";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>Extracts digit-only Malawi-style TIN; returns null when invalid.</summary>
+    public static string? NormalizeBuyerTin(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        return digits.Length is >= 5 and <= 15 ? digits : null;
     }
 
     private async Task RefreshQueueBadgeAsync()
@@ -1375,6 +1455,14 @@ public partial class CheckoutViewModel : ObservableObject
     private SubmitSalesTransactionRequest BuildSubmitSalesRequest(PosRuntimeContext context, string invoiceNumber)
     {
         var lineItems = CartItems.Select((x, index) => x.ToInvoiceLine(index + 1)).ToList();
+        string? buyerTin = null;
+        string? buyerName = null;
+        if (IsBusinessSale)
+        {
+            buyerTin = NormalizeBuyerTin(BuyerTin);
+            buyerName = string.IsNullOrWhiteSpace(BuyerName) ? null : BuyerName.Trim();
+        }
+
         var request = new SubmitSalesTransactionRequest
         {
             InvoiceHeader = new InvoiceHeaderDto
@@ -1382,6 +1470,8 @@ public partial class CheckoutViewModel : ObservableObject
                 InvoiceNumber = invoiceNumber,
                 InvoiceDateTime = DateTime.UtcNow,
                 SellerTin = context.SellerTin,
+                BuyerTin = buyerTin,
+                BuyerName = buyerName,
                 SiteId = context.FiscalSiteId,
                 GlobalConfigVersion = context.GlobalConfigVersion,
                 TaxpayerConfigVersion = context.TaxpayerConfigVersion,

@@ -145,7 +145,9 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
 
         // ---- 2. Buyer placeholders + MRA fiscal receipt number ----
         var buyerTin = string.IsNullOrWhiteSpace(request.BuyerTin) ? "N/A" : request.BuyerTin.Trim();
-        var buyerName = string.IsNullOrWhiteSpace(request.BuyerName) ? "WALK-IN CUSTOMER" : request.BuyerName.Trim();
+        var buyerName = string.IsNullOrWhiteSpace(request.BuyerName)
+            ? (string.IsNullOrWhiteSpace(request.BuyerTin) ? "WALK-IN CUSTOMER" : "BUSINESS CUSTOMER")
+            : request.BuyerName.Trim();
         var meta = new List<string>
         {
             Truncate($"Buyer's TIN: {buyerTin}", charactersPerLine),
