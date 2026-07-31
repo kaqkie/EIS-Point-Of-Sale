@@ -4418,3 +4418,92 @@ PointOfSale.Mra.Http.MraApiException: Invalid MRA EIS response JSON.
 2026-07-31 10:26:43.889 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
 2026-07-31 10:26:43.892 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
 2026-07-31 10:26:43.944 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 10:26:58.095 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:26:58.125 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 10:26:58.140 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:27:07.797 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 10:27:18.082 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:27:18.102 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 10:27:18.106 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:27:23.463 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 10:27:23.475 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 10:27:23.485 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:27:23.933 +02:00 [INF] Inventory alert scan complete: 102 products, low=2, stockout=0, overstock=0, fast=0.
+2026-07-31 10:27:26.564 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3079
+2026-07-31 10:27:26.609 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3124 1: MRA ping ok in 3124 ms.
+2026-07-31 10:27:26.721 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:27:26.741 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 10:27:26.745 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:27:26.746 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.09 GB free).
+2026-07-31 10:27:28.949 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 10:27:28.962 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:27:28.984 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 10:27:29.098 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 135 1: MRA ping ok in 135 ms.
+2026-07-31 10:27:29.190 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:27:29.208 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=15
+2026-07-31 10:27:29.243 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:27:29.244 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.09 GB free).
+2026-07-31 10:27:29.326 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:27:29.344 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 10:27:29.347 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:27:29.398 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 10:27:37.831 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 0 null: Performance profile sample (FPS 0.0)
+2026-07-31 10:27:38.180 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:27:38.200 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 10:27:38.204 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:27:58.071 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:27:58.093 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 10:27:58.099 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:28:07.878 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: Performance profile sample (FPS 0.0)
+2026-07-31 10:28:11.749 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-07-31 10:28:11.758 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 10:28:11.765 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:28:11.795 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 10:28:11.799 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 34 1: MRA ping ok in 34 ms.
+2026-07-31 10:28:11.860 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:28:11.878 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-07-31 10:28:11.882 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:28:11.882 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.09 GB free).
+2026-07-31 10:28:11.885 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-07-31 10:28:12.319 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=422
+2026-07-31 10:28:12.327 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: Invalid MRA EIS response JSON.
+ ---> System.Text.Json.JsonException: The JSON value could not be converted to System.Decimal. Path: $.data.invoiceSummary.amountTendered | LineNumber: 0 | BytePositionInLine: 1153.
+ ---> System.InvalidOperationException: Cannot get the value of a token type 'Null' as a number.
+   at System.Text.Json.ThrowHelper.ThrowInvalidOperationException_ExpectedNumber(JsonTokenType tokenType)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, JsonSerializerOptions options, ReadStack& state)
+   --- End of inner exception stack trace ---
+   at System.Text.Json.ThrowHelper.ReThrowWithPath(ReadStack& state, Utf8JsonReader& reader, Exception ex)
+   at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, JsonSerializerOptions options, ReadStack& state)
+   at System.Text.Json.JsonSerializer.ReadFromSpan[TValue](ReadOnlySpan`1 json, JsonTypeInfo`1 jsonTypeInfo)
+   at System.Text.Json.JsonSerializer.Deserialize[TValue](String json, JsonSerializerOptions options)
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 309
+   --- End of inner exception stack trace ---
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 323
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 249
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-07-31 10:28:14.417 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 1 null: SQL round-trip 1 ms
+2026-07-31 10:28:14.422 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:28:14.443 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-07-31 10:28:14.448 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 25 1: MRA ping ok in 25 ms.
+2026-07-31 10:28:14.498 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:28:14.516 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 10:28:14.520 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:28:14.520 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 1 null: All subsystems healthy (SQL 1 ms, disk 29.09 GB free).
+2026-07-31 10:28:14.575 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:28:14.592 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 10:28:14.596 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-07-31 10:28:14.646 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-07-31 10:28:18.099 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-07-31 10:28:18.116 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-07-31 10:28:18.120 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
