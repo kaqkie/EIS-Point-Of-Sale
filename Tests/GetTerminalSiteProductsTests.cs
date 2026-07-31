@@ -212,7 +212,8 @@ public sealed class GetTerminalSiteProductsTests
         Assert.Equal("text/plain", Assert.Single(acceptValues));
         Assert.Contains("\"tin\":\"2005000001\"", capturedBody, StringComparison.Ordinal);
         Assert.Contains("\"siteId\":\"SITE-001\"", capturedBody, StringComparison.Ordinal);
-        Assert.True(captured.Headers.Contains(MraEisMessageHash.HeaderName));
+        Assert.False(captured.Headers.Contains(MraEisMessageHash.HeaderName));
+        Assert.False(captured.Headers.Contains(HmacSignatureService.SignatureHeaderName));
 
         var cached = await config.GetJsonAsync(
             StockManagementService.BuildTerminalSiteProductsCacheKey("2005000001", "SITE-001"));

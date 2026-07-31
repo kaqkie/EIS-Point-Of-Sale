@@ -204,16 +204,32 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         var productsOk = true;
         try
         {
+            _logger.LogInformation("VerifyAndSyncApis: pulling EIS site products into local inventory.");
             var productSync = await SyncTerminalSiteProductsDetailedAsync(scope, cancellationToken)
                 .ConfigureAwait(false);
             productsRemark = productSync.Remark;
             productsSynced = productSync.ProductCount;
             productsOk = productSync.Success;
+            if (!productsOk)
+            {
+                _logger.LogWarning(
+                    "VerifyAndSyncApis site products sync returned failure: {Remark}",
+                    productsRemark);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "VerifyAndSyncApis site products sync OK — {Count} product(s).",
+                    productsSynced);
+            }
         }
         catch (Exception ex)
         {
             productsOk = false;
-            productsRemark = $"Site products sync error: {ex.Message}";
+            var detail = ex.InnerException is null
+                ? ex.Message
+                : $"{ex.Message} ({ex.InnerException.Message})";
+            productsRemark = $"Site products sync error: {detail}";
             _logger.LogWarning(ex, "VerifyAndSyncApis site products sync failed.");
         }
 
@@ -271,20 +287,47 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         IServiceScope scope,
         CancellationToken cancellationToken)
     {
-        var stock = scope.ServiceProvider.GetService<StockManagementService>();
-        var posConfig = scope.ServiceProvider.GetService<IPosConfigurationService>();
-        if (stock is null || posConfig is null)
+        StockManagementService stock;
+        IPosConfigurationService posConfig;
+        try
+        {
+            stock = scope.ServiceProvider.GetRequiredService<StockManagementService>();
+            posConfig = scope.ServiceProvider.GetRequiredService<IPosConfigurationService>();
+        }
+        catch (Exception ex)
         {
             return new TerminalSiteProductsSyncSummary(
                 false,
                 0,
-                "Site products sync unavailable (stock/config services missing).");
+                $"Site products sync unavailable (DI): {ex.Message}");
         }
 
         var context = await posConfig.GetRuntimeContextAsync(cancellationToken).ConfigureAwait(false);
         var tin = context.SellerTin?.Trim();
         // Prefer raw portal site GUID over FiscalSiteId slug — EIS rejects mangled SITE-… values here.
         var siteId = context.SiteId?.Trim();
+
+        if (string.IsNullOrWhiteSpace(tin) || string.IsNullOrWhiteSpace(siteId))
+        {
+            // Last-chance fallbacks from deployment / taxpayer caches (same keys Sync APIs already relies on).
+            var configRepo = scope.ServiceProvider.GetService<IConfigurationRepository>();
+            if (configRepo is not null)
+            {
+                tin = FirstNonEmpty(
+                    tin,
+                    await ReadConfiguredStringAsync(configRepo, MraConfigurationKeys.TaxpayerConfiguration, "tin", cancellationToken)
+                        .ConfigureAwait(false),
+                    await ReadConfiguredStringAsync(configRepo, DeploymentConfigurationKeys.TaxpayerTin, "tin", cancellationToken)
+                        .ConfigureAwait(false));
+                siteId = FirstNonEmpty(
+                    siteId,
+                    await ReadConfiguredStringAsync(configRepo, MraConfigurationKeys.TerminalConfiguration, "siteId", cancellationToken)
+                        .ConfigureAwait(false),
+                    await ReadConfiguredStringAsync(configRepo, DeploymentConfigurationKeys.SiteIdOverride, null, cancellationToken)
+                        .ConfigureAwait(false));
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(tin) || string.IsNullOrWhiteSpace(siteId))
         {
             return new TerminalSiteProductsSyncSummary(
@@ -320,6 +363,92 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
             count == 0
                 ? "Inventory sync OK — EIS returned 0 products for this site (assign products in the portal)."
                 : $"Inventory synced — {count} EIS product(s) pulled into local catalog.");
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<string?> ReadConfiguredStringAsync(
+        IConfigurationRepository configRepo,
+        string configKey,
+        string? jsonProperty,
+        CancellationToken cancellationToken)
+    {
+        var raw = await configRepo.GetJsonAsync(configKey, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var trimmed = raw.Trim();
+        if (jsonProperty is null
+            && !trimmed.StartsWith('{')
+            && !trimmed.StartsWith('['))
+        {
+            return trimmed.Trim('"');
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(trimmed);
+            if (jsonProperty is null)
+            {
+                return doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? doc.RootElement.GetString()
+                    : trimmed.Trim('"');
+            }
+
+            if (TryFindStringProperty(doc.RootElement, jsonProperty, out var found))
+            {
+                return found;
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private static bool TryFindStringProperty(
+        System.Text.Json.JsonElement element,
+        string propertyName,
+        out string? value)
+    {
+        value = null;
+        if (element.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        foreach (var property in element.EnumerateObject())
+        {
+            if (property.NameEquals(propertyName)
+                && property.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                value = property.Value.GetString();
+                return !string.IsNullOrWhiteSpace(value);
+            }
+
+            if (property.Value.ValueKind == System.Text.Json.JsonValueKind.Object
+                && TryFindStringProperty(property.Value, propertyName, out value))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string Truncate(string value, int max) =>

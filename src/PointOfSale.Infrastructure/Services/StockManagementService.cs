@@ -149,11 +149,13 @@ public sealed class StockManagementService
             SiteId = request.SiteId.Trim()
         };
 
-        var signed = await _authProvider.GetSignedContextAsync(cancellationToken).ConfigureAwait(false);
+        // EIS get-terminal-site-products accepts Bearer JWT + Accept: text/plain.
+        // Do not attach terminal secret / x-signature — HMAC mismatches cause opaque failures,
+        // and DPAPI secret unprotect is unnecessary for this catalog endpoint.
+        var jwtContext = await _authProvider.GetJwtContextAsync(cancellationToken).ConfigureAwait(false);
         var context = new MraRequestContext
         {
-            JwtToken = signed.JwtToken,
-            SecretKey = signed.SecretKey,
+            JwtToken = jwtContext.JwtToken,
             UseBearerAuthorization = true,
             AcceptHeader = "text/plain"
         };

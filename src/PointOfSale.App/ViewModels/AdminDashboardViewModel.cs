@@ -201,6 +201,11 @@ public partial class AdminDashboardViewModel : ObservableObject
                 await InventoryWorkspace.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
             }
 
+            if (!string.IsNullOrWhiteSpace(result.InventoryRemark))
+            {
+                InventoryWorkspace.StatusMessage = result.InventoryRemark;
+            }
+
             await RefreshOverviewAsync().ConfigureAwait(true);
 
             var inventoryBit = result.InventorySynced
