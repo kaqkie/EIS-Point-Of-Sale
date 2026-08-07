@@ -94,7 +94,7 @@
                     <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" MinWidth="120" IsReadOnly="True" />
                     <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="60" IsReadOnly="True" />
                     <DataGridTextColumn Header="Price (incl.)" Binding="{Binding UnitPrice, StringFormat=N2}" Width="90" IsReadOnly="True" />
-                    <DataGridTemplateColumn Header="Discount" Width="120" MinWidth="110">
+                    <DataGridTemplateColumn Header="Discount" Width="130" MinWidth="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <DockPanel Margin="2,2">
@@ -104,12 +104,17 @@
                                                Margin="4,0,4,0"
                                                Foreground="#64748B"
                                                FontSize="11" />
-                                    <TextBox Text="{Binding ManualDiscountInclusive, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                    <TextBox Tag="LineDiscount"
+                                             Text="{Binding ManualDiscountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              MinHeight="28"
                                              FontSize="13"
                                              Padding="4,2"
                                              VerticalContentAlignment="Center"
-                                             ToolTip="VAT-inclusive discount in MWK (e.g. 1000)" />
+                                             ToolTip="Type discount amount in MWK"
+                                             PreviewMouseLeftButtonDown="DiscountTextBox_PreviewMouseLeftButtonDown"
+                                             GotKeyboardFocus="DiscountTextBox_GotKeyboardFocus"
+                                             LostKeyboardFocus="DiscountTextBox_LostKeyboardFocus"
+                                             KeyDown="DiscountTextBox_KeyDown" />
                                 </DockPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -124,10 +129,32 @@
                               CanContentScroll="False">
                     <StackPanel>
                         <TextBlock Text="{Binding CartSubtotal, StringFormat='Sub total (taxable): {0:N2}'}" FontSize="16" />
-                        <TextBlock Text="{Binding CartDiscountTotal, StringFormat='Discount: MWK {0:N2}'}"
-                                   FontSize="16"
+                        <DockPanel Margin="0,4,0,4">
+                            <TextBlock Text="Discount (MWK)"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="#B91C1C"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0" />
+                            <TextBox Tag="LineDiscount"
+                                     Text="{Binding SelectedLineDiscountText, UpdateSourceTrigger=PropertyChanged}"
+                                     MinHeight="36"
+                                     MinWidth="140"
+                                     FontSize="16"
+                                     Padding="8,4"
+                                     VerticalContentAlignment="Center"
+                                     IsEnabled="{Binding HasSelectedCartLine}"
+                                     ToolTip="Select a cart line, then type the discount amount"
+                                     PreviewMouseLeftButtonDown="DiscountTextBox_PreviewMouseLeftButtonDown"
+                                     GotKeyboardFocus="DiscountTextBox_GotKeyboardFocus"
+                                     LostKeyboardFocus="DiscountTextBox_LostKeyboardFocus"
+                                     KeyDown="DiscountTextBox_KeyDown" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding CartDiscountTotal, StringFormat='Discount applied: MWK {0:N2}'}"
+                                   FontSize="14"
                                    Foreground="#B91C1C"
-                                   FontWeight="SemiBold" />
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,4" />
                         <TextBlock Text="{Binding PromoDiscountTotal, StringFormat='Promo discount (net): {0:N2}'}"
                                    FontSize="13"
                                    Foreground="#047857"

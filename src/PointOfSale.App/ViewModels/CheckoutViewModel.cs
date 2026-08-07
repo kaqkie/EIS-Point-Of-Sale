@@ -119,8 +119,44 @@ public partial class CheckoutViewModel : ObservableObject
     /// <summary>True while the on-screen numeric keypad is editing tender (avoids N2 reformat fighting keystrokes).</summary>
     private bool _keypadEditing;
 
+    /// <summary>When true, on-screen keypad digits update the selected line's discount instead of tender.</summary>
+    [ObservableProperty]
+    private bool _keypadTargetsDiscount;
+
     [ObservableProperty]
     private CartLineViewModel? _selectedCartLine;
+
+    public bool HasSelectedCartLine => SelectedCartLine is not null;
+
+    /// <summary>Editable discount text for the selected cart line (cash-register input).</summary>
+    public string SelectedLineDiscountText
+    {
+        get => SelectedCartLine?.ManualDiscountText ?? string.Empty;
+        set
+        {
+            if (SelectedCartLine is null)
+            {
+                return;
+            }
+
+            if (!string.Equals(SelectedCartLine.ManualDiscountText, value, StringComparison.Ordinal))
+            {
+                SelectedCartLine.ManualDiscountText = value;
+            }
+
+            OnPropertyChanged();
+        }
+    }
+
+    partial void OnSelectedCartLineChanged(CartLineViewModel? value)
+    {
+        OnPropertyChanged(nameof(HasSelectedCartLine));
+        OnPropertyChanged(nameof(SelectedLineDiscountText));
+        if (value is null)
+        {
+            KeypadTargetsDiscount = false;
+        }
+    }
 
     [ObservableProperty]
     private bool _isCashRegisterMode;
@@ -482,10 +518,49 @@ public partial class CheckoutViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void BeginDiscountKeypadEntry()
+    {
+        if (SelectedCartLine is null)
+        {
+            if (CartItems.Count == 1)
+            {
+                SelectedCartLine = CartItems[0];
+            }
+            else
+            {
+                StatusMessage = "Select a cart line, then enter discount on the keypad.";
+                return;
+            }
+        }
+
+        KeypadTargetsDiscount = true;
+        if (string.IsNullOrWhiteSpace(SelectedCartLine.ManualDiscountText)
+            || SelectedCartLine.ManualDiscountText is "0" or "0.00" or "0,00")
+        {
+            SelectedCartLine.ManualDiscountText = string.Empty;
+        }
+
+        StatusMessage = $"Discount keypad — {SelectedCartLine.Description}. Enter MWK amount, then Enter.";
+    }
+
+    [RelayCommand]
+    private void BeginTenderKeypadEntry()
+    {
+        KeypadTargetsDiscount = false;
+        StatusMessage = "Cash tender keypad — enter amount tendered.";
+    }
+
+    [RelayCommand]
     private void KeypadPress(string? key)
     {
         if (string.IsNullOrEmpty(key))
         {
+            return;
+        }
+
+        if (KeypadTargetsDiscount)
+        {
+            ApplyKeypadDigitToDiscount(key);
             return;
         }
 
@@ -526,21 +601,46 @@ public partial class CheckoutViewModel : ObservableObject
     [RelayCommand]
     private void KeypadBackspace()
     {
+        if (KeypadTargetsDiscount)
+        {
+            if (SelectedCartLine is null)
+            {
+                return;
+            }
+
+            var buffer = SelectedCartLine.ManualDiscountText ?? string.Empty;
+            SelectedCartLine.ManualDiscountText = buffer.Length <= 1 ? "0" : buffer[..^1];
+            OnPropertyChanged(nameof(SelectedLineDiscountText));
+            return;
+        }
+
         PaymentMethod = "Cash";
         _keypadEditing = true;
-        var buffer = AmountTenderedText ?? string.Empty;
-        if (buffer.Length <= 1)
+        var tenderBuffer = AmountTenderedText ?? string.Empty;
+        if (tenderBuffer.Length <= 1)
         {
             AmountTenderedText = "0";
             return;
         }
 
-        AmountTenderedText = buffer[..^1];
+        AmountTenderedText = tenderBuffer[..^1];
     }
 
     [RelayCommand]
     private void KeypadClear()
     {
+        if (KeypadTargetsDiscount)
+        {
+            if (SelectedCartLine is not null)
+            {
+                SelectedCartLine.ManualDiscountText = "0";
+                OnPropertyChanged(nameof(SelectedLineDiscountText));
+            }
+
+            StatusMessage = "Line discount cleared.";
+            return;
+        }
+
         PaymentMethod = "Cash";
         _keypadEditing = true;
         AmountTenderedText = "0";
@@ -548,9 +648,64 @@ public partial class CheckoutViewModel : ObservableObject
         StatusMessage = "Cash tender cleared — enter amount on keypad.";
     }
 
+    private void ApplyKeypadDigitToDiscount(string key)
+    {
+        if (SelectedCartLine is null)
+        {
+            StatusMessage = "Select a cart line before entering discount.";
+            KeypadTargetsDiscount = false;
+            return;
+        }
+
+        var buffer = SelectedCartLine.ManualDiscountText?.Trim() ?? string.Empty;
+        if (buffer is "0.00" or "0,00" or "0" or "0.0" or "0,0")
+        {
+            buffer = string.Empty;
+        }
+
+        if (key is "." or ",")
+        {
+            var sep = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+            if (buffer.Contains('.', StringComparison.Ordinal) || buffer.Contains(',', StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            SelectedCartLine.ManualDiscountText = string.IsNullOrEmpty(buffer) ? "0" + sep : buffer + sep;
+            OnPropertyChanged(nameof(SelectedLineDiscountText));
+            return;
+        }
+
+        if (key.Length == 1 && char.IsDigit(key[0]))
+        {
+            var sep = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+            var sepIndex = buffer.IndexOf(sep, StringComparison.Ordinal);
+            if (sepIndex >= 0 && buffer.Length - sepIndex > 2)
+            {
+                return;
+            }
+
+            SelectedCartLine.ManualDiscountText = buffer + key;
+            OnPropertyChanged(nameof(SelectedLineDiscountText));
+        }
+    }
+
     [RelayCommand]
     private void KeypadConfirmTender()
     {
+        if (KeypadTargetsDiscount)
+        {
+            if (SelectedCartLine is not null)
+            {
+                SelectedCartLine.CommitManualDiscountFromText();
+                StatusMessage =
+                    $"Discount MWK {SelectedCartLine.ManualDiscountInclusive:N2} on {SelectedCartLine.Description}.";
+            }
+
+            KeypadTargetsDiscount = false;
+            return;
+        }
+
         PaymentMethod = "Cash";
         _keypadEditing = false;
         AmountTenderedText = AmountTendered.ToString("N2", CultureInfo.CurrentCulture);
@@ -1338,6 +1493,7 @@ public partial class CheckoutViewModel : ObservableObject
         BuyerAuthorizationCode = string.Empty;
         RecalculateTotals();
         _keypadEditing = false;
+        KeypadTargetsDiscount = false;
         AmountTendered = 0;
         AmountTenderedText = "0.00";
     }
@@ -1410,10 +1566,13 @@ public partial class CheckoutViewModel : ObservableObject
         {
             existing.Quantity += quantity;
             existing.RefreshTotals();
+            SelectedCartLine = existing;
         }
         else
         {
-            CartItems.Add(CartLineViewModel.FromProduct(product, quantity));
+            var line = CartLineViewModel.FromProduct(product, quantity);
+            CartItems.Add(line);
+            SelectedCartLine = line;
         }
 
         RecalculateTotals();
@@ -1506,9 +1665,22 @@ public partial class CheckoutViewModel : ObservableObject
 
     private void OnCartLinePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_recalculatingTotals ||
-            e.PropertyName != nameof(CartLineViewModel.ManualDiscountInclusive) ||
-            sender is not CartLineViewModel line)
+        if (_recalculatingTotals || sender is not CartLineViewModel line)
+        {
+            return;
+        }
+
+        if (e.PropertyName == nameof(CartLineViewModel.ManualDiscountText))
+        {
+            if (ReferenceEquals(line, SelectedCartLine))
+            {
+                OnPropertyChanged(nameof(SelectedLineDiscountText));
+            }
+
+            return;
+        }
+
+        if (e.PropertyName != nameof(CartLineViewModel.ManualDiscountInclusive))
         {
             return;
         }
@@ -1522,6 +1694,10 @@ public partial class CheckoutViewModel : ObservableObject
         }
 
         RecalculateTotals();
+        if (ReferenceEquals(line, SelectedCartLine))
+        {
+            OnPropertyChanged(nameof(SelectedLineDiscountText));
+        }
     }
 
     private void ApplyFiscalRatesFromContext(PosRuntimeContext context)
@@ -1751,6 +1927,8 @@ public partial class CheckoutViewModel : ObservableObject
 
 public partial class CartLineViewModel : ObservableObject
 {
+    private bool _syncingDiscountText;
+
     [ObservableProperty]
     private decimal _quantity;
 
@@ -1763,6 +1941,10 @@ public partial class CartLineViewModel : ObservableObject
     /// <summary>VAT-inclusive MWK discount entered on the cash register line (EIS-style).</summary>
     [ObservableProperty]
     private decimal _manualDiscountInclusive;
+
+    /// <summary>Text-box facing discount so cashiers can type freely (same pattern as tender).</summary>
+    [ObservableProperty]
+    private string _manualDiscountText = "0";
 
     [ObservableProperty]
     private string? _appliedPromotion;
@@ -1816,11 +1998,121 @@ public partial class CartLineViewModel : ObservableObject
             Quantity = quantity
         };
 
+    partial void OnManualDiscountInclusiveChanged(decimal value)
+    {
+        if (_syncingDiscountText)
+        {
+            return;
+        }
+
+        var formatted = value.ToString("0.##", CultureInfo.CurrentCulture);
+        if (!string.Equals(ManualDiscountText, formatted, StringComparison.Ordinal))
+        {
+            _syncingDiscountText = true;
+            try
+            {
+                ManualDiscountText = formatted;
+            }
+            finally
+            {
+                _syncingDiscountText = false;
+            }
+        }
+    }
+
+    partial void OnManualDiscountTextChanged(string value)
+    {
+        if (_syncingDiscountText)
+        {
+            return;
+        }
+
+        ApplyParsedDiscountText(value, commitPartial: true);
+    }
+
+    /// <summary>Parse and clamp the typed discount text into <see cref="ManualDiscountInclusive"/>.</summary>
+    public void CommitManualDiscountFromText() => ApplyParsedDiscountText(ManualDiscountText, commitPartial: false);
+
+    private void ApplyParsedDiscountText(string? value, bool commitPartial)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            if (ManualDiscountInclusive != 0m)
+            {
+                _syncingDiscountText = true;
+                try
+                {
+                    ManualDiscountInclusive = 0m;
+                }
+                finally
+                {
+                    _syncingDiscountText = false;
+                }
+            }
+
+            return;
+        }
+
+        var parsed =
+            decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out var amount)
+            || decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
+        if (!parsed)
+        {
+            if (!commitPartial && ManualDiscountInclusive != 0m)
+            {
+                // Invalid final text — keep last good decimal and resync display.
+                OnManualDiscountInclusiveChanged(ManualDiscountInclusive);
+            }
+
+            return;
+        }
+
+        var maxInclusive = InclusiveLineGross;
+        var clamped = PosTaxCalculator.RoundMoney(Math.Clamp(amount, 0m, maxInclusive));
+        if (clamped == ManualDiscountInclusive)
+        {
+            return;
+        }
+
+        _syncingDiscountText = true;
+        try
+        {
+            ManualDiscountInclusive = clamped;
+        }
+        finally
+        {
+            _syncingDiscountText = false;
+        }
+
+        if (!commitPartial || clamped != amount)
+        {
+            var formatted = clamped.ToString("0.##", CultureInfo.CurrentCulture);
+            if (!string.Equals(ManualDiscountText, formatted, StringComparison.Ordinal)
+                && !commitPartial)
+            {
+                _syncingDiscountText = true;
+                try
+                {
+                    ManualDiscountText = formatted;
+                }
+                finally
+                {
+                    _syncingDiscountText = false;
+                }
+            }
+        }
+    }
+
     public void RefreshTotals()
     {
         var grossInclusive = InclusiveLineGross;
         var manualInclusive = PosTaxCalculator.RoundMoney(
             Math.Clamp(ManualDiscountInclusive, 0m, grossInclusive));
+        if (manualInclusive != ManualDiscountInclusive)
+        {
+            ManualDiscountInclusive = manualInclusive;
+        }
+
         var afterManualInclusive = PosTaxCalculator.RoundMoney(grossInclusive - manualInclusive);
 
         var netAfterManual = VatRatePercent <= 0m

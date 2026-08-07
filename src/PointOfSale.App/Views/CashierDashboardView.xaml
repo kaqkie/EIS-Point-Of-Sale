@@ -302,7 +302,7 @@
                                 <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" MinWidth="120" IsReadOnly="True" />
                                 <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=N2}" Width="70" IsReadOnly="True" />
                                 <DataGridTextColumn Header="Price (incl.)" Binding="{Binding UnitPrice, StringFormat=N2}" Width="100" IsReadOnly="True" />
-                                <DataGridTemplateColumn Header="Discount" Width="120" MinWidth="110">
+                                <DataGridTemplateColumn Header="Discount" Width="130" MinWidth="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <DockPanel Margin="2,2">
@@ -312,12 +312,17 @@
                                                            Margin="4,0,4,0"
                                                            Foreground="#64748B"
                                                            FontSize="11" />
-                                                <TextBox Text="{Binding ManualDiscountInclusive, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                <TextBox Tag="LineDiscount"
+                                                         Text="{Binding ManualDiscountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                          MinHeight="32"
                                                          FontSize="14"
                                                          Padding="6,4"
                                                          VerticalContentAlignment="Center"
-                                                         ToolTip="VAT-inclusive discount in MWK (e.g. 1000)" />
+                                                         ToolTip="Type discount amount in MWK"
+                                                         PreviewMouseLeftButtonDown="DiscountTextBox_PreviewMouseLeftButtonDown"
+                                                         GotKeyboardFocus="DiscountTextBox_GotKeyboardFocus"
+                                                         LostKeyboardFocus="DiscountTextBox_LostKeyboardFocus"
+                                                         KeyDown="DiscountTextBox_KeyDown" />
                                             </DockPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -348,14 +353,55 @@
                                            HorizontalAlignment="Right" />
                             </DockPanel>
                             <DockPanel Margin="0,6,0,0">
-                                <TextBlock Text="Discount" Foreground="#FCA5A5" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Checkout.CartDiscountTotal, StringFormat='MWK {0:N2}'}"
+                                <TextBlock Text="Discount"
                                            Foreground="#FCA5A5"
-                                           FontSize="16"
-                                           FontWeight="Bold"
-                                           FontFamily="{StaticResource Art.Font.Mono}"
-                                           HorizontalAlignment="Right" />
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0" />
+                                <Button DockPanel.Dock="Right"
+                                        Content="Keypad"
+                                        MinWidth="64"
+                                        MinHeight="32"
+                                        Margin="8,0,0,0"
+                                        Padding="8,4"
+                                        Command="{Binding Checkout.BeginDiscountKeypadEntryCommand}"
+                                        ToolTip="Use numeric keypad to enter discount on the selected line" />
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Left"
+                                               Text="MWK"
+                                               Foreground="#FCA5A5"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,6,0"
+                                               FontSize="12" />
+                                    <TextBox x:Name="CashRegisterDiscountInput"
+                                             Tag="LineDiscount"
+                                             Text="{Binding Checkout.SelectedLineDiscountText, UpdateSourceTrigger=PropertyChanged}"
+                                             MinHeight="32"
+                                             FontSize="16"
+                                             FontWeight="SemiBold"
+                                             FontFamily="{StaticResource Art.Font.Mono}"
+                                             Padding="8,4"
+                                             VerticalContentAlignment="Center"
+                                             Background="#1E293B"
+                                             Foreground="#FCA5A5"
+                                             BorderBrush="#F87171"
+                                             BorderThickness="1"
+                                             CaretBrush="#FCA5A5"
+                                             IsEnabled="{Binding Checkout.HasSelectedCartLine}"
+                                             ToolTip="Select a cart line, then type or keypad the discount amount"
+                                             PreviewMouseLeftButtonDown="DiscountTextBox_PreviewMouseLeftButtonDown"
+                                             GotKeyboardFocus="DiscountTextBox_GotKeyboardFocus"
+                                             LostKeyboardFocus="DiscountTextBox_LostKeyboardFocus"
+                                             KeyDown="DiscountTextBox_KeyDown" />
+                                </DockPanel>
                             </DockPanel>
+                            <TextBlock Text="{Binding Checkout.CartDiscountTotal, StringFormat='Applied: MWK {0:N2}'}"
+                                       Foreground="#FCA5A5"
+                                       FontSize="12"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,4,0,0"
+                                       Opacity="0.9" />
                             <DockPanel Margin="0,6,0,0">
                                 <TextBlock Text="VAT" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding Checkout.CartTaxTotal, StringFormat=N2}"

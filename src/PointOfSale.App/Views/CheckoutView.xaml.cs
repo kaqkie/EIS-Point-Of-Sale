@@ -95,4 +95,55 @@ public partial class CheckoutView
     {
         ViewModel?.AddSelectedToCartCommand.Execute(null);
     }
+
+    private void DiscountTextBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not TextBox textBox || textBox.IsKeyboardFocusWithin)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        textBox.Focus();
+        Keyboard.Focus(textBox);
+        textBox.SelectAll();
+    }
+
+    private void DiscountTextBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            if (textBox.DataContext is CartLineViewModel line && ViewModel is not null)
+            {
+                ViewModel.SelectedCartLine = line;
+            }
+
+            textBox.SelectAll();
+        }
+    }
+
+    private void DiscountTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox textBox && textBox.DataContext is CartLineViewModel line)
+        {
+            line.CommitManualDiscountFromText();
+        }
+    }
+
+    private void DiscountTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        if (textBox.DataContext is CartLineViewModel line)
+        {
+            line.CommitManualDiscountFromText();
+        }
+
+        TraversalRequest request = new(FocusNavigationDirection.Next);
+        textBox.MoveFocus(request);
+        e.Handled = true;
+    }
 }

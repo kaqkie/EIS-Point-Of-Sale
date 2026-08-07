@@ -99,6 +99,73 @@ public partial class CashierDashboardView
         e.Handled = true;
     }
 
+    private void DiscountTextBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not TextBox textBox || textBox.IsKeyboardFocusWithin)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        textBox.Focus();
+        Keyboard.Focus(textBox);
+        textBox.SelectAll();
+    }
+
+    private void DiscountTextBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            if (textBox.DataContext is CartLineViewModel line && ViewModel is not null)
+            {
+                ViewModel.Checkout.SelectedCartLine = line;
+            }
+
+            textBox.SelectAll();
+        }
+
+        ViewModel?.Checkout.BeginDiscountKeypadEntryCommand.Execute(null);
+    }
+
+    private void DiscountTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox textBox
+            && textBox.DataContext is CartLineViewModel line)
+        {
+            line.CommitManualDiscountFromText();
+        }
+        else
+        {
+            ViewModel?.Checkout.SelectedCartLine?.CommitManualDiscountFromText();
+        }
+
+        ViewModel?.Checkout.BeginTenderKeypadEntryCommand.Execute(null);
+    }
+
+    private void DiscountTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        if (sender is TextBox textBox)
+        {
+            if (textBox.DataContext is CartLineViewModel line)
+            {
+                line.CommitManualDiscountFromText();
+            }
+            else
+            {
+                ViewModel?.Checkout.SelectedCartLine?.CommitManualDiscountFromText();
+            }
+
+            // Move focus so LostFocus commits cleanly and keypad returns to tender.
+            TenderKeypadPanel.Focus();
+            e.Handled = true;
+        }
+    }
+
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         var checkout = ViewModel?.Checkout;
