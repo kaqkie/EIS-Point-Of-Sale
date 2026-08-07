@@ -1,7 +1,9 @@
 using System.Data;
+using System.IO;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
+using PointOfSale.App.Deployment;
 using PointOfSale.Infrastructure.Data;
 
 namespace PointOfSale.App.Services;
@@ -9,7 +11,7 @@ namespace PointOfSale.App.Services;
 public interface ITerminalFactoryResetService
 {
     /// <summary>
-    /// Erases terminal identity, receipts, products, MRA caches, and registry mirrors
+    /// Erases terminal identity, receipts, products, MRA caches, registry mirrors, and local secrets
     /// so the till can run first-run activation again. Keeps operators and schema flags.
     /// </summary>
     Task<TerminalFactoryResetResult> ResetAsync(CancellationToken cancellationToken = default);
@@ -51,11 +53,12 @@ public sealed class TerminalFactoryResetService : ITerminalFactoryResetService
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 
             ClearRegistryMirror();
+            ClearLocalTerminalFiles();
 
             _logger.LogWarning("Admin factory reset completed — terminal identity, receipts, and products cleared.");
             return new TerminalFactoryResetResult(
                 true,
-                "Terminal reset complete. Receipts, products, and MRA/license identity were erased. " +
+                "Terminal erased. Receipts, products, MRA/license identity, registry mirrors, and local secrets were cleared. " +
                 "Sign in again and complete first-run activation with a new TAC.");
         }
         catch (Exception ex)
@@ -78,7 +81,16 @@ public sealed class TerminalFactoryResetService : ITerminalFactoryResetService
             "IF OBJECT_ID(N'dbo.FiscalArchivePackages', N'U') IS NOT NULL DELETE FROM dbo.FiscalArchivePackages;",
             "IF OBJECT_ID(N'dbo.FiscalYearArchives', N'U') IS NOT NULL DELETE FROM dbo.FiscalYearArchives;",
             "IF OBJECT_ID(N'dbo.LoyaltyLedger', N'U') IS NOT NULL DELETE FROM dbo.LoyaltyLedger;",
+            "IF OBJECT_ID(N'dbo.LoyaltyMembers', N'U') IS NOT NULL DELETE FROM dbo.LoyaltyMembers;",
             "IF OBJECT_ID(N'dbo.InventoryStockAlerts', N'U') IS NOT NULL DELETE FROM dbo.InventoryStockAlerts;",
+            "IF OBJECT_ID(N'dbo.SupplierInvoiceReconciliations', N'U') IS NOT NULL DELETE FROM dbo.SupplierInvoiceReconciliations;",
+            "IF OBJECT_ID(N'dbo.GoodsReceiptLines', N'U') IS NOT NULL DELETE FROM dbo.GoodsReceiptLines;",
+            "IF OBJECT_ID(N'dbo.GoodsReceipts', N'U') IS NOT NULL DELETE FROM dbo.GoodsReceipts;",
+            "IF OBJECT_ID(N'dbo.PurchaseOrderLines', N'U') IS NOT NULL DELETE FROM dbo.PurchaseOrderLines;",
+            "IF OBJECT_ID(N'dbo.PurchaseOrders', N'U') IS NOT NULL DELETE FROM dbo.PurchaseOrders;",
+            "IF OBJECT_ID(N'dbo.LabelPrintBatches', N'U') IS NOT NULL DELETE FROM dbo.LabelPrintBatches;",
+            "IF OBJECT_ID(N'dbo.PricingRules', N'U') IS NOT NULL DELETE FROM dbo.PricingRules;",
+            "IF OBJECT_ID(N'dbo.InventorySuppliers', N'U') IS NOT NULL DELETE FROM dbo.InventorySuppliers;",
             "IF OBJECT_ID(N'dbo.LocalInventory', N'U') IS NOT NULL DELETE FROM dbo.LocalInventory;",
             "IF OBJECT_ID(N'dbo.TerminalHeartbeat', N'U') IS NOT NULL DELETE FROM dbo.TerminalHeartbeat;",
             "IF OBJECT_ID(N'dbo.TerminalLicenseActivation', N'U') IS NOT NULL DELETE FROM dbo.TerminalLicenseActivation;",
@@ -199,6 +211,82 @@ public sealed class TerminalFactoryResetService : ITerminalFactoryResetService
         catch
         {
             // Registry mirror is best-effort; SQL wipe is authoritative.
+        }
+    }
+
+    /// <summary>
+    /// Clears local secrets / parked MRA payloads so a prior terminal cannot be restored from disk.
+    /// Leaves SQL backups intact.
+    /// </summary>
+    private static void ClearLocalTerminalFiles()
+    {
+        try
+        {
+            var programDataRoot = InstallerConfiguration.ResolveProgramDataRoot();
+            TryDeleteDirectoryContents(Path.Combine(programDataRoot, "Secrets"));
+
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            foreach (var folder in new[]
+                     {
+                         Path.Combine(localAppData, "AlbertRetail"),
+                         Path.Combine(localAppData, "AlbertRetailTerminal"),
+                         Path.Combine(localAppData, "PointOfSale")
+                     })
+            {
+                TryDeleteDirectory(folder);
+            }
+        }
+        catch
+        {
+            // File cleanup is best-effort.
+        }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch
+        {
+            // Ignore locked files.
+        }
+    }
+
+    private static void TryDeleteDirectoryContents(string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path))
+            {
+                return;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    File.SetAttributes(file, FileAttributes.Normal);
+                    File.Delete(file);
+                }
+                catch
+                {
+                    // Ignore locked files.
+                }
+            }
+
+            foreach (var dir in Directory.EnumerateDirectories(path))
+            {
+                TryDeleteDirectory(dir);
+            }
+        }
+        catch
+        {
+            // Ignore.
         }
     }
 }

@@ -34,7 +34,7 @@ public sealed class BarcodeLabelTests
     }
 
     [Fact]
-    public void BuildLabelContent_Applies17_5VatToGrossPrice()
+    public void BuildLabelContent_TreatsShelfPriceAsVatInclusive()
     {
         var service = CreateBarcodeService();
         var product = new LocalInventoryItem
@@ -48,11 +48,24 @@ public sealed class BarcodeLabelTests
         };
 
         var label = service.BuildLabelContent(product);
-        Assert.Equal(1000m, label.UnitPriceNet);
-        Assert.Equal(175m, label.VatAmount);
-        Assert.Equal(1175m, label.UnitPriceGross);
+        Assert.Equal(851.06m, label.UnitPriceNet);
+        Assert.Equal(148.94m, label.VatAmount);
+        Assert.Equal(1000m, label.UnitPriceGross);
         Assert.Equal(PosTaxCalculator.MalawiStandardVatRatePercent, label.VatRatePercent);
         Assert.Equal(BarcodeSymbologies.Code128, label.Symbology);
+    }
+
+    [Fact]
+    public void MapInclusiveUnitPriceLine_MatchesMraEisReceiptExample()
+    {
+        var (net, vat, gross) = PosTaxCalculator.MapInclusiveUnitPriceLine(
+            inclusiveUnitPrice: 20000m,
+            quantity: 1m,
+            ratePercent: 17.5m);
+
+        Assert.Equal(17021.28m, net);
+        Assert.Equal(2978.72m, vat);
+        Assert.Equal(20000m, gross);
     }
 
     [Fact]

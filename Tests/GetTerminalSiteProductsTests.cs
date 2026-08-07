@@ -71,6 +71,49 @@ public sealed class GetTerminalSiteProductsTests
     }
 
     [Fact]
+    public void Deserialize_TerminalSiteProducts_AllowsNullMinimumStockLevel()
+    {
+        const string json = """
+            {
+              "statusCode": 1,
+              "remark": "Success",
+              "data": [
+                {
+                  "productCode": "NULL-MIN",
+                  "productName": "No reorder level",
+                  "description": "EIS sometimes omits minimumStockLevel",
+                  "quantity": 3,
+                  "unitOfMeasure": "Each",
+                  "price": 2.5,
+                  "siteId": "SITE001",
+                  "productExpiryDate": null,
+                  "minimumStockLevel": null,
+                  "taxRateId": "A",
+                  "isProduct": true
+                }
+              ],
+              "errors": []
+            }
+            """;
+
+        var response = JsonSerializer.Deserialize<GetTerminalSiteProductsResponse>(
+            json,
+            MraJson.SerializerOptions);
+
+        Assert.NotNull(response);
+        Assert.True(response!.IsSuccess);
+        Assert.Single(response.Data!);
+        Assert.Null(response.Data[0].MinimumStockLevel);
+
+        var parser = new PointOfSale.Mra.Services.TerminalSiteProductsResponseService(
+            NullLogger<PointOfSale.Mra.Services.TerminalSiteProductsResponseService>.Instance);
+        var parsed = parser.ParseJson(json);
+
+        Assert.True(parsed.Success);
+        Assert.Equal(0m, parsed.Snapshots[0].MinimumStockLevel);
+    }
+
+    [Fact]
     public void Parser_BuildsSnapshots_AndSyncPersistsLocalInventory()
     {
         const string json = """

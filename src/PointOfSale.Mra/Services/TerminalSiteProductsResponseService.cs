@@ -130,7 +130,7 @@ public sealed class TerminalSiteProductsResponseService : ITerminalSiteProductsR
                 UnitOfMeasure = string.IsNullOrWhiteSpace(product.UnitOfMeasure) ? null : product.UnitOfMeasure.Trim(),
                 SiteId = string.IsNullOrWhiteSpace(product.SiteId) ? null : product.SiteId.Trim(),
                 ProductExpiryDate = product.ProductExpiryDate,
-                MinimumStockLevel = product.MinimumStockLevel,
+                MinimumStockLevel = product.MinimumStockLevel ?? 0m,
                 TaxRateId = string.IsNullOrWhiteSpace(product.TaxRateId) ? null : product.TaxRateId.Trim(),
                 IsProduct = product.IsProduct,
                 HsCode = string.IsNullOrWhiteSpace(product.HsCode) ? null : product.HsCode.Trim()

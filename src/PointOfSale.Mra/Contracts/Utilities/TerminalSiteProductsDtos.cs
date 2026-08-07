@@ -53,7 +53,7 @@ public sealed class TerminalSiteProductDto
     public DateTime? ProductExpiryDate { get; set; }
 
     [JsonPropertyName("minimumStockLevel")]
-    public decimal MinimumStockLevel { get; set; }
+    public decimal? MinimumStockLevel { get; set; }
 
     [JsonPropertyName("taxRateId")]
     public string? TaxRateId { get; set; }

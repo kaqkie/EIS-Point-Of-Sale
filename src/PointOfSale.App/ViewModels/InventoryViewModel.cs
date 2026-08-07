@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using PointOfSale.App.Services;
 using PointOfSale.Core.Entities;
+using PointOfSale.Core.Pricing;
 using PointOfSale.Infrastructure.Repositories;
 using PointOfSale.Infrastructure.Services;
 using PointOfSale.Mra.Contracts.Stock;
@@ -46,6 +47,30 @@ public partial class InventoryViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _showEmptyState = true;
+
+    [ObservableProperty]
+    private string _newProductCode = string.Empty;
+
+    [ObservableProperty]
+    private string _newProductName = string.Empty;
+
+    [ObservableProperty]
+    private string _newProductDescription = string.Empty;
+
+    [ObservableProperty]
+    private string _newHsCode = string.Empty;
+
+    [ObservableProperty]
+    private string _newUnitOfMeasure = "EA";
+
+    [ObservableProperty]
+    private string _newTaxRateId = "A";
+
+    [ObservableProperty]
+    private string _newUnitPriceText = "0.00";
+
+    [ObservableProperty]
+    private string _newOpeningStockText = "0";
 
     [RelayCommand]
     private async Task RefreshAsync()
@@ -205,6 +230,189 @@ public partial class InventoryViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task AddLocalProductAsync()
+    {
+        if (!TryBuildNewProduct(out var item, out var error))
+        {
+            StatusMessage = error;
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var existing = await _inventoryRepository.GetByProductCodeAsync(item.ProductCode).ConfigureAwait(true);
+            if (existing is not null)
+            {
+                StatusMessage = $"Product code '{item.ProductCode}' already exists.";
+                return;
+            }
+
+            await _inventoryRepository.UpsertAsync(item).ConfigureAwait(true);
+            ClearNewProductForm();
+            await RefreshAsync().ConfigureAwait(true);
+            StatusMessage =
+                $"Added '{item.Name}' locally at {item.UnitPrice:N2} (VAT-inclusive shelf price).";
+            _logger.LogInformation("Admin added local product {ProductCode}.", item.ProductCode);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Add product failed: {ex.Message}";
+            _logger.LogError(ex, "Failed to add local inventory product.");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RegisterProductWithMraAsync()
+    {
+        if (!TryBuildAddProductRequest(out var request, out var error))
+        {
+            StatusMessage = error;
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var result = await _stockManagementService.AddProductAsync(request).ConfigureAwait(true);
+            if (!result.Success)
+            {
+                StatusMessage = result.Remark ?? "MRA add-product failed.";
+                return;
+            }
+
+            ClearNewProductForm();
+            await RefreshAsync().ConfigureAwait(true);
+            StatusMessage =
+                $"Registered '{request.Name}' with MRA and cached locally (price {request.UnitPrice:N2} incl. VAT).";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"MRA register failed: {ex.Message}";
+            _logger.LogError(ex, "stock/add-product failed from admin inventory.");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private bool TryBuildNewProduct(out LocalInventoryItem item, out string error)
+    {
+        item = null!;
+        error = string.Empty;
+
+        var code = (NewProductCode ?? string.Empty).Trim();
+        var name = (NewProductName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            error = "Enter a product code / barcode.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            error = "Enter a product name.";
+            return false;
+        }
+
+        if (!decimal.TryParse(NewUnitPriceText, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out var price)
+            && !decimal.TryParse(NewUnitPriceText, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out price))
+        {
+            error = "Enter a valid VAT-inclusive unit price.";
+            return false;
+        }
+
+        if (price < 0m)
+        {
+            error = "Unit price cannot be negative.";
+            return false;
+        }
+
+        if (!decimal.TryParse(NewOpeningStockText, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out var stock)
+            && !decimal.TryParse(NewOpeningStockText, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out stock))
+        {
+            stock = 0m;
+        }
+
+        if (stock < 0m)
+        {
+            error = "Opening stock cannot be negative.";
+            return false;
+        }
+
+        var uom = string.IsNullOrWhiteSpace(NewUnitOfMeasure) ? "EA" : NewUnitOfMeasure.Trim();
+        var tax = string.IsNullOrWhiteSpace(NewTaxRateId) ? "A" : NewTaxRateId.Trim();
+        var hs = string.IsNullOrWhiteSpace(NewHsCode) ? null : NewHsCode.Trim();
+
+        item = new LocalInventoryItem
+        {
+            ProductId = code,
+            ProductCode = code,
+            Name = name,
+            UnitPrice = PosTaxCalculator.RoundMoney(price),
+            StockQuantity = PosTaxCalculator.RoundMoney(stock),
+            HsCode = hs,
+            UnitOfMeasure = uom,
+            TaxRateId = tax,
+            CatalogSource = "Local"
+        };
+        return true;
+    }
+
+    private bool TryBuildAddProductRequest(out AddProductRequest request, out string error)
+    {
+        request = null!;
+        if (!TryBuildNewProduct(out var item, out error))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(item.HsCode))
+        {
+            error = "HS code is required to register the product with MRA.";
+            return false;
+        }
+
+        var description = string.IsNullOrWhiteSpace(NewProductDescription)
+            ? item.Name
+            : NewProductDescription.Trim();
+
+        request = new AddProductRequest
+        {
+            Barcode = item.ProductCode,
+            HsCode = item.HsCode!,
+            Name = item.Name,
+            Description = description,
+            Uom = item.UnitOfMeasure ?? "EA",
+            UnitPrice = item.UnitPrice,
+            OpeningStockQuantity = item.StockQuantity,
+            ExpectedTaxRateId = item.TaxRateId
+        };
+        return true;
+    }
+
+    private void ClearNewProductForm()
+    {
+        NewProductCode = string.Empty;
+        NewProductName = string.Empty;
+        NewProductDescription = string.Empty;
+        NewHsCode = string.Empty;
+        NewUnitOfMeasure = "EA";
+        NewTaxRateId = "A";
+        NewUnitPriceText = "0.00";
+        NewOpeningStockText = "0";
     }
 
     private static IReadOnlyList<LocalInventoryItem> DemoCatalogItems { get; } =

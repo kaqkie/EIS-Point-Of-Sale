@@ -12,7 +12,7 @@ using PointOfSale.Mra.Options;
 namespace PointOfSale.App.ViewModels;
 
 /// <summary>
-/// Admin management console: inventory overview, fiscal VAT/MRA config, users, and analytics hub.
+/// Admin management console: overview, inventory, users, reports, and settings (fiscal/MRA/account/terminal).
 /// </summary>
 public partial class AdminDashboardViewModel : ObservableObject
 {
@@ -288,59 +288,56 @@ public partial class AdminDashboardViewModel : ObservableObject
             return;
         }
 
-        try
+        if (!OperatorWorkspace.IsAdminConsoleRole(_auth.CurrentOperator?.Role))
         {
-            _auth.EnsurePermission(OperatorPermissions.ProvisionTerminal);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
+            StatusMessage = "Erase terminal requires Store Manager or Administrator.";
             return;
         }
 
-        if (!OperatorWorkspace.IsAdminConsoleRole(_auth.CurrentOperator?.Role))
+        if (!_auth.HasPermission(OperatorPermissions.ProvisionTerminal))
         {
-            StatusMessage = "Terminal reset requires Store Manager or Administrator.";
+            StatusMessage = "Erase terminal requires Provision Terminal permission (Administrator / Store Manager).";
             return;
         }
 
         var first = MessageBox.Show(
-            "This will ERASE this terminal's local data:\n\n" +
+            "This will ERASE the previous terminal completely:\n\n" +
             "• All receipts / offline invoice queue\n" +
             "• All local products / inventory\n" +
             "• MRA activation, JWT, site & taxpayer caches\n" +
-            "• License / first-run registry mirrors\n\n" +
-            "Operators are kept so you can sign in again.\n" +
+            "• License / first-run registry mirrors\n" +
+            "• Local secrets / parked terminal files\n\n" +
+            "Operators are kept so an admin can sign in again.\n" +
             "You must complete first-run activation with a new TAC.\n\n" +
             "Continue?",
-            "Terminal reset — confirm",
+            "Erase terminal — confirm",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
             MessageBoxResult.No);
 
         if (first != MessageBoxResult.Yes)
         {
-            StatusMessage = "Terminal reset cancelled.";
+            StatusMessage = "Terminal erase cancelled.";
             return;
         }
 
         var second = MessageBox.Show(
-            "FINAL CONFIRMATION\n\nErase receipts, products, and terminal identity now?\nThis cannot be undone from the POS.",
-            "Terminal reset — final confirm",
+            "FINAL CONFIRMATION\n\nErase this terminal now?\nThis cannot be undone from the POS.",
+            "Erase terminal — final confirm",
             MessageBoxButton.YesNo,
             MessageBoxImage.Stop,
             MessageBoxResult.No);
 
         if (second != MessageBoxResult.Yes)
         {
-            StatusMessage = "Terminal reset cancelled.";
+            StatusMessage = "Terminal erase cancelled.";
             return;
         }
 
         IsBusy = true;
         try
         {
-            StatusMessage = "Resetting terminal — clearing receipts, products, and identity…";
+            StatusMessage = "Erasing terminal — clearing receipts, products, identity, and local secrets…";
             var result = await _factoryReset.ResetAsync().ConfigureAwait(true);
             StatusMessage = result.Message;
 
@@ -353,19 +350,20 @@ public partial class AdminDashboardViewModel : ObservableObject
             LowStockCount = 0;
             LowStockItems.Clear();
 
+            // Force overlays: first-run → license activation → login.
             await _firstRun.RefreshStatusAsync().ConfigureAwait(true);
             await _activation.GetStatusAsync().ConfigureAwait(true);
             await _auth.SignOutAsync().ConfigureAwait(true);
 
             MessageBox.Show(
-                result.Message + "\n\nYou will return to sign-in / first-run setup.",
-                "Terminal reset complete",
+                result.Message + "\n\nYou will return to first-run / activation setup.",
+                "Terminal erased",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Terminal reset error: {ex.Message}";
+            StatusMessage = $"Terminal erase error: {ex.Message}";
         }
         finally
         {
@@ -487,6 +485,15 @@ public partial class AdminDashboardViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenInventory() => _navigation.NavigateTo<InventoryViewModel>();
+
+    [RelayCommand]
+    private void FocusInventoryTab() => SelectedAdminTab = 1;
+
+    [RelayCommand]
+    private void FocusUsersTab() => SelectedAdminTab = 2;
+
+    [RelayCommand]
+    private void OpenSettings() => SelectedAdminTab = 4;
 
     [RelayCommand]
     private void OpenStockAlerts() => _navigation.NavigateTo<InventoryAlertsViewModel>();

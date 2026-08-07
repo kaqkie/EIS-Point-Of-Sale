@@ -194,25 +194,36 @@
                                     Visibility="{Binding IsBusinessSale, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                 <TextBlock Text="Buyer TIN:"
-                                           Width="88"
+                                           Width="120"
                                            VerticalAlignment="Center" />
-                                <TextBox Width="200"
+                                <TextBox Width="220"
                                          MinHeight="40"
                                          FontSize="16"
                                          Style="{StaticResource Art.TextBox}"
                                          Text="{Binding BuyerTin, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Required for B2B — buyer's Malawi TIN (digits)" />
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                 <TextBlock Text="Buyer name:"
-                                           Width="88"
+                                           Width="120"
                                            VerticalAlignment="Center" />
-                                <TextBox Width="200"
+                                <TextBox Width="220"
                                          MinHeight="40"
                                          FontSize="16"
                                          Style="{StaticResource Art.TextBox}"
                                          Text="{Binding BuyerName, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Optional business / buyer display name" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Authorization Code:"
+                                           Width="120"
+                                           VerticalAlignment="Center" />
+                                <TextBox Width="220"
+                                         MinHeight="40"
+                                         FontSize="16"
+                                         Style="{StaticResource Art.TextBox}"
+                                         Text="{Binding BuyerAuthorizationCode, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Purchase Authorization Code — required by MRA for some B2B buyers" />
                             </StackPanel>
                         </StackPanel>
 

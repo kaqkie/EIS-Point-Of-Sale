@@ -204,22 +204,53 @@
                                           ItemsSource="{Binding Checkout.SaleTypeOptions}"
                                           SelectedItem="{Binding Checkout.SaleType, Mode=TwoWay}"
                                           ToolTip="B2C walk-in or B2B with buyer TIN" />
-                                <TextBox Width="140"
-                                         MinHeight="32"
-                                         Margin="8,0,0,0"
-                                         FontSize="13"
-                                         Style="{StaticResource Art.TextBox}"
-                                         Text="{Binding Checkout.BuyerTin, UpdateSourceTrigger=PropertyChanged}"
-                                         Visibility="{Binding Checkout.IsBusinessSale, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                         ToolTip="Buyer TIN (required for B2B)" />
-                                <TextBox Width="160"
-                                         MinHeight="32"
-                                         Margin="8,0,0,0"
-                                         FontSize="13"
-                                         Style="{StaticResource Art.TextBox}"
-                                         Text="{Binding Checkout.BuyerName, UpdateSourceTrigger=PropertyChanged}"
-                                         Visibility="{Binding Checkout.IsBusinessSale, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                         ToolTip="Buyer name (optional)" />
+                            </StackPanel>
+                            <StackPanel Margin="0,8,0,0"
+                                        Visibility="{Binding Checkout.IsBusinessSale, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{Binding Checkout.SaleTypeHint}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Art.Brush.TextSecondary}"
+                                           Margin="0,0,0,6"
+                                           TextWrapping="Wrap" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Buyer TIN"
+                                                   Style="{StaticResource Art.Text.Caption}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox MinHeight="36"
+                                                 FontSize="14"
+                                                 Style="{StaticResource Art.TextBox}"
+                                                 Text="{Binding Checkout.BuyerTin, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Required for B2B — buyer's Malawi TIN (digits)" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Buyer name"
+                                                   Style="{StaticResource Art.Text.Caption}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox MinHeight="36"
+                                                 FontSize="14"
+                                                 Style="{StaticResource Art.TextBox}"
+                                                 Text="{Binding Checkout.BuyerName, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Optional business / buyer display name" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Authorization Code"
+                                                   Style="{StaticResource Art.Text.Caption}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox MinHeight="36"
+                                                 FontSize="14"
+                                                 Style="{StaticResource Art.TextBox}"
+                                                 Text="{Binding Checkout.BuyerAuthorizationCode, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Purchase Authorization Code — required by MRA for some B2B buyers" />
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
                             <TextBlock Text="{Binding Checkout.InventorySearchHint}"
                                        FontSize="11"

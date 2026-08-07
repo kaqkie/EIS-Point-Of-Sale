@@ -96,7 +96,7 @@ public sealed class BarcodeGenerationService : IBarcodeGenerationService
         ArgumentNullException.ThrowIfNull(product);
         var symbology = ResolveSymbology(product.ProductCode);
         var payload = NormalizeBarcodePayload(product.ProductCode, symbology);
-        var (net, vat, gross) = PosTaxCalculator.MapUnitPriceLine(
+        var (net, vat, gross) = PosTaxCalculator.MapInclusiveUnitPriceLine(
             product.UnitPrice,
             quantity: 1m,
             PosTaxCalculator.MalawiStandardVatRatePercent);

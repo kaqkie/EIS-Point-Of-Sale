@@ -382,8 +382,9 @@ public static class SandboxSaleFactory
     public static SubmitSalesTransactionRequest CreateOnlineSale(string invoiceNumber, decimal quantity = 3m, decimal? tenderMwk = null)
     {
         const decimal rate = PosTaxCalculator.MalawiStandardVatRatePercent;
-        var unitPrice = DefaultProduct.UnitPrice;
-        var (net, vat, gross) = PosTaxCalculator.MapUnitPriceLine(unitPrice, quantity, rate);
+        var inclusiveUnit = DefaultProduct.UnitPrice;
+        var (net, vat, gross) = PosTaxCalculator.MapInclusiveUnitPriceLine(inclusiveUnit, quantity, rate);
+        var exclusiveUnit = PosTaxCalculator.ExtractExclusiveUnitFromInclusive(inclusiveUnit, rate);
         var tender = tenderMwk ?? Math.Ceiling(gross / 10m) * 10m;
 
         return new SubmitSalesTransactionRequest
@@ -406,7 +407,7 @@ public static class SandboxSaleFactory
                     Id = 1,
                     ProductCode = DefaultProduct.ProductCode,
                     Description = DefaultProduct.Name,
-                    UnitPrice = unitPrice,
+                    UnitPrice = exclusiveUnit,
                     Quantity = quantity,
                     Total = net,
                     TotalVat = vat,

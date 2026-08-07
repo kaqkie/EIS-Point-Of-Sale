@@ -31,6 +31,7 @@ public sealed class PricingEvaluationResult
 
 /// <summary>
 /// Promotional pricing engine: category %, BOGO, and time-bound promo unit prices.
+/// Cart/inventory unit prices are VAT-inclusive; discounts are computed on exclusive taxable net.
 /// Higher Priority wins; VAT remains PosTaxCalculator-aligned (discount reduces taxable net first).
 /// </summary>
 public sealed class PricingRulesEngine : IPricingRulesEngine
@@ -100,6 +101,12 @@ public sealed class PricingRulesEngine : IPricingRulesEngine
         };
     }
 
+    private static decimal ExclusiveLineNet(decimal inclusiveUnitPrice, decimal quantity) =>
+        PosTaxCalculator.MapInclusiveUnitPriceLine(
+            inclusiveUnitPrice,
+            quantity,
+            PosTaxCalculator.MalawiStandardVatRatePercent).Net;
+
     private static void ApplyPromoPrice(
         PricingRule rule,
         IReadOnlyList<PricingCartLine> cartLines,
@@ -124,8 +131,8 @@ public sealed class PricingRulesEngine : IPricingRulesEngine
                 continue;
             }
 
-            var fullNet = PosTaxCalculator.CalculateNetAmount(line.UnitPrice, line.Quantity);
-            var promoNet = PosTaxCalculator.CalculateNetAmount(rule.PromoUnitPrice.Value, line.Quantity);
+            var fullNet = ExclusiveLineNet(line.UnitPrice, line.Quantity);
+            var promoNet = ExclusiveLineNet(rule.PromoUnitPrice.Value, line.Quantity);
             var discount = PosTaxCalculator.RoundMoney(fullNet - promoNet);
             if (discount <= 0)
             {
@@ -161,7 +168,7 @@ public sealed class PricingRulesEngine : IPricingRulesEngine
                 continue;
             }
 
-            var fullNet = PosTaxCalculator.CalculateNetAmount(line.UnitPrice, line.Quantity);
+            var fullNet = ExclusiveLineNet(line.UnitPrice, line.Quantity);
             var discount = PosTaxCalculator.RoundMoney(fullNet * rule.PercentOff / 100m);
             if (discount <= 0)
             {
@@ -207,7 +214,7 @@ public sealed class PricingRulesEngine : IPricingRulesEngine
                 continue;
             }
 
-            var discount = PosTaxCalculator.CalculateNetAmount(line.UnitPrice, freeUnits);
+            var discount = ExclusiveLineNet(line.UnitPrice, freeUnits);
             discounts[line.ProductCode] = (discount, rule.Name, rule.RuleType);
             appliedNames.Add(rule.Name);
         }

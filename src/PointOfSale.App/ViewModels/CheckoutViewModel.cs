@@ -175,6 +175,10 @@ public partial class CheckoutViewModel : ObservableObject
     [ObservableProperty]
     private string _buyerName = string.Empty;
 
+    /// <summary>MRA purchase authorization code required for some B2B buyer TINs.</summary>
+    [ObservableProperty]
+    private string _buyerAuthorizationCode = string.Empty;
+
     /// <summary>Change owed to the customer: Amount Tendered − Grand Total (never negative).</summary>
     public decimal ChangeDue => Math.Max(0m, AmountTendered - CartGrandTotal);
 
@@ -223,7 +227,7 @@ public partial class CheckoutViewModel : ObservableObject
 
     public string SaleTypeHint =>
         IsBusinessSale
-            ? "B2B — enter the buyer's TIN (name optional)."
+            ? "B2B — enter Buyer TIN (required), Buyer name (optional), and Authorization Code when MRA requires it for that buyer."
             : "B2C — walk-in customer (no buyer TIN).";
 
     partial void OnSaleTypeChanged(string value)
@@ -232,6 +236,7 @@ public partial class CheckoutViewModel : ObservableObject
         {
             BuyerTin = string.Empty;
             BuyerName = string.Empty;
+            BuyerAuthorizationCode = string.Empty;
         }
 
         OnPropertyChanged(nameof(IsBusinessSale));
@@ -1322,6 +1327,7 @@ public partial class CheckoutViewModel : ObservableObject
         SaleType = "B2C";
         BuyerTin = string.Empty;
         BuyerName = string.Empty;
+        BuyerAuthorizationCode = string.Empty;
         RecalculateTotals();
         _keypadEditing = false;
         AmountTendered = 0;
@@ -1330,6 +1336,7 @@ public partial class CheckoutViewModel : ObservableObject
 
     /// <summary>
     /// B2C: no buyer identity. B2B: buyer TIN required (digits only, 5–15).
+    /// Authorization code is optional at entry time; some buyer TINs require it at MRA submit.
     /// </summary>
     internal bool TryResolveBuyerForSale(out string? error)
     {
@@ -1341,11 +1348,23 @@ public partial class CheckoutViewModel : ObservableObject
 
         if (NormalizeBuyerTin(BuyerTin) is null)
         {
-            error = "B2B sales need a valid buyer TIN (5–15 digits).";
+            error = "B2B sales need a valid buyer TIN (5–15 digits). Enter it in Buyer TIN.";
             return false;
         }
 
         return true;
+    }
+
+    /// <summary>Trims purchase authorization code; returns null when blank.</summary>
+    public static string? NormalizeBuyerAuthorizationCode(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length == 0 ? null : trimmed;
     }
 
     /// <summary>Extracts digit-only Malawi-style TIN; returns null when invalid.</summary>
@@ -1460,10 +1479,12 @@ public partial class CheckoutViewModel : ObservableObject
         var lineItems = CartItems.Select((x, index) => x.ToInvoiceLine(index + 1)).ToList();
         string? buyerTin = null;
         string? buyerName = null;
+        string? buyerAuthorizationCode = null;
         if (IsBusinessSale)
         {
             buyerTin = NormalizeBuyerTin(BuyerTin);
             buyerName = string.IsNullOrWhiteSpace(BuyerName) ? null : BuyerName.Trim();
+            buyerAuthorizationCode = NormalizeBuyerAuthorizationCode(BuyerAuthorizationCode);
         }
 
         var request = new SubmitSalesTransactionRequest
@@ -1475,6 +1496,7 @@ public partial class CheckoutViewModel : ObservableObject
                 SellerTin = context.SellerTin,
                 BuyerTin = buyerTin,
                 BuyerName = buyerName,
+                BuyerAuthorizationCode = buyerAuthorizationCode,
                 SiteId = context.FiscalSiteId,
                 GlobalConfigVersion = context.GlobalConfigVersion,
                 TaxpayerConfigVersion = context.TaxpayerConfigVersion,
@@ -1681,10 +1703,22 @@ public partial class CartLineViewModel : ObservableObject
     public required string ProductCode { get; init; }
     public required string Description { get; init; }
     public required string TaxRateId { get; set; }
+
+    /// <summary>VAT-inclusive shelf unit price from local inventory.</summary>
     public decimal UnitPrice { get; init; }
+
     public decimal VatRatePercent { get; set; }
 
-    public decimal GrossNet => PosTaxCalculator.CalculateNetAmount(UnitPrice, Quantity);
+    /// <summary>Exclusive taxable line amount before discounts (extracted from inclusive shelf price).</summary>
+    public decimal GrossNet
+    {
+        get
+        {
+            var (net, _, _) = PosTaxCalculator.MapInclusiveUnitPriceLine(UnitPrice, Quantity, VatRatePercent);
+            return net;
+        }
+    }
+
     public decimal NetBeforeLoyalty => PosTaxCalculator.RoundMoney(Math.Max(0m, GrossNet - PromoDiscountNet));
     public decimal TotalDiscountNet => PosTaxCalculator.RoundMoney(PromoDiscountNet + LoyaltyShareNet);
 
@@ -1705,7 +1739,7 @@ public partial class CartLineViewModel : ObservableObject
 
     public void RefreshTotals()
     {
-        var mapped = PosTaxCalculator.ApplyNetDiscount(UnitPrice, Quantity, VatRatePercent, TotalDiscountNet);
+        var mapped = PosTaxCalculator.ApplyInclusiveDiscount(UnitPrice, Quantity, VatRatePercent, TotalDiscountNet);
         NetTotal = mapped.NetAfterDiscount;
         VatTotal = mapped.Vat;
         OnPropertyChanged(nameof(GrossNet));
@@ -1722,7 +1756,8 @@ public partial class CartLineViewModel : ObservableObject
             Id = id,
             ProductCode = ProductCode,
             Description = Description,
-            UnitPrice = UnitPrice,
+            // Fiscal wire path expects exclusive unit; inventory UnitPrice is inclusive shelf.
+            UnitPrice = PosTaxCalculator.ExtractExclusiveUnitFromInclusive(UnitPrice, VatRatePercent),
             Quantity = Quantity,
             Discount = TotalDiscountNet,
             Total = NetTotal,

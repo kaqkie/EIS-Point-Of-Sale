@@ -15,24 +15,19 @@
                     <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Art.Text.Subtitle}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                    <Button Content="Ping MRA"
-                            Style="{StaticResource Art.Button.Secondary}"
-                            Command="{Binding PingMraCommand}"
-                            Margin="0,0,8,0"
-                            ToolTip="POST utilities/ping — show success or failure with latency" />
-                    <Button Content="Check updates"
-                            Style="{StaticResource Art.Button.Ghost}"
-                            Command="{Binding CheckTerminalUpdatesCommand}"
-                            Margin="0,0,8,0"
-                            ToolTip="Check the terminal update feed and stage packages if available" />
                     <Button Content="Sync APIs"
                             Style="{StaticResource Art.Button.Ghost}"
                             Command="{Binding VerifyAndSyncApisCommand}"
                             Margin="0,0,8,0"
                             ToolTip="Ping MRA, sync configs, pull EIS site products into inventory, report offline queue" />
-                    <Button Content="Refresh" Style="{StaticResource Art.Button.Secondary}" Command="{Binding RefreshOverviewCommand}" Margin="0,0,8,0" />
-                    <Button Content="Hardware" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenHardwareCommand}" Margin="0,0,8,0" />
-                    <Button Content="Compliance audit" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenComplianceAuditCommand}" />
+                    <Button Content="Refresh"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding RefreshOverviewCommand}"
+                            Margin="0,0,8,0" />
+                    <Button Content="Settings"
+                            Style="{StaticResource Art.Button.Primary}"
+                            Command="{Binding OpenSettingsCommand}"
+                            ToolTip="Fiscal VAT, MRA connection, account, and terminal maintenance" />
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -75,15 +70,31 @@
                                     Margin="0,0,8,0"
                                     FocusVisualStyle="{x:Null}"
                                     ToolTip="Open the shared touch POS terminal (cart, keypad, tender)" />
-                            <Button Content="Inventory CRUD" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenInventoryCommand}" Margin="0,0,8,0" />
-                            <Button Content="Stock alerts" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenStockAlertsCommand}" Margin="0,0,8,0" />
-                            <Button Content="Users directory" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenUsersCommand}" />
+                            <Button Content="Inventory"
+                                    Style="{StaticResource Art.Button.Secondary}"
+                                    Command="{Binding FocusInventoryTabCommand}"
+                                    Margin="0,0,8,0" />
+                            <Button Content="Stock alerts"
+                                    Style="{StaticResource Art.Button.Secondary}"
+                                    Command="{Binding OpenStockAlertsCommand}"
+                                    Margin="0,0,8,0" />
+                            <Button Content="Users directory"
+                                    Style="{StaticResource Art.Button.Ghost}"
+                                    Command="{Binding FocusUsersTabCommand}" />
                         </UniformGrid>
 
                         <UniformGrid Columns="3" Margin="0,0,0,12">
-                            <Button Content="Pricing / discounts" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenDiscountsCommand}" Margin="0,0,8,0" />
-                            <Button Content="Analytics hub" Style="{StaticResource Art.Button.Secondary}" Command="{Binding OpenAnalyticsCommand}" Margin="0,0,8,0" />
-                            <Button Content="Hardware" Style="{StaticResource Art.Button.Ghost}" Command="{Binding OpenHardwareCommand}" />
+                            <Button Content="Pricing / discounts"
+                                    Style="{StaticResource Art.Button.Secondary}"
+                                    Command="{Binding OpenDiscountsCommand}"
+                                    Margin="0,0,8,0" />
+                            <Button Content="Analytics hub"
+                                    Style="{StaticResource Art.Button.Secondary}"
+                                    Command="{Binding OpenAnalyticsCommand}"
+                                    Margin="0,0,8,0" />
+                            <Button Content="Settings"
+                                    Style="{StaticResource Art.Button.Ghost}"
+                                    Command="{Binding OpenSettingsCommand}" />
                         </UniformGrid>
 
                         <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12">
@@ -91,32 +102,6 @@
                                 <TextBlock DockPanel.Dock="Top" Text="Stock threshold alerts" Style="{StaticResource Art.Text.Title}" FontSize="16" Margin="0,0,0,8" />
                                 <ListBox ItemsSource="{Binding LowStockItems}" BorderThickness="0" MinHeight="140" />
                             </DockPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Art.Card}"
-                                BorderBrush="{StaticResource Art.Brush.Danger}"
-                                BorderThickness="1"
-                                Padding="16">
-                            <StackPanel>
-                                <TextBlock Text="Danger zone — terminal reset"
-                                           Style="{StaticResource Art.Text.Title}"
-                                           FontSize="16"
-                                           Foreground="{StaticResource Art.Brush.Danger}"
-                                           Margin="0,0,0,6" />
-                                <TextBlock Text="Erase all local receipts, products, MRA activation caches, and license mirrors so this till can be activated as a brand-new terminal. Operators are kept."
-                                           Style="{StaticResource Art.Text.Subtitle}"
-                                           TextWrapping="Wrap"
-                                           Margin="0,0,0,12" />
-                                <Button Content="Reset terminal (erase receipts + products)"
-                                        Style="{StaticResource Art.Button.Danger}"
-                                        Command="{Binding ResetTerminalFactoryCommand}"
-                                        HorizontalAlignment="Left"
-                                        MinHeight="40"
-                                        Padding="16,8"
-                                        FontWeight="SemiBold"
-                                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
-                                        ToolTip="Factory-reset this POS: receipts, inventory, and terminal identity" />
-                            </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
@@ -126,88 +111,8 @@
                 <ContentControl Content="{Binding InventoryWorkspace}" Margin="0,12,0,0" />
             </TabItem>
 
-            <TabItem Header="Tax &amp; MRA">
-                <ScrollViewer Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
-                    <UniformGrid Columns="2">
-                        <Border Style="{StaticResource Art.Card}" Margin="0,0,8,8">
-                            <StackPanel>
-                                <TextBlock Text="Fiscal VAT rule" Style="{StaticResource Art.Text.Title}" FontSize="16" />
-                                <TextBlock Text="All POS modules must use PosTaxCalculator 17.5% Malawi statutory VAT."
-                                           Style="{StaticResource Art.Text.Subtitle}"
-                                           TextWrapping="Wrap"
-                                           Margin="0,6,0,12" />
-                                <TextBlock Text="{Binding ConfiguredVatDisplay, StringFormat='Configured: {0}'}" />
-                                <TextBlock Text="{Binding VatRuleVerified, StringFormat='Verified: {0}'}"
-                                           Foreground="{StaticResource Art.Brush.Success}"
-                                           FontWeight="SemiBold"
-                                           Margin="0,6,0,12" />
-                                <Button Content="Enforce 17.5% VAT rule"
-                                        Style="{StaticResource Art.Button.Success}"
-                                        Command="{Binding EnforceStatutoryVatCommand}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Art.Card}" Margin="8,0,0,8">
-                            <StackPanel>
-                                <TextBlock Text="MRA EIS connection" Style="{StaticResource Art.Text.Title}" FontSize="16" />
-                                <TextBlock Text="{Binding MraEnvironment, StringFormat='Environment: {0}'}" Margin="0,10,0,4" />
-                                <TextBlock Text="{Binding MraEndpoint}" TextWrapping="Wrap" Style="{StaticResource Art.Text.Subtitle}" />
-                                <TextBlock Text="{Binding MraProductId, StringFormat='Product ID: {0}'}" Margin="0,8,0,8" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding MraPingStatus}" TextWrapping="Wrap" Margin="0,0,0,4" Style="{StaticResource Art.Text.Subtitle}" />
-                                <TextBlock Text="{Binding TerminalUpdateStatus}" TextWrapping="Wrap" Margin="0,0,0,4" Style="{StaticResource Art.Text.Subtitle}" />
-                                <TextBlock Text="{Binding ApiSyncStatus}" TextWrapping="Wrap" Margin="0,0,0,12" Style="{StaticResource Art.Text.Subtitle}" />
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <Button Content="Ping MRA"
-                                            Style="{StaticResource Art.Button.Secondary}"
-                                            Command="{Binding PingMraCommand}"
-                                            Margin="0,0,8,0" />
-                                    <Button Content="Check updates"
-                                            Style="{StaticResource Art.Button.Ghost}"
-                                            Command="{Binding CheckTerminalUpdatesCommand}"
-                                            Margin="0,0,8,0" />
-                                    <Button Content="Sync APIs"
-                                            Style="{StaticResource Art.Button.Success}"
-                                            Command="{Binding VerifyAndSyncApisCommand}"
-                                            ToolTip="Ping MRA, sync configs, and pull EIS site products into inventory" />
-                                </StackPanel>
-                                <Button Content="Snapshot endpoints for audit"
-                                        Style="{StaticResource Art.Button.Primary}"
-                                        Command="{Binding PersistMraEndpointNotesCommand}" />
-                            </StackPanel>
-                        </Border>
-                    </UniformGrid>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="Users &amp; credentials">
-                <Grid Margin="0,12,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="340" />
-                    </Grid.ColumnDefinitions>
-                    <ContentControl Grid.Column="0" Content="{Binding UserManagement}" Margin="0,0,12,0" />
-                    <Border Grid.Column="1" Style="{StaticResource Art.Card}">
-                        <StackPanel>
-                            <TextBlock Text="Self-service password" Style="{StaticResource Art.Text.Title}" FontSize="16" />
-                            <TextBlock Text="Change your own operator password securely."
-                                       Style="{StaticResource Art.Text.Subtitle}"
-                                       TextWrapping="Wrap"
-                                       Margin="0,6,0,12" />
-                            <TextBlock Text="Current password" Style="{StaticResource Art.Text.Caption}" />
-                            <controls:PasswordBoxWithEyeToggle Password="{Binding SelfCurrentPassword, Mode=TwoWay}" Margin="0,4,0,10" />
-                            <TextBlock Text="New password" Style="{StaticResource Art.Text.Caption}" />
-                            <controls:PasswordBoxWithEyeToggle Password="{Binding SelfNewPassword, Mode=TwoWay}" Margin="0,4,0,10" />
-                            <TextBlock Text="Confirm new password" Style="{StaticResource Art.Text.Caption}" />
-                            <controls:PasswordBoxWithEyeToggle Password="{Binding SelfConfirmPassword, Mode=TwoWay}" Margin="0,4,0,12" />
-                            <Button Content="Update my password"
-                                    Style="{StaticResource Art.Button.Primary}"
-                                    Command="{Binding ChangeOwnPasswordCommand}" />
-                            <Button Content="Refresh directory"
-                                    Style="{StaticResource Art.Button.Ghost}"
-                                    Command="{Binding RefreshUsersCommand}"
-                                    Margin="0,10,0,0" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
+            <TabItem Header="Users">
+                <ContentControl Content="{Binding UserManagement}" Margin="0,12,0,0" />
             </TabItem>
 
             <TabItem Header="Reports">
@@ -222,6 +127,158 @@
                     </StackPanel>
                     <ContentControl Grid.Row="1" Content="{Binding Analytics}" />
                 </Grid>
+            </TabItem>
+
+            <TabItem Header="Settings">
+                <ScrollViewer Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Settings"
+                                   Style="{StaticResource Art.Text.Title}"
+                                   FontSize="20"
+                                   Margin="0,0,0,4" />
+                        <TextBlock Text="Fiscal rules, MRA connection, account security, and terminal maintenance."
+                                   Style="{StaticResource Art.Text.Subtitle}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,14" />
+
+                        <!-- Fiscal -->
+                        <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Fiscal &amp; VAT"
+                                           Style="{StaticResource Art.Text.Title}"
+                                           FontSize="16"
+                                           Margin="0,0,0,6" />
+                                <TextBlock Text="Inventory shelf prices are VAT-inclusive. Statutory Malawi VAT is 17.5% (net = price ÷ 1.175)."
+                                           Style="{StaticResource Art.Text.Subtitle}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,10" />
+                                <TextBlock Text="{Binding ConfiguredVatDisplay, StringFormat='Configured: {0}'}" Margin="0,0,0,4" />
+                                <TextBlock Text="{Binding VatRuleVerified, StringFormat='Verified: {0}'}"
+                                           Foreground="{StaticResource Art.Brush.Success}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,12" />
+                                <Button Content="Enforce 17.5% VAT rule"
+                                        Style="{StaticResource Art.Button.Success}"
+                                        Command="{Binding EnforceStatutoryVatCommand}"
+                                        HorizontalAlignment="Left" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- MRA -->
+                        <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="MRA EIS connection"
+                                           Style="{StaticResource Art.Text.Title}"
+                                           FontSize="16"
+                                           Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding MraEnvironment, StringFormat='Environment: {0}'}" Margin="0,0,0,4" />
+                                <TextBlock Text="{Binding MraEndpoint}" TextWrapping="Wrap" Style="{StaticResource Art.Text.Subtitle}" />
+                                <TextBlock Text="{Binding MraProductId, StringFormat='Product ID: {0}'}" Margin="0,8,0,8" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding MraPingStatus}" TextWrapping="Wrap" Margin="0,0,0,4" Style="{StaticResource Art.Text.Subtitle}" />
+                                <TextBlock Text="{Binding TerminalUpdateStatus}" TextWrapping="Wrap" Margin="0,0,0,4" Style="{StaticResource Art.Text.Subtitle}" />
+                                <TextBlock Text="{Binding ApiSyncStatus}" TextWrapping="Wrap" Margin="0,0,0,12" Style="{StaticResource Art.Text.Subtitle}" />
+                                <WrapPanel Margin="0,0,0,8">
+                                    <Button Content="Ping MRA"
+                                            Style="{StaticResource Art.Button.Secondary}"
+                                            Command="{Binding PingMraCommand}"
+                                            Margin="0,0,8,8" />
+                                    <Button Content="Check updates"
+                                            Style="{StaticResource Art.Button.Ghost}"
+                                            Command="{Binding CheckTerminalUpdatesCommand}"
+                                            Margin="0,0,8,8" />
+                                    <Button Content="Sync APIs"
+                                            Style="{StaticResource Art.Button.Success}"
+                                            Command="{Binding VerifyAndSyncApisCommand}"
+                                            Margin="0,0,8,8"
+                                            ToolTip="Ping MRA, sync configs, and pull EIS site products into inventory" />
+                                    <Button Content="Snapshot endpoints for audit"
+                                            Style="{StaticResource Art.Button.Primary}"
+                                            Command="{Binding PersistMraEndpointNotesCommand}"
+                                            Margin="0,0,8,8" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Account -->
+                        <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12" Padding="16">
+                            <StackPanel MaxWidth="420" HorizontalAlignment="Left">
+                                <TextBlock Text="Account security"
+                                           Style="{StaticResource Art.Text.Title}"
+                                           FontSize="16"
+                                           Margin="0,0,0,6" />
+                                <TextBlock Text="Change your own operator password."
+                                           Style="{StaticResource Art.Text.Subtitle}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,12" />
+                                <TextBlock Text="Current password" Style="{StaticResource Art.Text.Caption}" />
+                                <controls:PasswordBoxWithEyeToggle Password="{Binding SelfCurrentPassword, Mode=TwoWay}" Margin="0,4,0,10" />
+                                <TextBlock Text="New password" Style="{StaticResource Art.Text.Caption}" />
+                                <controls:PasswordBoxWithEyeToggle Password="{Binding SelfNewPassword, Mode=TwoWay}" Margin="0,4,0,10" />
+                                <TextBlock Text="Confirm new password" Style="{StaticResource Art.Text.Caption}" />
+                                <controls:PasswordBoxWithEyeToggle Password="{Binding SelfConfirmPassword, Mode=TwoWay}" Margin="0,4,0,12" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Update my password"
+                                            Style="{StaticResource Art.Button.Primary}"
+                                            Command="{Binding ChangeOwnPasswordCommand}"
+                                            Margin="0,0,8,0" />
+                                    <Button Content="Refresh user directory"
+                                            Style="{StaticResource Art.Button.Ghost}"
+                                            Command="{Binding RefreshUsersCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Terminal maintenance -->
+                        <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Terminal maintenance"
+                                           Style="{StaticResource Art.Text.Title}"
+                                           FontSize="16"
+                                           Margin="0,0,0,6" />
+                                <TextBlock Text="Hardware devices, compliance audit trail, and factory reset."
+                                           Style="{StaticResource Art.Text.Subtitle}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,12" />
+                                <WrapPanel Margin="0,0,0,16">
+                                    <Button Content="Hardware"
+                                            Style="{StaticResource Art.Button.Secondary}"
+                                            Command="{Binding OpenHardwareCommand}"
+                                            Margin="0,0,8,8" />
+                                    <Button Content="Compliance audit"
+                                            Style="{StaticResource Art.Button.Primary}"
+                                            Command="{Binding OpenComplianceAuditCommand}"
+                                            Margin="0,0,8,8" />
+                                </WrapPanel>
+
+                                <Border BorderBrush="{StaticResource Art.Brush.Danger}"
+                                        BorderThickness="1"
+                                        Background="#14C62828"
+                                        Padding="14"
+                                        CornerRadius="6">
+                                    <StackPanel>
+                                        <TextBlock Text="Erase terminal (factory reset)"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Art.Brush.Danger}"
+                                                   Margin="0,0,0,6" />
+                                        <TextBlock Text="Wipes this till back to brand-new: receipts, products, MRA activation/JWT, site &amp; taxpayer caches, license + first-run registry, and local secrets. Operator logins are kept so an admin can sign in again and activate a new terminal."
+                                                   Style="{StaticResource Art.Text.Subtitle}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,12" />
+                                        <Button Content="Erase terminal completely"
+                                                Style="{StaticResource Art.Button.Danger}"
+                                                Command="{Binding ResetTerminalFactoryCommand}"
+                                                HorizontalAlignment="Left"
+                                                MinHeight="44"
+                                                Padding="20,10"
+                                                FontWeight="SemiBold"
+                                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                                                ToolTip="Factory-reset: erase previous terminal identity so you can activate fresh" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
     </Grid>

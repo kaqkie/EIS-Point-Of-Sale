@@ -67,7 +67,8 @@ public sealed class LoyaltyPricingTests
 
         var result = engine.Evaluate(lines, rules);
         Assert.Single(result.LineAdjustments);
-        Assert.Equal(200m, result.LineAdjustments[0].DiscountNet);
+        // Inclusive 1000 → exclusive 851.06; promo 800 → 680.85; discount = 170.21
+        Assert.Equal(170.21m, result.LineAdjustments[0].DiscountNet);
         Assert.Equal("Promo 800", result.LineAdjustments[0].AppliedRuleName);
     }
 
@@ -105,7 +106,8 @@ public sealed class LoyaltyPricingTests
         };
 
         var result = engine.Evaluate(lines, rules);
-        Assert.Equal(500m, result.TotalDiscountNet);
+        // One free unit at inclusive 500 → exclusive 425.53
+        Assert.Equal(425.53m, result.TotalDiscountNet);
     }
 
     [Fact]

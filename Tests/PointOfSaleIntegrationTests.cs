@@ -22,13 +22,14 @@ public sealed class PointOfSaleIntegrationTests
         sandbox.MockServer.ConfigureSalesSuccessForAll();
 
         const decimal rate = PosTaxCalculator.MalawiStandardVatRatePercent;
-        var (net, vat, gross) = PosTaxCalculator.MapUnitPriceLine(19.99m, 3m, rate);
-        Assert.Equal(10.49m, vat);
-        Assert.Equal(70.46m, gross);
+        var (net, vat, gross) = PosTaxCalculator.MapInclusiveUnitPriceLine(19.99m, 3m, rate);
+        Assert.Equal(51.04m, net);
+        Assert.Equal(8.93m, vat);
+        Assert.Equal(59.97m, gross);
 
         const decimal tender = 100m;
         var change = tender - gross;
-        Assert.Equal(29.54m, change);
+        Assert.Equal(40.03m, change);
 
         var sale = SandboxSaleFactory.CreateOnlineSale("E2E-CASH-001", quantity: 3m, tenderMwk: tender);
         var queueResult = await harness.OfflineQueue.EnqueueAndTrySubmitAsync(sale, forceOffline: false);

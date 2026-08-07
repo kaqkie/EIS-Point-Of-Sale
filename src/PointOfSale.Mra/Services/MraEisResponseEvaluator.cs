@@ -122,7 +122,7 @@ public sealed class MraEisResponseEvaluator : IMraEisResponseEvaluator
                 "This terminal has been de-activated by MRA. Re-activate the terminal with a valid " +
                 "activation code before submitting sales."),
 
-            _ => BuildUnknown(statusCode, remark, errorList, fieldCode)
+            _ => BuildRemarkAwareUnknown(statusCode, remark, errorList, fieldCode)
         };
 
         LogEvaluation(evaluationFromStatus);
@@ -208,6 +208,58 @@ public sealed class MraEisResponseEvaluator : IMraEisResponseEvaluator
             "MRA rejected a field value (length, range, or pattern). " +
             "Correct the highlighted fields in Queue Sync, then resubmit.\n\n" + fieldSummary);
     }
+
+    /// <summary>
+    /// statusCode=-2 (and similar) often carries correctable payload guidance only in <c>remark</c>
+    /// (no field <c>errors[]</c>). Quarantine those instead of endless FIFO retries.
+    /// </summary>
+    private static MraEisResponseEvaluation BuildRemarkAwareUnknown(
+        int statusCode,
+        string? remark,
+        IReadOnlyList<EisApiError> errors,
+        int? fieldCode)
+    {
+        if (LooksLikeMissingPurchaseAuthorization(remark))
+        {
+            return Build(
+                statusCode,
+                remark,
+                errors,
+                MraEisFailureCategory.MissingMandatoryField,
+                MraEisRecommendedAction.QuarantinePayload,
+                fieldCode ?? statusCode,
+                "Purchase Authorization Code required",
+                "MRA rejected this B2B sale because the buyer TIN requires a Purchase Authorization Code. " +
+                "Start a new B2B sale, enter Buyer TIN / Buyer name / Authorization Code, then complete the sale.\n\n" +
+                Truncate(remark ?? string.Empty));
+        }
+
+        if (LooksLikeCorrectableCatalogMismatch(remark))
+        {
+            return Build(
+                statusCode,
+                remark,
+                errors,
+                MraEisFailureCategory.InvalidFieldValue,
+                MraEisRecommendedAction.QuarantinePayload,
+                fieldCode ?? statusCode,
+                "Product catalog mismatch",
+                "MRA rejected a product description or catalog field that does not match the site configuration. " +
+                "Sync site products, then correct or re-ring the sale.\n\n" +
+                Truncate(remark ?? string.Empty));
+        }
+
+        return BuildUnknown(statusCode, remark, errors, fieldCode);
+    }
+
+    private static bool LooksLikeMissingPurchaseAuthorization(string? remark) =>
+        !string.IsNullOrWhiteSpace(remark)
+        && remark.Contains("Purchase Authorization Code", StringComparison.OrdinalIgnoreCase);
+
+    private static bool LooksLikeCorrectableCatalogMismatch(string? remark) =>
+        !string.IsNullOrWhiteSpace(remark)
+        && (remark.Contains("doesn't match the one configured", StringComparison.OrdinalIgnoreCase)
+            || remark.Contains("does not match the one configured", StringComparison.OrdinalIgnoreCase));
 
     private static MraEisResponseEvaluation BuildUnknown(
         int statusCode,

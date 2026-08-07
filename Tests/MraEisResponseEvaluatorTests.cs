@@ -161,4 +161,31 @@ public sealed class MraEisResponseEvaluatorTests
         Assert.Contains("get-latest-configs", message.Body, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(OperatorMessageSeverity.Warning, message.Severity);
     }
+
+    [Fact]
+    public void Evaluate_PurchaseAuthorizationRemark_Quarantines()
+    {
+        var result = _evaluator.Evaluate(
+            statusCode: -2,
+            remark: "B2B transaction for this buyer requires a Purchase Authorization Code.",
+            errors: null);
+
+        Assert.Equal(MraEisFailureCategory.MissingMandatoryField, result.Category);
+        Assert.Equal(MraEisRecommendedAction.QuarantinePayload, result.RecommendedAction);
+        Assert.True(result.ShouldQuarantine);
+        Assert.Contains("Authorization Code", result.OperatorTitle, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Evaluate_CatalogDescriptionMismatchRemark_Quarantines()
+    {
+        var result = _evaluator.Evaluate(
+            statusCode: -2,
+            remark: "The description for product '534197687152' doesn't match the one configured for site 'SITE'. Please use 'Air Cleaner  AB399601AB'.",
+            errors: null);
+
+        Assert.Equal(MraEisFailureCategory.InvalidFieldValue, result.Category);
+        Assert.Equal(MraEisRecommendedAction.QuarantinePayload, result.RecommendedAction);
+        Assert.True(result.ShouldQuarantine);
+    }
 }

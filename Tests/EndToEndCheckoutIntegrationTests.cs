@@ -31,12 +31,12 @@ public sealed class EndToEndCheckoutIntegrationTests
         Assert.NotNull(product);
         Assert.Equal("SKU-SANDBOX", product.ProductCode);
 
-        // 2) Calculate mandatory 17.5% Malawi VAT
+        // 2) Calculate mandatory 17.5% Malawi VAT from VAT-inclusive shelf price
         const decimal qty = 2m;
         const decimal rate = PosTaxCalculator.MalawiStandardVatRatePercent;
         Assert.Equal(17.5m, rate);
-        var (net, vat, gross) = PosTaxCalculator.MapUnitPriceLine(product.UnitPrice, qty, rate);
-        Assert.Equal(PosTaxCalculator.CalculateVatAmount(net, rate), vat);
+        var (net, vat, gross) = PosTaxCalculator.MapInclusiveUnitPriceLine(product.UnitPrice, qty, rate);
+        Assert.Equal(PosTaxCalculator.RoundMoney(gross - net), vat);
         Assert.Equal(net + vat, gross);
 
         // 3) Process payment tendering

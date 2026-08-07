@@ -26,6 +26,21 @@ public class CheckoutBuyerSaleTypeTests
     {
         Assert.Equal(expected, CheckoutViewModel.NormalizeBuyerTin(input));
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void NormalizeBuyerAuthorizationCode_rejects_blank(string? value)
+    {
+        Assert.Null(CheckoutViewModel.NormalizeBuyerAuthorizationCode(value));
+    }
+
+    [Fact]
+    public void NormalizeBuyerAuthorizationCode_trims_value()
+    {
+        Assert.Equal("PAC-12345", CheckoutViewModel.NormalizeBuyerAuthorizationCode("  PAC-12345  "));
+    }
 }
 
 public class EisProductDescriptionMatchTests
