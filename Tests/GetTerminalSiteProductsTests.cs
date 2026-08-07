@@ -193,6 +193,45 @@ public sealed class GetTerminalSiteProductsTests
     }
 
     [Fact]
+    public void Parser_SkipsProductsWithoutPositivePrice()
+    {
+        const string json = """
+            {
+              "statusCode": 1,
+              "remark": "Success",
+              "data": [
+                {
+                  "productCode": "PRICED",
+                  "productName": "Has price",
+                  "quantity": 1,
+                  "price": 100,
+                  "isProduct": true
+                },
+                {
+                  "productCode": "ZERO",
+                  "productName": "Zero price",
+                  "quantity": 5,
+                  "price": 0,
+                  "isProduct": true
+                }
+              ],
+              "errors": []
+            }
+            """;
+
+        var parser = new PointOfSale.Mra.Services.TerminalSiteProductsResponseService(
+            NullLogger<PointOfSale.Mra.Services.TerminalSiteProductsResponseService>.Instance);
+        var parsed = parser.ParseJson(json);
+
+        Assert.True(parsed.Success);
+        Assert.Equal(2, parsed.ProductCount);
+        Assert.Equal(1, parsed.UsableCount);
+        Assert.Equal(1, parsed.SkippedInvalidRows);
+        Assert.Equal("PRICED", parsed.Snapshots[0].ProductCode);
+        Assert.Equal(100m, parsed.Snapshots[0].UnitPrice);
+    }
+
+    [Fact]
     public async Task GetTerminalSiteProducts_PostsTinSiteId_WithBearerAndAcceptTextPlain()
     {
         HttpRequestMessage? captured = null;

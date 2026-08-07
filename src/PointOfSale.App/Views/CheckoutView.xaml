@@ -84,14 +84,18 @@
                       ItemsSource="{Binding CartItems}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
+                      IsReadOnly="False"
                       FontSize="14"
                       Margin="0,0,0,8"
                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" />
-                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="60" />
-                    <DataGridTextColumn Header="Disc" Binding="{Binding TotalDiscountNet, StringFormat=N2}" Width="70" />
-                    <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="90" />
+                    <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="60" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Discount"
+                                        Binding="{Binding ManualDiscountInclusive, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}"
+                                        Width="90"
+                                        IsReadOnly="False" />
+                    <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="90" IsReadOnly="True" />
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -100,17 +104,21 @@
                               HorizontalScrollBarVisibility="Disabled"
                               CanContentScroll="False">
                     <StackPanel>
-                        <TextBlock Text="{Binding CartSubtotal, StringFormat='Subtotal: {0:N2}'}" FontSize="16" />
-                        <TextBlock Text="{Binding PromoDiscountTotal, StringFormat='Promo discount: {0:N2}'}"
-                                   FontSize="14"
+                        <TextBlock Text="{Binding CartSubtotal, StringFormat='Sub total (taxable): {0:N2}'}" FontSize="16" />
+                        <TextBlock Text="{Binding CartDiscountTotal, StringFormat='Discount: {0:N2}'}"
+                                   FontSize="16"
+                                   Foreground="#B91C1C"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding PromoDiscountTotal, StringFormat='Promo discount (net): {0:N2}'}"
+                                   FontSize="13"
                                    Foreground="#047857"
                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <TextBlock Text="{Binding LoyaltyDiscountMwk, StringFormat='Loyalty discount: {0:N2}'}"
-                                   FontSize="14"
+                                   FontSize="13"
                                    Foreground="#1D4ED8"
                                    Visibility="{Binding ShowAdvancedCheckoutTools, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                        <TextBlock Text="{Binding CartTaxTotal, StringFormat='VAT (17.5%): {0:N2}'}" FontSize="16" />
-                        <TextBlock Text="{Binding CartGrandTotal, StringFormat='Total: {0:N2}'}" FontSize="20" FontWeight="Bold" Margin="0,4,0,4" />
+                        <TextBlock Text="{Binding CartTaxTotal, StringFormat='VAT: {0:N2}'}" FontSize="16" />
+                        <TextBlock Text="{Binding CartGrandTotal, StringFormat='Grand total: {0:N2}'}" FontSize="20" FontWeight="Bold" Margin="0,4,0,4" />
                         <TextBlock Text="{Binding TenderStatusMessage}"
                                    FontSize="16"
                                    FontWeight="SemiBold"

@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
@@ -73,6 +75,7 @@ public partial class CheckoutViewModel : ObservableObject
         _offlineReceiptSignatureService = offlineReceiptSignatureService;
         _logger = logger;
         CartItems = new ObservableCollection<CartLineViewModel>();
+        CartItems.CollectionChanged += OnCartItemsCollectionChanged;
         TaxLines = new ObservableCollection<TaxLineViewModel>();
         ActivePromotions = new ObservableCollection<string>();
         _ = LoadProductsAsync();
@@ -98,6 +101,10 @@ public partial class CheckoutViewModel : ObservableObject
 
     [ObservableProperty]
     private decimal _cartGrandTotal;
+
+    /// <summary>VAT-inclusive discount total across cart lines (manual + promo + loyalty), for POS display.</summary>
+    [ObservableProperty]
+    private decimal _cartDiscountTotal;
 
     [ObservableProperty]
     private string _paymentMethod = "Cash";
@@ -366,7 +373,7 @@ public partial class CheckoutViewModel : ObservableObject
     {
         Products.Clear();
         var items = await _inventoryRepository.GetAllAsync().ConfigureAwait(true);
-        foreach (var item in items)
+        foreach (var item in items.Where(i => i.UnitPrice > 0m))
         {
             Products.Add(item);
         }
@@ -375,8 +382,8 @@ public partial class CheckoutViewModel : ObservableObject
         OnPropertyChanged(nameof(FilteredProductCount));
         OnPropertyChanged(nameof(InventorySearchHint));
         StatusMessage = Products.Count == 0
-            ? "No products loaded — Sync APIs to pull EIS catalog."
-            : $"Loaded {Products.Count} product(s).";
+            ? "No priced products loaded — Sync APIs to pull EIS catalog."
+            : $"Loaded {Products.Count} priced product(s).";
     }
 
     [RelayCommand]
@@ -1324,6 +1331,7 @@ public partial class CheckoutViewModel : ObservableObject
         PointsToRedeem = 0;
         LoyaltyDiscountMwk = 0;
         PromoDiscountTotal = 0;
+        CartDiscountTotal = 0;
         SaleType = "B2C";
         BuyerTin = string.Empty;
         BuyerName = string.Empty;
@@ -1445,6 +1453,7 @@ public partial class CheckoutViewModel : ObservableObject
         }
 
         PromoDiscountTotal = CartItems.Sum(x => x.PromoDiscountNet);
+        CartDiscountTotal = CartItems.Sum(x => x.DisplayedDiscountInclusive);
         CartSubtotal = CartItems.Sum(x => x.NetTotal);
         CartTaxTotal = CartItems.Sum(x => x.VatTotal);
         CartGrandTotal = CartSubtotal + CartTaxTotal;
@@ -1459,6 +1468,44 @@ public partial class CheckoutViewModel : ObservableObject
                 TaxAmount = group.Sum(x => x.VatTotal)
             });
         }
+    }
+
+    private void OnCartItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (CartLineViewModel line in e.OldItems)
+            {
+                line.PropertyChanged -= OnCartLinePropertyChanged;
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (CartLineViewModel line in e.NewItems)
+            {
+                line.PropertyChanged += OnCartLinePropertyChanged;
+            }
+        }
+    }
+
+    private void OnCartLinePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(CartLineViewModel.ManualDiscountInclusive) ||
+            sender is not CartLineViewModel line)
+        {
+            return;
+        }
+
+        var maxInclusive = PosTaxCalculator.CalculateNetAmount(line.UnitPrice, line.Quantity);
+        var clamped = PosTaxCalculator.RoundMoney(Math.Clamp(line.ManualDiscountInclusive, 0m, maxInclusive));
+        if (clamped != line.ManualDiscountInclusive)
+        {
+            line.ManualDiscountInclusive = clamped;
+            return;
+        }
+
+        RecalculateTotals();
     }
 
     private void ApplyFiscalRatesFromContext(PosRuntimeContext context)
@@ -1697,6 +1744,10 @@ public partial class CartLineViewModel : ObservableObject
     [ObservableProperty]
     private decimal _loyaltyShareNet;
 
+    /// <summary>VAT-inclusive MWK discount entered on the cash register line (EIS-style).</summary>
+    [ObservableProperty]
+    private decimal _manualDiscountInclusive;
+
     [ObservableProperty]
     private string? _appliedPromotion;
 
@@ -1719,8 +1770,20 @@ public partial class CartLineViewModel : ObservableObject
         }
     }
 
-    public decimal NetBeforeLoyalty => PosTaxCalculator.RoundMoney(Math.Max(0m, GrossNet - PromoDiscountNet));
-    public decimal TotalDiscountNet => PosTaxCalculator.RoundMoney(PromoDiscountNet + LoyaltyShareNet);
+    /// <summary>Manual discount converted to exclusive taxable net for fiscal math.</summary>
+    public decimal ManualDiscountNet =>
+        PosTaxCalculator.ExtractExclusiveFromInclusive(Math.Max(0m, ManualDiscountInclusive), VatRatePercent);
+
+    public decimal NetBeforeLoyalty =>
+        PosTaxCalculator.RoundMoney(Math.Max(0m, GrossNet - PromoDiscountNet - ManualDiscountNet));
+
+    public decimal TotalDiscountNet { get; private set; }
+
+    public decimal InclusiveLineGross => PosTaxCalculator.CalculateNetAmount(UnitPrice, Quantity);
+
+    /// <summary>Inclusive MWK reduction shown on POS (shelf gross − payable line total).</summary>
+    public decimal DisplayedDiscountInclusive =>
+        PosTaxCalculator.RoundMoney(Math.Max(0m, InclusiveLineGross - LineTotal));
 
     public decimal NetTotal { get; private set; }
     public decimal VatTotal { get; private set; }
@@ -1739,15 +1802,45 @@ public partial class CartLineViewModel : ObservableObject
 
     public void RefreshTotals()
     {
-        var mapped = PosTaxCalculator.ApplyInclusiveDiscount(UnitPrice, Quantity, VatRatePercent, TotalDiscountNet);
-        NetTotal = mapped.NetAfterDiscount;
-        VatTotal = mapped.Vat;
+        var grossInclusive = InclusiveLineGross;
+        var manualInclusive = PosTaxCalculator.RoundMoney(
+            Math.Clamp(ManualDiscountInclusive, 0m, grossInclusive));
+        var afterManualInclusive = PosTaxCalculator.RoundMoney(grossInclusive - manualInclusive);
+
+        var netAfterManual = VatRatePercent <= 0m
+            ? afterManualInclusive
+            : PosTaxCalculator.ExtractExclusiveFromInclusive(afterManualInclusive, VatRatePercent);
+
+        var exclusiveDiscount = PosTaxCalculator.RoundMoney(
+            Math.Max(0m, PromoDiscountNet) + Math.Max(0m, LoyaltyShareNet));
+        exclusiveDiscount = Math.Min(exclusiveDiscount, netAfterManual);
+        NetTotal = PosTaxCalculator.RoundMoney(netAfterManual - exclusiveDiscount);
+
+        if (VatRatePercent <= 0m)
+        {
+            VatTotal = 0m;
+        }
+        else if (exclusiveDiscount <= 0m)
+        {
+            // Pure inclusive discount — VAT = payable inclusive − net (EIS receipt style).
+            VatTotal = PosTaxCalculator.RoundMoney(afterManualInclusive - NetTotal);
+        }
+        else
+        {
+            VatTotal = PosTaxCalculator.CalculateVatAmount(NetTotal, VatRatePercent);
+        }
+
+        TotalDiscountNet = PosTaxCalculator.RoundMoney(Math.Max(0m, GrossNet - NetTotal));
+
         OnPropertyChanged(nameof(GrossNet));
+        OnPropertyChanged(nameof(ManualDiscountNet));
         OnPropertyChanged(nameof(NetBeforeLoyalty));
         OnPropertyChanged(nameof(TotalDiscountNet));
+        OnPropertyChanged(nameof(InclusiveLineGross));
         OnPropertyChanged(nameof(NetTotal));
         OnPropertyChanged(nameof(VatTotal));
         OnPropertyChanged(nameof(LineTotal));
+        OnPropertyChanged(nameof(DisplayedDiscountInclusive));
     }
 
     public InvoiceLineItemDto ToInvoiceLine(int id) =>

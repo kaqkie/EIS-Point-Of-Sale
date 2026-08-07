@@ -234,10 +234,14 @@ public partial class InventoryViewModel : ObservableObject
                         continue;
                     }
 
+                    // POS needs a sellable shelf price — skip MRA rows with null/zero price.
+                    if (!item.HasUnitPrice)
+                    {
+                        continue;
+                    }
+
                     var existing = await _inventoryRepository.GetByProductCodeAsync(productCode).ConfigureAwait(true);
-                    var unitPrice = item.HasUnitPrice
-                        ? item.ResolveUnitPrice()
-                        : existing?.UnitPrice ?? 0m;
+                    var unitPrice = item.ResolveUnitPrice();
 
                     await _inventoryRepository.UpsertAsync(
                         new LocalInventoryItem

@@ -16,7 +16,7 @@ public interface ITerminalSiteProductsResponseService
 
     /// <summary>
     /// Maps valid catalog rows into normalized snapshots for local inventory persistence.
-    /// Rows missing <c>productCode</c>/<c>barcode</c> are skipped.
+    /// Rows missing <c>productCode</c>/<c>barcode</c> or a positive <c>price</c> are skipped.
     /// </summary>
     IReadOnlyList<TerminalSiteProductCatalogSnapshot> BuildCatalogSnapshots(
         IEnumerable<TerminalSiteProductDto> products);
@@ -110,6 +110,14 @@ public sealed class TerminalSiteProductsResponseService : ITerminalSiteProductsR
             if (string.IsNullOrWhiteSpace(code))
             {
                 _logger.LogWarning("Skipping MRA site product with missing productCode/barcode.");
+                continue;
+            }
+
+            if (product.Price <= 0m)
+            {
+                _logger.LogWarning(
+                    "Skipping MRA site product {ProductCode} with missing/zero price.",
+                    code);
                 continue;
             }
 
