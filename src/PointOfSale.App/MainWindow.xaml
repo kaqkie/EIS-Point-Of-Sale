@@ -136,6 +136,10 @@
                             <Button Content="Admin home"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateAdminHomeCommand}" />
+                            <Button Content="Settings"
+                                    Style="{StaticResource Art.Nav.Admin}"
+                                    Command="{Binding NavigateAdminSettingsCommand}"
+                                    ToolTip="Fiscal VAT, MRA connection, account, and terminal maintenance" />
                             <Button Content="POS Terminal"
                                     Style="{StaticResource Art.Nav.Admin}"
                                     Command="{Binding NavigateCashierRegisterCommand}"

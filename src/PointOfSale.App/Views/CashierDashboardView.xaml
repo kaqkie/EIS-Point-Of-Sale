@@ -300,7 +300,7 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" />
                                 <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=N2}" Width="70" />
-                                <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" Width="90" />
+                                <DataGridTextColumn Header="Price (incl.)" Binding="{Binding UnitPrice, StringFormat=N2}" Width="100" />
                                 <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="100" />
                             </DataGrid.Columns>
                         </DataGrid>

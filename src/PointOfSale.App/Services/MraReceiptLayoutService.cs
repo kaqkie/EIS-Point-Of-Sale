@@ -40,8 +40,8 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         $"{PosTaxCalculator.MalawiStandardVatRatePercent.ToString("0.0", CultureInfo.InvariantCulture)}%";
 
     /// <summary>
-    /// Receipts must print exclusive (net) unit price. Item-mode EIS wire payloads store gross
-    /// unitPrice; derive net from line total when the stored unit looks tax-inclusive.
+    /// Exclusive (taxable) unit price for internal math. Prefer
+    /// <see cref="ResolveInclusiveUnitPrice"/> for qty × price receipt lines.
     /// </summary>
     public static decimal ResolveExclusiveUnitPrice(InvoiceLineItemDto item)
     {
@@ -61,6 +61,35 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
 
         return wireUnit > 0m ? wireUnit : exclusiveFromTotal;
     }
+
+    /// <summary>
+    /// VAT-inclusive shelf unit price for receipt qty lines (EIS: <c>1 X 20,000.00</c>).
+    /// Inventory prices are inclusive; rebuild from exclusive total + VAT when the wire unit is net.
+    /// </summary>
+    public static decimal ResolveInclusiveUnitPrice(InvoiceLineItemDto item)
+    {
+        var quantity = item.Quantity <= 0m ? 1m : item.Quantity;
+        var inclusiveLine = ResolveInclusiveLineTotal(item);
+        var fromTotals = PosTaxCalculator.RoundMoney(inclusiveLine / quantity);
+        var wireUnit = PosTaxCalculator.RoundMoney(item.UnitPrice);
+        if (wireUnit <= 0m)
+        {
+            return fromTotals;
+        }
+
+        var wireLine = PosTaxCalculator.RoundMoney(wireUnit * quantity);
+        // Wire unit already matches inclusive shelf total (Item-mode / inventory price).
+        if (Math.Abs(wireLine - inclusiveLine) <= 0.05m)
+        {
+            return wireUnit;
+        }
+
+        return fromTotals;
+    }
+
+    /// <summary>VAT-inclusive line amount printed on the receipt (net + VAT).</summary>
+    public static decimal ResolveInclusiveLineTotal(InvoiceLineItemDto item) =>
+        PosTaxCalculator.RoundMoney(Math.Max(0m, item.Total) + Math.Max(0m, item.TotalVat));
 
     /// <summary>
     /// Formats the seller TIN from active store/terminal configuration.
@@ -159,26 +188,28 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             ItemHeaderLine(charactersPerLine)
         };
 
-        // ---- 3. Itemized breakdown: qty, description, pricing ----
+        // ---- 3. Itemized breakdown (EIS style: qty X inclusive unit, description, amount+tax) ----
         var lineItems = new List<MraReceiptLineItemViewModel>();
         foreach (var item in request.LineItems)
         {
             var taxCode = string.IsNullOrWhiteSpace(item.TaxRateId) ? "A" : item.TaxRateId.Trim().ToUpperInvariant();
-            var exclusiveUnit = ResolveExclusiveUnitPrice(item);
-            var qtyPriceLine = FormatItemRow(item.Quantity, item.Description, item.Total, charactersPerLine);
-            var detailLine = Columns(
-                $"  @ {exclusiveUnit:N2} x {item.Quantity:N2}",
-                $"VAT-{taxCode}",
+            var inclusiveUnit = ResolveInclusiveUnitPrice(item);
+            var inclusiveLineTotal = ResolveInclusiveLineTotal(item);
+            var qtyPriceLine = FormatQtyInclusiveUnitLine(item.Quantity, inclusiveUnit, charactersPerLine);
+            var descriptionLine = Truncate(item.Description, charactersPerLine);
+            var amountLine = Columns(
+                string.Empty,
+                $"{inclusiveLineTotal:N2} {taxCode}",
                 charactersPerLine);
 
             lineItems.Add(new MraReceiptLineItemViewModel
             {
-                Description = Truncate(item.Description, charactersPerLine),
+                Description = descriptionLine,
                 QuantityPriceLine = qtyPriceLine,
-                VatBreakdownLine = detailLine,
+                VatBreakdownLine = amountLine,
                 Quantity = item.Quantity,
-                UnitPrice = exclusiveUnit,
-                LineTotal = item.Total,
+                UnitPrice = inclusiveUnit,
+                LineTotal = inclusiveLineTotal,
                 LineVat = item.TotalVat,
                 TaxRateId = taxCode
             });
@@ -288,6 +319,11 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         foreach (var line in lineItems)
         {
             ordered.Add(line.QuantityPriceLine);
+            if (!string.IsNullOrWhiteSpace(line.Description))
+            {
+                ordered.Add(line.Description);
+            }
+
             ordered.Add(line.VatBreakdownLine);
         }
 
@@ -383,6 +419,18 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
     /// <summary>Column header for qty / description / amount itemization.</summary>
     internal static string ItemHeaderLine(int width) =>
         Columns("QTY  DESCRIPTION", "AMOUNT", width);
+
+    /// <summary>
+    /// EIS portal style qty line using VAT-inclusive shelf unit price: <c>1 X 20,000.00</c>.
+    /// </summary>
+    public static string FormatQtyInclusiveUnitLine(decimal quantity, decimal inclusiveUnitPrice, int width)
+    {
+        var qty = quantity == decimal.Truncate(quantity)
+            ? quantity.ToString("0", CultureInfo.InvariantCulture)
+            : quantity.ToString("N2", CultureInfo.InvariantCulture);
+        var line = $"{qty} X {inclusiveUnitPrice.ToString("N2", CultureInfo.InvariantCulture)}";
+        return Truncate(line, width);
+    }
 
     /// <summary>
     /// Formats one sale line as quantity + description (left) and line amount (right).

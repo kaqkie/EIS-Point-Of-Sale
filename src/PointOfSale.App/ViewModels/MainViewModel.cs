@@ -326,6 +326,16 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanNavigateAdminHome))]
     private void NavigateAdminHome() => _navigationService.NavigateTo<AdminDashboardViewModel>();
 
+    [RelayCommand(CanExecute = nameof(CanNavigateAdminHome))]
+    private void NavigateAdminSettings()
+    {
+        _navigationService.NavigateTo<AdminDashboardViewModel>();
+        if (CurrentViewModel is AdminDashboardViewModel admin)
+        {
+            admin.ShowSettings();
+        }
+    }
+
     private bool CanNavigateAdminHome() =>
         IsAdminShell || CanAnalytics;
 
@@ -518,6 +528,7 @@ public partial class MainViewModel : ObservableObject
         NavigateHardwareCommand.NotifyCanExecuteChanged();
         NavigateCashierHomeCommand.NotifyCanExecuteChanged();
         NavigateAdminHomeCommand.NotifyCanExecuteChanged();
+        NavigateAdminSettingsCommand.NotifyCanExecuteChanged();
         NavigatePosTerminalCommand.NotifyCanExecuteChanged();
         NavigateCashierRegisterCommand.NotifyCanExecuteChanged();
         NavigatePosWorkspaceCommand.NotifyCanExecuteChanged();

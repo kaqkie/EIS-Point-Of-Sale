@@ -138,6 +138,9 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains("QTY  DESCRIPTION", text, StringComparison.Ordinal);
         Assert.Contains("AMOUNT", text, StringComparison.Ordinal);
         Assert.Contains("Bread", text, StringComparison.Ordinal);
+        // Qty line uses VAT-inclusive shelf amount (Total + TotalVat = 135.00)
+        Assert.Contains("1 X 135.00", text, StringComparison.Ordinal);
+        Assert.Contains("135.00 A", text, StringComparison.Ordinal);
         Assert.Contains("TAXABLE A-17.5%", text, StringComparison.Ordinal);
         Assert.Contains("VAT A-17.5%", text, StringComparison.Ordinal);
         Assert.Contains("TOTAL VAT", text, StringComparison.Ordinal);
@@ -155,6 +158,26 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Contains(MraReceiptLayoutService.QrPlaceholderMarker, text, StringComparison.Ordinal);
         Assert.DoesNotContain("MRA EIS FISCAL SIGNATURE", text, StringComparison.Ordinal);
         Assert.DoesNotContain("Verification URL", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ResolveInclusiveUnitPrice_MatchesEisShelfPriceExample()
+    {
+        var item = new InvoiceLineItemDto
+        {
+            Id = 1,
+            ProductCode = "AIR",
+            Description = "Air Cleaner SMA-230",
+            UnitPrice = 17021.28m, // exclusive wire / cart net unit
+            Quantity = 1m,
+            Total = 17021.28m,
+            TotalVat = 2978.72m,
+            TaxRateId = "A"
+        };
+
+        Assert.Equal(20000.00m, MraReceiptLayoutService.ResolveInclusiveUnitPrice(item));
+        Assert.Equal(20000.00m, MraReceiptLayoutService.ResolveInclusiveLineTotal(item));
+        Assert.Equal("1 X 20,000.00", MraReceiptLayoutService.FormatQtyInclusiveUnitLine(1m, 20000m, 42));
     }
 
     [Fact]

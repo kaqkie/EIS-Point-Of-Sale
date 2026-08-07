@@ -487,13 +487,16 @@ public partial class AdminDashboardViewModel : ObservableObject
     private void OpenInventory() => _navigation.NavigateTo<InventoryViewModel>();
 
     [RelayCommand]
-    private void FocusInventoryTab() => SelectedAdminTab = 1;
+    private void FocusInventoryTab() => SelectedAdminTab = 2;
 
     [RelayCommand]
-    private void FocusUsersTab() => SelectedAdminTab = 2;
+    private void FocusUsersTab() => SelectedAdminTab = 3;
 
     [RelayCommand]
-    private void OpenSettings() => SelectedAdminTab = 4;
+    private void OpenSettings() => SelectedAdminTab = 1;
+
+    /// <summary>Used by the admin left-rail Settings shortcut after navigation.</summary>
+    public void ShowSettings() => SelectedAdminTab = 1;
 
     [RelayCommand]
     private void OpenStockAlerts() => _navigation.NavigateTo<InventoryAlertsViewModel>();

@@ -70,13 +70,14 @@
                                     Margin="0,0,8,0"
                                     FocusVisualStyle="{x:Null}"
                                     ToolTip="Open the shared touch POS terminal (cart, keypad, tender)" />
+                            <Button Content="Settings"
+                                    Style="{StaticResource Art.Button.Secondary}"
+                                    Command="{Binding OpenSettingsCommand}"
+                                    Margin="0,0,8,0"
+                                    ToolTip="Fiscal VAT, MRA connection, account, and terminal maintenance" />
                             <Button Content="Inventory"
                                     Style="{StaticResource Art.Button.Secondary}"
                                     Command="{Binding FocusInventoryTabCommand}"
-                                    Margin="0,0,8,0" />
-                            <Button Content="Stock alerts"
-                                    Style="{StaticResource Art.Button.Secondary}"
-                                    Command="{Binding OpenStockAlertsCommand}"
                                     Margin="0,0,8,0" />
                             <Button Content="Users directory"
                                     Style="{StaticResource Art.Button.Ghost}"
@@ -84,17 +85,17 @@
                         </UniformGrid>
 
                         <UniformGrid Columns="3" Margin="0,0,0,12">
+                            <Button Content="Stock alerts"
+                                    Style="{StaticResource Art.Button.Secondary}"
+                                    Command="{Binding OpenStockAlertsCommand}"
+                                    Margin="0,0,8,0" />
                             <Button Content="Pricing / discounts"
                                     Style="{StaticResource Art.Button.Secondary}"
                                     Command="{Binding OpenDiscountsCommand}"
                                     Margin="0,0,8,0" />
                             <Button Content="Analytics hub"
-                                    Style="{StaticResource Art.Button.Secondary}"
-                                    Command="{Binding OpenAnalyticsCommand}"
-                                    Margin="0,0,8,0" />
-                            <Button Content="Settings"
                                     Style="{StaticResource Art.Button.Ghost}"
-                                    Command="{Binding OpenSettingsCommand}" />
+                                    Command="{Binding OpenAnalyticsCommand}" />
                         </UniformGrid>
 
                         <Border Style="{StaticResource Art.Card}" Margin="0,0,0,12">
@@ -105,28 +106,6 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="Inventory">
-                <ContentControl Content="{Binding InventoryWorkspace}" Margin="0,12,0,0" />
-            </TabItem>
-
-            <TabItem Header="Users">
-                <ContentControl Content="{Binding UserManagement}" Margin="0,12,0,0" />
-            </TabItem>
-
-            <TabItem Header="Reports">
-                <Grid Margin="0,12,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Content="Refresh analytics" Style="{StaticResource Art.Button.Secondary}" Command="{Binding RefreshAnalyticsCommand}" Margin="0,0,8,0" />
-                        <Button Content="Open full analytics" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenAnalyticsCommand}" />
-                    </StackPanel>
-                    <ContentControl Grid.Row="1" Content="{Binding Analytics}" />
-                </Grid>
             </TabItem>
 
             <TabItem Header="Settings">
@@ -279,6 +258,28 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Inventory">
+                <ContentControl Content="{Binding InventoryWorkspace}" Margin="0,12,0,0" />
+            </TabItem>
+
+            <TabItem Header="Users">
+                <ContentControl Content="{Binding UserManagement}" Margin="0,12,0,0" />
+            </TabItem>
+
+            <TabItem Header="Reports">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Refresh analytics" Style="{StaticResource Art.Button.Secondary}" Command="{Binding RefreshAnalyticsCommand}" Margin="0,0,8,0" />
+                        <Button Content="Open full analytics" Style="{StaticResource Art.Button.Primary}" Command="{Binding OpenAnalyticsCommand}" />
+                    </StackPanel>
+                    <ContentControl Grid.Row="1" Content="{Binding Analytics}" />
+                </Grid>
             </TabItem>
         </TabControl>
     </Grid>
