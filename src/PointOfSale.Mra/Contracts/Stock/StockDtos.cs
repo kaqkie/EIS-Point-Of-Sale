@@ -62,22 +62,24 @@ public sealed class WarehouseInventoryItemDto
     public string? ProductDescription { get; set; }
 
     [JsonPropertyName("currentQuantity")]
-    public decimal CurrentQuantity { get; set; }
+    public decimal? CurrentQuantity { get; set; }
 
     [JsonPropertyName("uom")]
     public string? Uom { get; set; }
 
     [JsonPropertyName("price")]
-    public decimal Price { get; set; }
+    public decimal? Price { get; set; }
 
     public string ResolveProductCode() => Barcode?.Trim() ?? string.Empty;
 
     public string ResolveName() =>
         FirstNonEmpty(ProductName, ProductDescription, Barcode) ?? string.Empty;
 
-    public decimal ResolveQuantity() => CurrentQuantity;
+    public decimal ResolveQuantity() => CurrentQuantity ?? 0m;
 
-    public decimal ResolveUnitPrice() => Price;
+    public decimal ResolveUnitPrice() => Price ?? 0m;
+
+    public bool HasUnitPrice => Price is > 0m;
 
     public string? ResolveUnitOfMeasure() => Uom;
 

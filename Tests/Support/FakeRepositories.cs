@@ -33,6 +33,42 @@ public sealed class FakeLocalInventoryRepository : ILocalInventoryRepository
         return Task.CompletedTask;
     }
 
+    public Task<int> DeleteByProductCodesAsync(
+        IReadOnlyCollection<string> productCodes,
+        CancellationToken cancellationToken = default)
+    {
+        var removed = 0;
+        foreach (var code in productCodes)
+        {
+            if (!string.IsNullOrWhiteSpace(code) && _byCode.TryRemove(code.Trim(), out _))
+            {
+                removed++;
+            }
+        }
+
+        return Task.FromResult(removed);
+    }
+
+    public Task<int> DeleteByCatalogSourceAsync(
+        string catalogSource,
+        CancellationToken cancellationToken = default)
+    {
+        var keys = _byCode
+            .Where(kv => string.Equals(kv.Value.CatalogSource, catalogSource, StringComparison.OrdinalIgnoreCase))
+            .Select(kv => kv.Key)
+            .ToList();
+        var removed = 0;
+        foreach (var key in keys)
+        {
+            if (_byCode.TryRemove(key, out _))
+            {
+                removed++;
+            }
+        }
+
+        return Task.FromResult(removed);
+    }
+
     public Task UpdateReorderSettingsAsync(
         string productCode,
         decimal minReorderQty,

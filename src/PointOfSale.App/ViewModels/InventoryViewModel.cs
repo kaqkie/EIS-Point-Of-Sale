@@ -72,6 +72,52 @@ public partial class InventoryViewModel : ObservableObject
     [ObservableProperty]
     private string _newOpeningStockText = "0";
 
+    [ObservableProperty]
+    private LocalInventoryItem? _selectedItem;
+
+    [ObservableProperty]
+    private bool _isEditing;
+
+    [ObservableProperty]
+    private string _editProductCode = string.Empty;
+
+    [ObservableProperty]
+    private string _editProductName = string.Empty;
+
+    [ObservableProperty]
+    private string _editHsCode = string.Empty;
+
+    [ObservableProperty]
+    private string _editUnitOfMeasure = "EA";
+
+    [ObservableProperty]
+    private string _editTaxRateId = "A";
+
+    [ObservableProperty]
+    private string _editUnitPriceText = "0.00";
+
+    [ObservableProperty]
+    private string _editStockText = "0";
+
+    partial void OnSelectedItemChanged(LocalInventoryItem? value)
+    {
+        if (value is null)
+        {
+            IsEditing = false;
+            ClearEditForm();
+            return;
+        }
+
+        IsEditing = true;
+        EditProductCode = value.ProductCode;
+        EditProductName = value.Name;
+        EditHsCode = value.HsCode ?? string.Empty;
+        EditUnitOfMeasure = string.IsNullOrWhiteSpace(value.UnitOfMeasure) ? "EA" : value.UnitOfMeasure;
+        EditTaxRateId = string.IsNullOrWhiteSpace(value.TaxRateId) ? "A" : value.TaxRateId;
+        EditUnitPriceText = value.UnitPrice.ToString("0.00", System.Globalization.CultureInfo.CurrentCulture);
+        EditStockText = value.StockQuantity.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture);
+    }
+
     [RelayCommand]
     private async Task RefreshAsync()
     {
@@ -157,38 +203,70 @@ public partial class InventoryViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var response = await _stockManagementService
-                .GetWarehouseInventoryAsync(new WarehouseInventoryRequest { Page = 1, PageSize = 50 })
-                .ConfigureAwait(true);
-
-            if (!response.Success || response.Data is null)
-            {
-                StatusMessage = response.Remark ?? "Warehouse sync failed.";
-                _logger.LogWarning("MRA warehouse sync failed: {Remark}", StatusMessage);
-                return;
-            }
-
             var upserted = 0;
-            foreach (var item in response.Data.GetItems())
+            var page = 1;
+            const int pageSize = 100;
+            var totalPages = 1;
+
+            while (page <= totalPages)
             {
-                var productCode = item.ResolveProductCode();
-                if (string.IsNullOrWhiteSpace(productCode))
+                var response = await _stockManagementService
+                    .GetWarehouseInventoryAsync(new WarehouseInventoryRequest { Page = page, PageSize = pageSize })
+                    .ConfigureAwait(true);
+
+                if (!response.Success || response.Data is null)
                 {
-                    continue;
+                    StatusMessage = response.Remark ?? "Warehouse sync failed.";
+                    _logger.LogWarning("MRA warehouse sync failed on page {Page}: {Remark}", page, StatusMessage);
+                    return;
                 }
 
-                await _inventoryRepository.UpsertAsync(
-                    new LocalInventoryItem
+                var total = response.Data.ResolveTotal();
+                totalPages = total > 0
+                    ? Math.Max(1, (int)Math.Ceiling(total / (double)pageSize))
+                    : page;
+
+                foreach (var item in response.Data.GetItems())
+                {
+                    var productCode = item.ResolveProductCode();
+                    if (string.IsNullOrWhiteSpace(productCode))
                     {
-                        ProductId = productCode,
-                        ProductCode = productCode,
-                        Name = item.ResolveName(),
-                        UnitPrice = item.ResolveUnitPrice(),
-                        StockQuantity = item.ResolveQuantity(),
-                        UnitOfMeasure = item.ResolveUnitOfMeasure(),
-                        CatalogSource = "MraWarehouse"
-                    }).ConfigureAwait(true);
-                upserted++;
+                        continue;
+                    }
+
+                    var existing = await _inventoryRepository.GetByProductCodeAsync(productCode).ConfigureAwait(true);
+                    var unitPrice = item.HasUnitPrice
+                        ? item.ResolveUnitPrice()
+                        : existing?.UnitPrice ?? 0m;
+
+                    await _inventoryRepository.UpsertAsync(
+                        new LocalInventoryItem
+                        {
+                            ProductId = existing?.ProductId ?? productCode,
+                            ProductCode = productCode,
+                            Name = item.ResolveName(),
+                            UnitPrice = unitPrice,
+                            StockQuantity = item.ResolveQuantity(),
+                            UnitOfMeasure = item.ResolveUnitOfMeasure() ?? existing?.UnitOfMeasure,
+                            HsCode = existing?.HsCode,
+                            TaxRateId = existing?.TaxRateId ?? "A",
+                            CatalogSource = "MraWarehouse",
+                            MinReorderQty = existing?.MinReorderQty ?? 0m,
+                            MaxStockCapacity = existing?.MaxStockCapacity ?? 0m,
+                            SupplierCode = existing?.SupplierCode,
+                            SupplierName = existing?.SupplierName,
+                            AverageUnitCost = existing?.AverageUnitCost ?? 0m,
+                            MarkupPercent = existing?.MarkupPercent ?? 0m
+                        }).ConfigureAwait(true);
+                    upserted++;
+                }
+
+                if (response.Data.GetItems().Count == 0)
+                {
+                    break;
+                }
+
+                page++;
             }
 
             await RefreshAsync().ConfigureAwait(true);
@@ -233,6 +311,38 @@ public partial class InventoryViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task RemoveDemoCatalogAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            var bySource = await _inventoryRepository
+                .DeleteByCatalogSourceAsync("Demo")
+                .ConfigureAwait(true);
+            var demoCodes = DemoCatalogItems.Select(i => i.ProductCode).ToArray();
+            var byCode = await _inventoryRepository
+                .DeleteByProductCodesAsync(demoCodes)
+                .ConfigureAwait(true);
+            var removed = bySource + byCode;
+
+            await RefreshAsync().ConfigureAwait(true);
+            StatusMessage = removed == 0
+                ? "No demo catalog products found to remove."
+                : $"Removed {removed} demo catalog product(s).";
+            _logger.LogInformation("Removed {Count} demo catalog products.", removed);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Remove demo catalog failed: {ex.Message}";
+            _logger.LogError(ex, "Failed to remove demo LocalInventory catalog.");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
     private async Task AddLocalProductAsync()
     {
         if (!TryBuildNewProduct(out var item, out var error))
@@ -255,7 +365,8 @@ public partial class InventoryViewModel : ObservableObject
             ClearNewProductForm();
             await RefreshAsync().ConfigureAwait(true);
             StatusMessage =
-                $"Added '{item.Name}' locally at {item.UnitPrice:N2} (VAT-inclusive shelf price).";
+                $"Added '{item.Name}' to the local catalog only (not MRA warehouse). " +
+                "Use Register with MRA to publish it, then Sync Warehouse.";
             _logger.LogInformation("Admin added local product {ProductCode}.", item.ProductCode);
         }
         catch (Exception ex)
@@ -281,6 +392,23 @@ public partial class InventoryViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            var context = await _posConfigurationService.GetRuntimeContextAsync().ConfigureAwait(true);
+            if (!string.IsNullOrWhiteSpace(context.SiteId))
+            {
+                request = new AddProductRequest
+                {
+                    Barcode = request.Barcode,
+                    HsCode = request.HsCode,
+                    Name = request.Name,
+                    Description = request.Description,
+                    Uom = request.Uom,
+                    UnitPrice = request.UnitPrice,
+                    OpeningStockQuantity = request.OpeningStockQuantity,
+                    ExpectedTaxRateId = request.ExpectedTaxRateId,
+                    SiteId = context.SiteId
+                };
+            }
+
             var result = await _stockManagementService.AddProductAsync(request).ConfigureAwait(true);
             if (!result.Success)
             {
@@ -290,13 +418,111 @@ public partial class InventoryViewModel : ObservableObject
 
             ClearNewProductForm();
             await RefreshAsync().ConfigureAwait(true);
-            StatusMessage =
-                $"Registered '{request.Name}' with MRA and cached locally (price {request.UnitPrice:N2} incl. VAT).";
+            StatusMessage = string.IsNullOrWhiteSpace(result.Remark)
+                ? $"Registered '{request.Name}' with MRA and cached locally (price {request.UnitPrice:N2} incl. VAT)."
+                : result.Remark;
         }
         catch (Exception ex)
         {
             StatusMessage = $"MRA register failed: {ex.Message}";
             _logger.LogError(ex, "stock/add-product failed from admin inventory.");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelEdit()
+    {
+        SelectedItem = null;
+    }
+
+    [RelayCommand]
+    private async Task SaveEditedProductAsync()
+    {
+        var original = SelectedItem;
+        if (original is null)
+        {
+            StatusMessage = "Select a product in the grid to edit.";
+            return;
+        }
+
+        var name = (EditProductName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            StatusMessage = "Enter a product name.";
+            return;
+        }
+
+        if (!decimal.TryParse(EditUnitPriceText, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out var price)
+            && !decimal.TryParse(EditUnitPriceText, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out price))
+        {
+            StatusMessage = "Enter a valid VAT-inclusive unit price.";
+            return;
+        }
+
+        if (price < 0m)
+        {
+            StatusMessage = "Unit price cannot be negative.";
+            return;
+        }
+
+        if (!decimal.TryParse(EditStockText, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out var stock)
+            && !decimal.TryParse(EditStockText, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out stock))
+        {
+            StatusMessage = "Enter a valid stock quantity.";
+            return;
+        }
+
+        if (stock < 0m)
+        {
+            StatusMessage = "Stock cannot be negative.";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var updated = new LocalInventoryItem
+            {
+                ProductId = original.ProductId,
+                ProductCode = original.ProductCode,
+                Name = name,
+                UnitPrice = PosTaxCalculator.RoundMoney(price),
+                StockQuantity = PosTaxCalculator.RoundMoney(stock),
+                HsCode = string.IsNullOrWhiteSpace(EditHsCode) ? null : EditHsCode.Trim(),
+                UnitOfMeasure = string.IsNullOrWhiteSpace(EditUnitOfMeasure) ? "EA" : EditUnitOfMeasure.Trim(),
+                TaxRateId = string.IsNullOrWhiteSpace(EditTaxRateId) ? "A" : EditTaxRateId.Trim(),
+                CatalogSource = original.CatalogSource,
+                HeadOfficeRevisionUtc = original.HeadOfficeRevisionUtc,
+                LastReplicatedAtUtc = original.LastReplicatedAtUtc,
+                MinReorderQty = original.MinReorderQty,
+                MaxStockCapacity = original.MaxStockCapacity,
+                SupplierCode = original.SupplierCode,
+                SupplierName = original.SupplierName,
+                AverageUnitCost = original.AverageUnitCost,
+                MarkupPercent = original.MarkupPercent
+            };
+
+            await _inventoryRepository.UpsertAsync(updated).ConfigureAwait(true);
+            await RefreshAsync().ConfigureAwait(true);
+            SelectedItem = Items.FirstOrDefault(i =>
+                string.Equals(i.ProductCode, updated.ProductCode, StringComparison.OrdinalIgnoreCase));
+            StatusMessage =
+                $"Updated '{updated.Name}' locally (price {updated.UnitPrice:N2} incl. VAT, stock {updated.StockQuantity:0.##}). " +
+                "MRA master/warehouse fields may still need a portal change.";
+            _logger.LogInformation("Admin updated local product {ProductCode}.", updated.ProductCode);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Save product failed: {ex.Message}";
+            _logger.LogError(ex, "Failed to save edited inventory product.");
         }
         finally
         {
@@ -415,6 +641,17 @@ public partial class InventoryViewModel : ObservableObject
         NewOpeningStockText = "0";
     }
 
+    private void ClearEditForm()
+    {
+        EditProductCode = string.Empty;
+        EditProductName = string.Empty;
+        EditHsCode = string.Empty;
+        EditUnitOfMeasure = "EA";
+        EditTaxRateId = "A";
+        EditUnitPriceText = "0.00";
+        EditStockText = "0";
+    }
+
     private static IReadOnlyList<LocalInventoryItem> DemoCatalogItems { get; } =
     [
         CreateDemo("ART-WATER-500", "Bottled Water 500ml", 350m, 120m, "2201", 24m, 240m, 250m),
@@ -446,7 +683,7 @@ public partial class InventoryViewModel : ObservableObject
             HsCode = hsCode,
             UnitOfMeasure = "EA",
             TaxRateId = "A",
-            CatalogSource = "Local",
+            CatalogSource = "Demo",
             MinReorderQty = minReorder,
             MaxStockCapacity = maxCapacity,
             SupplierCode = "SUP-LOCAL",

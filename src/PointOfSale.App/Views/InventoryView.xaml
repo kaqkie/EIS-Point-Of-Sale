@@ -7,6 +7,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
@@ -34,6 +35,13 @@
                     Style="{StaticResource Art.Button.Ghost}"
                     Command="{Binding LoadDemoCatalogCommand}"
                     Padding="12,8"
+                    Margin="0,0,8,0"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+            <Button Content="Remove demo catalog"
+                    Style="{StaticResource Art.Button.Ghost}"
+                    Command="{Binding RemoveDemoCatalogCommand}"
+                    Padding="12,8"
+                    ToolTip="Delete demo products (CatalogSource=Demo and ART-* demo SKUs)"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
         </StackPanel>
 
@@ -49,7 +57,7 @@
                            Style="{StaticResource Art.Text.Title}"
                            FontSize="16"
                            Margin="0,0,0,4" />
-                <TextBlock Text="Unit price is VAT-inclusive (shelf price), same as MRA EIS. Example: 20,000.00 → taxable 17,021.28 + VAT 2,978.72."
+                <TextBlock Text="Unit price is VAT-inclusive (shelf price), same as MRA EIS. Register with MRA publishes the product; Add to local catalog keeps it on this terminal only."
                            Style="{StaticResource Art.Text.Caption}"
                            TextWrapping="Wrap"
                            Margin="0,0,0,10" />
@@ -122,37 +130,42 @@
                 </Grid>
 
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <Button Content="Add to local catalog"
-                            Style="{StaticResource Art.Button.Primary}"
-                            Command="{Binding AddLocalProductCommand}"
-                            Padding="14,8"
-                            Margin="0,0,8,0"
-                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
-                            ToolTip="Save product locally with VAT-inclusive shelf price" />
                     <Button Content="Register with MRA"
-                            Style="{StaticResource Art.Button.Secondary}"
+                            Style="{StaticResource Art.Button.Primary}"
                             Command="{Binding RegisterProductWithMraCommand}"
                             Padding="14,8"
+                            Margin="0,0,8,0"
+                            FontWeight="SemiBold"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
-                            ToolTip="Call MRA stock/add-product (requires HS code + synced reference caches)" />
+                            ToolTip="Register product with MRA (stock/add-product). HS codes/UOM are fetched automatically when needed. Opening stock is pushed as a warehouse adjustment when possible." />
+                    <Button Content="Add to local catalog"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding AddLocalProductCommand}"
+                            Padding="14,8"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                            ToolTip="Save on this terminal only — will not appear in MRA warehouse until you Register with MRA" />
                 </StackPanel>
             </StackPanel>
         </Border>
 
         <Grid Grid.Row="2">
             <DataGrid ItemsSource="{Binding Items}"
+                      SelectedItem="{Binding SelectedItem}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
                       IsReadOnly="True"
+                      SelectionMode="Single"
+                      SelectionUnit="FullRow"
                       HeadersVisibility="Column">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Code" Binding="{Binding ProductCode}" Width="140" />
                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
                     <DataGridTextColumn Header="Price (incl. VAT)" Binding="{Binding UnitPrice, StringFormat=N2}" Width="120" />
-                    <DataGridTextColumn Header="Stock" Binding="{Binding StockQuantity, StringFormat=N2}" Width="90" />
+                    <DataGridTextColumn Header="Stock" Binding="{Binding StockQuantity, StringFormat={}{0:0.##}}" Width="90" />
                     <DataGridTextColumn Header="HS" Binding="{Binding HsCode}" Width="90" />
                     <DataGridTextColumn Header="UOM" Binding="{Binding UnitOfMeasure}" Width="80" />
                     <DataGridTextColumn Header="Tax" Binding="{Binding TaxRateId}" Width="60" />
+                    <DataGridTextColumn Header="Source" Binding="{Binding CatalogSource}" Width="100" />
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -169,14 +182,110 @@
                                Style="{StaticResource Art.Text.Title}"
                                FontSize="18"
                                Margin="0,0,0,8" />
-                    <TextBlock Text="The local catalog is empty. Add a product above, sync EIS Products after terminal activation, or load the demo catalog for testing."
+                    <TextBlock Text="The local catalog is empty. Register a product with MRA above, sync EIS Products after terminal activation, or load the demo catalog for testing."
                                Style="{StaticResource Art.Text.Subtitle}"
                                TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>
 
-        <TextBlock Grid.Row="3"
+        <Border Grid.Row="3"
+                Background="White"
+                BorderBrush="{StaticResource Art.Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12"
+                Margin="0,8,0,0"
+                Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="Edit product"
+                           Style="{StaticResource Art.Text.Title}"
+                           FontSize="16"
+                           Margin="0,0,0,4" />
+                <TextBlock Text="Updates the local catalog used by this terminal (price, stock, HS, UOM, tax). Product code cannot be changed."
+                           Style="{StaticResource Art.Text.Caption}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,10" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
+                        <TextBlock Text="Product code" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding EditProductCode}"
+                                 Style="{StaticResource Art.TextBox}"
+                                 MinHeight="36"
+                                 IsReadOnly="True"
+                                 Opacity="0.75" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+                        <TextBlock Text="Name" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding EditProductName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource Art.TextBox}"
+                                 MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Grid.Column="4" Margin="0,0,0,8">
+                        <TextBlock Text="Price (incl. VAT)" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding EditUnitPriceText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource Art.TextBox}"
+                                 MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Grid.Column="6" Margin="0,0,0,8">
+                        <TextBlock Text="Stock" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding EditStockText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource Art.TextBox}"
+                                 MinHeight="36" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,8">
+                        <TextBlock Text="HS code" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding EditHsCode, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource Art.TextBox}"
+                                 MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,8">
+                        <TextBlock Text="UOM" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding EditUnitOfMeasure, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource Art.TextBox}"
+                                 MinHeight="36" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,0,0,8">
+                        <TextBlock Text="Tax rate" Style="{StaticResource Art.Text.Caption}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding EditTaxRateId, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource Art.TextBox}"
+                                 MinHeight="36" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <Button Content="Save changes"
+                            Style="{StaticResource Art.Button.Primary}"
+                            Command="{Binding SaveEditedProductCommand}"
+                            Padding="14,8"
+                            Margin="0,0,8,0"
+                            FontWeight="SemiBold"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+                    <Button Content="Cancel"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding CancelEditCommand}"
+                            Padding="14,8"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="4"
                    Text="{Binding StatusMessage}"
                    Style="{StaticResource Art.Text.Subtitle}"
                    TextWrapping="Wrap"

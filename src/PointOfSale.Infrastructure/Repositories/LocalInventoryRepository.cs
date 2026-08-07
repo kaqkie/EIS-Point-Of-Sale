@@ -10,6 +10,17 @@ public interface ILocalInventoryRepository
     Task<LocalInventoryItem?> GetByProductCodeAsync(string productCode, CancellationToken cancellationToken = default);
     Task<LocalInventoryItem?> GetByProductIdAsync(string productId, CancellationToken cancellationToken = default);
     Task UpsertAsync(LocalInventoryItem item, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes rows matching any of the given product codes. Returns deleted count.</summary>
+    Task<int> DeleteByProductCodesAsync(
+        IReadOnlyCollection<string> productCodes,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes rows with the given catalog source (e.g. Demo). Returns deleted count.</summary>
+    Task<int> DeleteByCatalogSourceAsync(
+        string catalogSource,
+        CancellationToken cancellationToken = default);
+
     Task UpdateReorderSettingsAsync(
         string productCode,
         decimal minReorderQty,
@@ -141,6 +152,61 @@ public sealed class LocalInventoryRepository : ILocalInventoryRepository
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(sql, item, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    public async Task<int> DeleteByProductCodesAsync(
+        IReadOnlyCollection<string> productCodes,
+        CancellationToken cancellationToken = default)
+    {
+        if (productCodes is null || productCodes.Count == 0)
+        {
+            return 0;
+        }
+
+        var codes = productCodes
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (codes.Length == 0)
+        {
+            return 0;
+        }
+
+        const string sql = """
+            DELETE FROM dbo.LocalInventory
+            WHERE ProductCode IN @Codes;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return await connection.ExecuteAsync(
+                new CommandDefinition(sql, new { Codes = codes }, cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    public async Task<int> DeleteByCatalogSourceAsync(
+        string catalogSource,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(catalogSource))
+        {
+            return 0;
+        }
+
+        const string sql = """
+            DELETE FROM dbo.LocalInventory
+            WHERE CatalogSource = @CatalogSource;
+            """;
+
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return await connection.ExecuteAsync(
+                new CommandDefinition(
+                    sql,
+                    new { CatalogSource = catalogSource.Trim() },
+                    cancellationToken: cancellationToken))
             .ConfigureAwait(false);
     }
 

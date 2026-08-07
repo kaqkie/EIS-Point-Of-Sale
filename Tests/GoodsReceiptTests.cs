@@ -129,6 +129,14 @@ public sealed class GoodsReceiptTests
 
         public Task UpsertAsync(LocalInventoryItem item, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task<int> DeleteByProductCodesAsync(
+            IReadOnlyCollection<string> productCodes,
+            CancellationToken cancellationToken = default) => Task.FromResult(0);
+
+        public Task<int> DeleteByCatalogSourceAsync(
+            string catalogSource,
+            CancellationToken cancellationToken = default) => Task.FromResult(0);
+
         public Task UpdateReorderSettingsAsync(
             string productCode,
             decimal minReorderQty,
