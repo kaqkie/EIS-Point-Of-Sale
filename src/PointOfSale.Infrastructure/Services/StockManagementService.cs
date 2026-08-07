@@ -459,6 +459,22 @@ public sealed class StockManagementService
             _logger.LogInformation(
                 "Product {ProductCode} registered with MRA and cached locally.",
                 request.ResolveProductCode());
+
+            // add-product only registers the master item; warehouse qty needs a stock movement.
+            if (request.OpeningStockQuantity > 0)
+            {
+                var stockRemark = await TryPushOpeningStockToWarehouseAsync(request, cancellationToken)
+                    .ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(stockRemark))
+                {
+                    var baseRemark = string.IsNullOrWhiteSpace(result.Remark)
+                        ? "Product registered with MRA."
+                        : result.Remark!;
+                    result = StockResult<AddProductResponseData>.Succeeded(
+                        result.Data!,
+                        $"{baseRemark} {stockRemark}");
+                }
+            }
         }
 
         return result;
@@ -650,7 +666,7 @@ public sealed class StockManagementService
         var existing = await _inventoryRepository
             .GetByProductCodeAsync(productCode, cancellationToken)
             .ConfigureAwait(false);
-        if (existing is not null)
+        if (existing is not null && !IsLocalOnlyCatalogSource(existing.CatalogSource))
         {
             throw new InvalidOperationException(
                 $"Product code '{productCode}' already exists in local inventory.");
@@ -710,8 +726,7 @@ public sealed class StockManagementService
         var cacheJson = await _configurationRepository.GetJsonAsync(cacheKey, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(cacheJson))
         {
-            throw new InvalidOperationException(
-                $"Reference {label} cache is empty. Call the corresponding MRA stock reference endpoint first.");
+            cacheJson = await RefreshReferenceCacheAsync(cacheKey, label, cancellationToken).ConfigureAwait(false);
         }
 
         if (cacheKey == MraConfigurationKeys.StockHsCodesCache)
@@ -741,6 +756,117 @@ public sealed class StockManagementService
         }
     }
 
+    private async Task<string> RefreshReferenceCacheAsync(
+        string cacheKey,
+        string label,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Reference {Label} cache empty — fetching from MRA.", label);
+
+        if (cacheKey == MraConfigurationKeys.StockHsCodesCache)
+        {
+            var hsResult = await GetHsCodesAsync(cancellationToken).ConfigureAwait(false);
+            if (!hsResult.Success)
+            {
+                throw new InvalidOperationException(
+                    $"Reference HS code cache is empty and refresh failed: {hsResult.Remark ?? "unknown error"}.");
+            }
+        }
+        else if (cacheKey == MraConfigurationKeys.StockUnitsOfMeasureCache)
+        {
+            var uomResult = await GetUnitsOfMeasureAsync(cancellationToken).ConfigureAwait(false);
+            if (!uomResult.Success)
+            {
+                throw new InvalidOperationException(
+                    $"Reference unit of measure cache is empty and refresh failed: {uomResult.Remark ?? "unknown error"}.");
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Reference {label} cache is empty. Call the corresponding MRA stock reference endpoint first.");
+        }
+
+        var cacheJson = await _configurationRepository.GetJsonAsync(cacheKey, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(cacheJson))
+        {
+            throw new InvalidOperationException(
+                $"Reference {label} cache is still empty after refreshing from MRA.");
+        }
+
+        return cacheJson;
+    }
+
+    /// <summary>
+    /// Registers opening quantity in the MRA warehouse after <c>stock/add-product</c>.
+    /// Master registration alone does not create warehouse stock.
+    /// </summary>
+    private async Task<string?> TryPushOpeningStockToWarehouseAsync(
+        AddProductRequest request,
+        CancellationToken cancellationToken)
+    {
+        var barcode = FirstNonEmpty(request.Barcode, request.ResolveProductCode());
+        if (string.IsNullOrWhiteSpace(barcode) || request.OpeningStockQuantity <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var reasons = await GetStockAdjustmentReasonsAsync(cancellationToken).ConfigureAwait(false);
+            var reason = reasons.Success
+                ? reasons.Data?
+                    .Select(r => r.Description?.Trim())
+                    .FirstOrDefault(d => !string.IsNullOrWhiteSpace(d))
+                : null;
+            reason ??= "Opening stock";
+
+            var adjustment = await SubmitStockAdjustmentAsync(
+                new StockAdjustmentRequest
+                {
+                    Barcode = barcode,
+                    Quantity = request.OpeningStockQuantity,
+                    AdjustmentReason = reason!,
+                    AdjustmentType = "Increase",
+                    SiteId = string.IsNullOrWhiteSpace(request.SiteId) ? null : request.SiteId.Trim(),
+                    TaxpayerRemarks = "Opening stock after product registration from Albert Retail Terminal."
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (adjustment.Success)
+            {
+                _logger.LogInformation(
+                    "Pushed opening stock {Qty} for {Barcode} to MRA warehouse.",
+                    request.OpeningStockQuantity,
+                    barcode);
+                return $"Opening stock {request.OpeningStockQuantity:0.##} submitted to warehouse.";
+            }
+
+            _logger.LogWarning(
+                "Opening stock push failed for {Barcode}: {Remark}",
+                barcode,
+                adjustment.Remark);
+            return
+                $"Product is registered, but warehouse stock was not added ({adjustment.Remark}). " +
+                "Use MRA portal informal purchase / stock adjustment, then Sync Warehouse.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Opening stock push threw for {Barcode}.",
+                barcode);
+            return
+                "Product is registered, but warehouse stock could not be added automatically. " +
+                "Use MRA portal informal purchase / stock adjustment, then Sync Warehouse.";
+        }
+    }
+
+    private static bool IsLocalOnlyCatalogSource(string? catalogSource) =>
+        string.IsNullOrWhiteSpace(catalogSource)
+        || catalogSource.Equals("Local", StringComparison.OrdinalIgnoreCase)
+        || catalogSource.Equals("Demo", StringComparison.OrdinalIgnoreCase);
+
     private async Task PersistLocalProductAsync(
         AddProductRequest request,
         AddProductResponseData? responseData,
@@ -750,6 +876,10 @@ public sealed class StockManagementService
         var productId = responseData is { ProductId: > 0 }
             ? responseData.ProductId.ToString()
             : productCode;
+
+        var existing = await _inventoryRepository
+            .GetByProductCodeAsync(productCode, cancellationToken)
+            .ConfigureAwait(false);
 
         await _inventoryRepository.UpsertAsync(
             new LocalInventoryItem
@@ -761,7 +891,14 @@ public sealed class StockManagementService
                 StockQuantity = request.OpeningStockQuantity,
                 HsCode = FirstNonEmpty(responseData?.HsCode, request.HsCode),
                 UnitOfMeasure = FirstNonEmpty(responseData?.Uom, request.Uom),
-                TaxRateId = FirstNonEmpty(responseData?.TaxRateId, request.ExpectedTaxRateId)
+                TaxRateId = FirstNonEmpty(responseData?.TaxRateId, request.ExpectedTaxRateId),
+                CatalogSource = "Mra",
+                MinReorderQty = existing?.MinReorderQty ?? 0m,
+                MaxStockCapacity = existing?.MaxStockCapacity ?? 0m,
+                SupplierCode = existing?.SupplierCode,
+                SupplierName = existing?.SupplierName,
+                AverageUnitCost = existing?.AverageUnitCost ?? 0m,
+                MarkupPercent = existing?.MarkupPercent ?? 0m
             },
             cancellationToken).ConfigureAwait(false);
     }
