@@ -1419,54 +1419,69 @@ public partial class CheckoutViewModel : ObservableObject
         RecalculateTotals();
     }
 
+    private bool _recalculatingTotals;
+
     private void RecalculateTotals()
     {
-        // Clear loyalty shares then allocate proportionally across promo-adjusted nets.
-        foreach (var line in CartItems)
+        if (_recalculatingTotals)
         {
-            line.LoyaltyShareNet = 0m;
-            line.RefreshTotals();
+            return;
         }
 
-        var netsAfterPromo = CartItems.Sum(x => x.NetBeforeLoyalty);
-        if (LoyaltyDiscountMwk > 0 && netsAfterPromo > 0 && CartItems.Count > 0)
+        _recalculatingTotals = true;
+        try
         {
-            var remaining = LoyaltyDiscountMwk;
-            for (var i = 0; i < CartItems.Count; i++)
+            // Clear loyalty shares then allocate proportionally across promo-adjusted nets.
+            foreach (var line in CartItems)
             {
-                var line = CartItems[i];
-                decimal share;
-                if (i == CartItems.Count - 1)
-                {
-                    share = remaining;
-                }
-                else
-                {
-                    share = PosTaxCalculator.RoundMoney(LoyaltyDiscountMwk * (line.NetBeforeLoyalty / netsAfterPromo));
-                    share = Math.Min(share, line.NetBeforeLoyalty);
-                    remaining = PosTaxCalculator.RoundMoney(remaining - share);
-                }
-
-                line.LoyaltyShareNet = Math.Min(share, line.NetBeforeLoyalty);
+                line.LoyaltyShareNet = 0m;
                 line.RefreshTotals();
             }
-        }
 
-        PromoDiscountTotal = CartItems.Sum(x => x.PromoDiscountNet);
-        CartDiscountTotal = CartItems.Sum(x => x.DisplayedDiscountInclusive);
-        CartSubtotal = CartItems.Sum(x => x.NetTotal);
-        CartTaxTotal = CartItems.Sum(x => x.VatTotal);
-        CartGrandTotal = CartSubtotal + CartTaxTotal;
-
-        TaxLines.Clear();
-        foreach (var group in CartItems.GroupBy(x => x.TaxRateId))
-        {
-            TaxLines.Add(new TaxLineViewModel
+            var netsAfterPromo = CartItems.Sum(x => x.NetBeforeLoyalty);
+            if (LoyaltyDiscountMwk > 0 && netsAfterPromo > 0 && CartItems.Count > 0)
             {
-                RateId = group.Key,
-                TaxableAmount = group.Sum(x => x.NetTotal),
-                TaxAmount = group.Sum(x => x.VatTotal)
-            });
+                var remaining = LoyaltyDiscountMwk;
+                for (var i = 0; i < CartItems.Count; i++)
+                {
+                    var line = CartItems[i];
+                    decimal share;
+                    if (i == CartItems.Count - 1)
+                    {
+                        share = remaining;
+                    }
+                    else
+                    {
+                        share = PosTaxCalculator.RoundMoney(LoyaltyDiscountMwk * (line.NetBeforeLoyalty / netsAfterPromo));
+                        share = Math.Min(share, line.NetBeforeLoyalty);
+                        remaining = PosTaxCalculator.RoundMoney(remaining - share);
+                    }
+
+                    line.LoyaltyShareNet = Math.Min(share, line.NetBeforeLoyalty);
+                    line.RefreshTotals();
+                }
+            }
+
+            PromoDiscountTotal = CartItems.Sum(x => x.PromoDiscountNet);
+            CartDiscountTotal = CartItems.Sum(x => x.DisplayedDiscountInclusive);
+            CartSubtotal = CartItems.Sum(x => x.NetTotal);
+            CartTaxTotal = CartItems.Sum(x => x.VatTotal);
+            CartGrandTotal = CartSubtotal + CartTaxTotal;
+
+            TaxLines.Clear();
+            foreach (var group in CartItems.GroupBy(x => x.TaxRateId))
+            {
+                TaxLines.Add(new TaxLineViewModel
+                {
+                    RateId = group.Key,
+                    TaxableAmount = group.Sum(x => x.NetTotal),
+                    TaxAmount = group.Sum(x => x.VatTotal)
+                });
+            }
+        }
+        finally
+        {
+            _recalculatingTotals = false;
         }
     }
 
@@ -1491,7 +1506,8 @@ public partial class CheckoutViewModel : ObservableObject
 
     private void OnCartLinePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(CartLineViewModel.ManualDiscountInclusive) ||
+        if (_recalculatingTotals ||
+            e.PropertyName != nameof(CartLineViewModel.ManualDiscountInclusive) ||
             sender is not CartLineViewModel line)
         {
             return;

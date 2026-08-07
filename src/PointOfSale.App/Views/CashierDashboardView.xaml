@@ -295,16 +295,33 @@
                                   BorderThickness="1"
                                   GridLinesVisibility="Horizontal"
                                   AlternatingRowBackground="#F8FAFC"
-                                  RowHeight="40"
-                                  ColumnHeaderHeight="36">
+                                  RowHeight="44"
+                                  ColumnHeaderHeight="36"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" MinWidth="120" IsReadOnly="True" />
                                 <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=N2}" Width="70" IsReadOnly="True" />
                                 <DataGridTextColumn Header="Price (incl.)" Binding="{Binding UnitPrice, StringFormat=N2}" Width="100" IsReadOnly="True" />
-                                <DataGridTextColumn Header="Discount"
-                                                    Binding="{Binding ManualDiscountInclusive, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}"
-                                                    Width="90"
-                                                    IsReadOnly="False" />
+                                <DataGridTemplateColumn Header="Discount" Width="120" MinWidth="110">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="2,2">
+                                                <TextBlock DockPanel.Dock="Left"
+                                                           Text="MWK"
+                                                           VerticalAlignment="Center"
+                                                           Margin="4,0,4,0"
+                                                           Foreground="#64748B"
+                                                           FontSize="11" />
+                                                <TextBox Text="{Binding ManualDiscountInclusive, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                         MinHeight="32"
+                                                         FontSize="14"
+                                                         Padding="6,4"
+                                                         VerticalContentAlignment="Center"
+                                                         ToolTip="VAT-inclusive discount in MWK (e.g. 1000)" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="100" IsReadOnly="True" />
                             </DataGrid.Columns>
                         </DataGrid>
@@ -331,11 +348,11 @@
                                            HorizontalAlignment="Right" />
                             </DockPanel>
                             <DockPanel Margin="0,6,0,0">
-                                <TextBlock Text="Discount" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Checkout.CartDiscountTotal, StringFormat=N2}"
+                                <TextBlock Text="Discount" Foreground="#FCA5A5" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Checkout.CartDiscountTotal, StringFormat='MWK {0:N2}'}"
                                            Foreground="#FCA5A5"
-                                           FontSize="14"
-                                           FontWeight="SemiBold"
+                                           FontSize="16"
+                                           FontWeight="Bold"
                                            FontFamily="{StaticResource Art.Font.Mono}"
                                            HorizontalAlignment="Right" />
                             </DockPanel>

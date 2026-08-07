@@ -14713,3 +14713,117 @@ PointOfSale.Mra.Http.MraApiException: Invalid MRA EIS response JSON.
 2026-08-07 15:02:25.095 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
 2026-08-07 15:02:25.098 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
 2026-08-07 15:02:25.099 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 0 null: All subsystems healthy (SQL 0 ms, disk 33.08 GB free).
+2026-08-07 15:17:01.518 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-08-07 15:17:02.113 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=531
+2026-08-07 15:17:02.199 +02:00 [INF] SQL Express schema ready (version 32).
+2026-08-07 15:17:02.220 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 411
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 411
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 414
+ClientConnectionId:8ae7e055-38b9-473c-8593-d93fb7c9132b
+Error Number:10611,State:1,Class:16
+2026-08-07 15:17:02.708 +02:00 [INF] Offline invoice FIFO sync worker started (interval 15s, requireConnectivity=true).
+2026-08-07 15:17:02.732 +02:00 [INF] Hardware fault-tolerance loop started (probe every 20s).
+2026-08-07 15:17:02.735 +02:00 [INF] ArchivalCompressionBackgroundService is disabled.
+2026-08-07 15:17:02.740 +02:00 [INF] Inventory alert scanner started (interval 60s).
+2026-08-07 15:17:02.757 +02:00 [INF] HealthCheckWorker started (interval 45s).
+2026-08-07 15:17:02.761 +02:00 [INF] System health monitor started (interval 45s).
+2026-08-07 15:17:02.764 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/sales/last-submitted-offline-transaction"
+2026-08-07 15:17:02.765 +02:00 [INF] PerformanceProfilingBackgroundService started (sample 30s, flush 300s).
+2026-08-07 15:17:02.769 +02:00 [INF] DatabaseMaintenanceBackgroundService started (interval 24h).
+2026-08-07 15:17:02.846 +02:00 [ERR] Failed to start offline receipt QR bridge on http://10.10.46.135:18787/ReceiptValidation/Validate/. QR scans may still hit MRA portal ISE.
+System.Net.HttpListenerException (5): Access is denied.
+   at System.Net.HttpListener.AddPrefixCore(String registeredPrefix)
+   at System.Net.HttpListener.AddAllPrefixes()
+   at System.Net.HttpListener.Start()
+   at PointOfSale.App.Services.OfflineReceiptQrBridgeService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\OfflineReceiptQrBridgeService.cs:line 103
+2026-08-07 15:17:02.970 +02:00 [INF] Inventory alert scan complete: 854 products, low=2, stockout=0, overstock=0, fast=0.
+2026-08-07 15:17:03.172 +02:00 [INF] SQL Express schema ready (version 32).
+2026-08-07 15:17:03.179 +02:00 [WRN] Phase 37 InitialSetup.sql apply skipped after error (schema already bootstrapped in-app).
+Microsoft.Data.SqlClient.SqlException (0x80131904): Filtered index 'IX_OfflineInvoiceQueue_PendingFifo' cannot be created on table 'dbo.OfflineInvoiceQueue' because the column 'Status' in the filter expression is compared with a constant of higher data type precedence or of a different collation. Converting a column to the data type of a constant is not supported for filtered indexes. To resolve this error, explicitly convert the constant to the same data type and collation as the column 'Status'.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 411
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 411
+   at PointOfSale.App.Services.FirstRunBootstrapService.TryApplyInitialSetupScriptAsync(CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.App\Services\FirstRunBootstrapService.cs:line 414
+ClientConnectionId:51f5dc65-34de-4061-8d7f-0abfe9580d77
+Error Number:10611,State:1,Class:16
+2026-08-07 15:17:03.238 +02:00 [INF] MRA POST /api/v1/sales/last-submitted-offline-transaction status=200 success=true durationMs=484
+2026-08-07 15:17:03.495 +02:00 [WRN] Unable to query last-submitted-offline-transaction for sequence check.
+PointOfSale.Mra.Http.MraApiException: Invalid MRA EIS response JSON.
+ ---> System.Text.Json.JsonException: The JSON value could not be converted to System.Decimal. Path: $.data.invoiceSummary.amountTendered | LineNumber: 0 | BytePositionInLine: 985.
+ ---> System.InvalidOperationException: Cannot get the value of a token type 'Null' as a number.
+   at System.Text.Json.ThrowHelper.ThrowInvalidOperationException_ExpectedNumber(JsonTokenType tokenType)
+   at System.Text.Json.Utf8JsonReader.TryGetDecimal(Decimal& value)
+   at System.Text.Json.Utf8JsonReader.GetDecimal()
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, JsonSerializerOptions options, ReadStack& state)
+   --- End of inner exception stack trace ---
+   at System.Text.Json.ThrowHelper.ReThrowWithPath(ReadStack& state, Utf8JsonReader& reader, Exception ex)
+   at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, JsonSerializerOptions options, ReadStack& state)
+   at System.Text.Json.JsonSerializer.ReadFromSpan[TValue](ReadOnlySpan`1 utf8Json, JsonTypeInfo`1 jsonTypeInfo, Nullable`1 actualByteCount)
+   at System.Text.Json.JsonSerializer.ReadFromSpan[TValue](ReadOnlySpan`1 json, JsonTypeInfo`1 jsonTypeInfo)
+   at System.Text.Json.JsonSerializer.Deserialize[TValue](String json, JsonSerializerOptions options)
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 309
+   --- End of inner exception stack trace ---
+   at PointOfSale.Infrastructure.Services.MraApiClient.SendAsync[TResponse](HttpRequestMessage request, String auditRequestBody, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 323
+   at PointOfSale.Infrastructure.Services.MraApiClient.PostEmptyAsync[TResponse](String relativePath, MraRequestContext context, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\MraApiClient.cs:line 249
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.GetLastSubmittedTransactionAsync(String relativePath, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 86
+   at PointOfSale.Infrastructure.Services.SalesTransactionService.VerifySequenceContinuityAsync(Func`2 lookupFactory, String channelLabel, CancellationToken cancellationToken) in C:\Users\Albert Zee\Documents\Projects\Point Of Sale\src\PointOfSale.Infrastructure\Services\SalesTransactionService.cs:line 153
+2026-08-07 15:17:10.824 +02:00 [INF] ART Diagnostic WorkerHeartbeat HealthCheckWorker null null: Heartbeat
+2026-08-07 15:17:11.479 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 39 null: SQL round-trip 39 ms
+2026-08-07 15:17:11.898 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-08-07 15:17:11.989 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=94
+2026-08-07 15:17:12.016 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 106 1: MRA ping ok in 106 ms.
+2026-08-07 15:17:12.356 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-08-07 15:17:12.386 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=32
+2026-08-07 15:17:12.412 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-08-07 15:17:12.428 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 39 null: All subsystems healthy (SQL 39 ms, disk 33.09 GB free).
+2026-08-07 15:17:14.785 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 2 null: SQL round-trip 2 ms
+2026-08-07 15:17:14.882 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-08-07 15:17:18.014 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3125
+2026-08-07 15:17:18.023 +02:00 [INF] ART Diagnostic MraConnectivity MraEis 3141 1: MRA ping ok in 3141 ms.
+2026-08-07 15:17:18.078 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-08-07 15:17:18.099 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-08-07 15:17:18.107 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-08-07 15:17:18.108 +02:00 [INF] ART Diagnostic HealthCheck HealthCheckWorker 2 null: All subsystems healthy (SQL 2 ms, disk 33.09 GB free).
+2026-08-07 15:17:18.168 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-08-07 15:17:18.184 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=16
+2026-08-07 15:17:18.196 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-08-07 15:17:18.274 +02:00 [INF] ART Diagnostic WorkerHeartbeat SystemHealthMonitorService null null: All monitored subsystems healthy.
+2026-08-07 15:17:20.944 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-08-07 15:17:20.970 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=31
+2026-08-07 15:17:21.025 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-08-07 15:17:35.542 +02:00 [INF] ART Diagnostic DatabaseLatency SqlExpress 97 null: Performance profile sample (FPS 0.0)
+2026-08-07 15:17:40.969 +02:00 [INF] MRA EIS POST "https://dev-eis-api.mra.mw/api/v1/utilities/ping"
+2026-08-07 15:17:44.065 +02:00 [INF] MRA POST /api/v1/utilities/ping status=200 success=true durationMs=3109
+2026-08-07 15:17:44.075 +02:00 [INF] MRA connectivity restored — waking offline sync worker.
+2026-08-07 15:17:49.867 +02:00 [INF] Hardware fault-tolerance loop stopped.

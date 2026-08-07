@@ -87,14 +87,33 @@
                       IsReadOnly="False"
                       FontSize="14"
                       Margin="0,0,0,8"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                      RowHeight="40"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" MinWidth="120" IsReadOnly="True" />
                     <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="60" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Discount"
-                                        Binding="{Binding ManualDiscountInclusive, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}"
-                                        Width="90"
-                                        IsReadOnly="False" />
+                    <DataGridTextColumn Header="Price (incl.)" Binding="{Binding UnitPrice, StringFormat=N2}" Width="90" IsReadOnly="True" />
+                    <DataGridTemplateColumn Header="Discount" Width="120" MinWidth="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="2,2">
+                                    <TextBlock DockPanel.Dock="Left"
+                                               Text="MWK"
+                                               VerticalAlignment="Center"
+                                               Margin="4,0,4,0"
+                                               Foreground="#64748B"
+                                               FontSize="11" />
+                                    <TextBox Text="{Binding ManualDiscountInclusive, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                             MinHeight="28"
+                                             FontSize="13"
+                                             Padding="4,2"
+                                             VerticalContentAlignment="Center"
+                                             ToolTip="VAT-inclusive discount in MWK (e.g. 1000)" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="90" IsReadOnly="True" />
                 </DataGrid.Columns>
             </DataGrid>
@@ -105,7 +124,7 @@
                               CanContentScroll="False">
                     <StackPanel>
                         <TextBlock Text="{Binding CartSubtotal, StringFormat='Sub total (taxable): {0:N2}'}" FontSize="16" />
-                        <TextBlock Text="{Binding CartDiscountTotal, StringFormat='Discount: {0:N2}'}"
+                        <TextBlock Text="{Binding CartDiscountTotal, StringFormat='Discount: MWK {0:N2}'}"
                                    FontSize="16"
                                    Foreground="#B91C1C"
                                    FontWeight="SemiBold" />
