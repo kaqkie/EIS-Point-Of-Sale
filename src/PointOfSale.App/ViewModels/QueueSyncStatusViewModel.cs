@@ -67,6 +67,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(PrintReceiptCommand))]
     [NotifyCanExecuteChangedFor(nameof(RetryQuarantinedCommand))]
     [NotifyCanExecuteChangedFor(nameof(ForceSyncCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CopySelectedErrorCommand))]
     private QueueItemViewModel? _selectedQueueItem;
 
     [ObservableProperty]
@@ -88,6 +89,21 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     private string _statusMessage = string.Empty;
 
     [ObservableProperty]
+    private bool _hasSelectedItem;
+
+    [ObservableProperty]
+    private bool _hasSelectedError;
+
+    [ObservableProperty]
+    private bool _showNoErrorPlaceholder = true;
+
+    [ObservableProperty]
+    private string _selectedDetailSummary = "Select a queue row to inspect sync status and errors.";
+
+    [ObservableProperty]
+    private string _selectedErrorDetail = string.Empty;
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PrintReceiptCommand))]
     [NotifyCanExecuteChangedFor(nameof(PrintAllReceiptsCommand))]
     [NotifyCanExecuteChangedFor(nameof(RetryQuarantinedCommand))]
@@ -95,6 +111,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(SyncNextCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
     [NotifyCanExecuteChangedFor(nameof(FixReceiptIdsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CopySelectedErrorCommand))]
     private bool _isBusy;
 
     partial void OnSelectedStatusFilterChanged(string value) => _ = RefreshAsync();
@@ -103,7 +120,33 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     {
         // Re-evaluate toolbar CanExecute whenever the highlighted row changes.
         // Do not touch StatusMessage here — refresh/restore selection would wipe action results.
+        UpdateSelectedDetail(value);
         NotifyActionCommands();
+    }
+
+    private void UpdateSelectedDetail(QueueItemViewModel? value)
+    {
+        HasSelectedItem = value is not null;
+        if (value is null)
+        {
+            HasSelectedError = false;
+            ShowNoErrorPlaceholder = true;
+            SelectedDetailSummary = "Select a queue row to inspect sync status and errors.";
+            SelectedErrorDetail = string.Empty;
+            return;
+        }
+
+        SelectedDetailSummary =
+            $"#{value.Id}  ·  {value.InvoiceNumberDisplay}  ·  {value.Status}  ·  " +
+            $"created {value.CreatedAtDisplay}  ·  retries {value.RetryCount}" +
+            (value.NextRetryTime.HasValue ? $"  ·  next retry {value.NextRetryDisplay}" : string.Empty);
+
+        HasSelectedError = value.HasError;
+        ShowNoErrorPlaceholder = !value.HasError;
+        SelectedErrorDetail = value.HasError
+            ? value.ErrorMessage!.Trim()
+            : "No error recorded for this item.";
+        CopySelectedErrorCommand.NotifyCanExecuteChanged();
     }
 
     private void OnRefreshTimerTick(object? sender, EventArgs e)
@@ -159,7 +202,13 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
                 {
                     SelectedQueueItem = QueueItems.FirstOrDefault(x =>
                             x.Status.Equals(OfflineQueueStatuses.Quarantined, StringComparison.OrdinalIgnoreCase))
+                        ?? QueueItems.FirstOrDefault(x => x.HasError)
                         ?? QueueItems[0];
+                }
+                else
+                {
+                    // Selection may already be set; refresh the detail pane text from the new row instance.
+                    UpdateSelectedDetail(SelectedQueueItem);
                 }
             });
         }
@@ -395,6 +444,26 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         };
     }
 
+    [RelayCommand(CanExecute = nameof(CanExecuteCopySelectedError))]
+    private void CopySelectedError()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedErrorDetail) || !HasSelectedError)
+        {
+            StatusMessage = "No error text to copy.";
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(SelectedErrorDetail);
+            StatusMessage = "Error text copied to clipboard.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Could not copy error: {ex.Message}";
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanExecutePrintReceipt))]
     private async Task PrintReceiptAsync(QueueItemViewModel? item)
     {
@@ -574,6 +643,9 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
     private bool CanExecuteForceSync(QueueItemViewModel? item) =>
         !IsBusy && ResolveTarget(item)?.CanForceSync == true;
 
+    private bool CanExecuteCopySelectedError() =>
+        !IsBusy && HasSelectedError && !string.IsNullOrWhiteSpace(SelectedErrorDetail);
+
     private bool BeginBusy(string message)
     {
         if (IsBusy)
@@ -601,6 +673,7 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
         SyncNextCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged();
         FixReceiptIdsCommand.NotifyCanExecuteChanged();
+        CopySelectedErrorCommand.NotifyCanExecuteChanged();
     }
 
     private static void ApplyOnUi(Action action)
@@ -630,6 +703,8 @@ public partial class QueueSyncStatusViewModel : ObservableObject, IDisposable
 
 public sealed class QueueItemViewModel
 {
+    private const int ErrorPreviewMaxLength = 96;
+
     public int Id { get; init; }
     public required string Status { get; init; }
     public DateTime CreatedAt { get; init; }
@@ -647,6 +722,42 @@ public sealed class QueueItemViewModel
         string.IsNullOrWhiteSpace(InvoiceNumber)
             ? $"#{Id}"
             : $"#{Id} · {InvoiceNumber}";
+
+    public string InvoiceNumberDisplay =>
+        string.IsNullOrWhiteSpace(InvoiceNumber) ? "(no invoice number)" : InvoiceNumber;
+
+    public string CreatedAtDisplay => CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+
+    public string NextRetryDisplay =>
+        NextRetryTime?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—";
+
+    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+
+    /// <summary>Single-line preview for the grid Error column.</summary>
+    public string ErrorPreview
+    {
+        get
+        {
+            if (!HasError)
+            {
+                return "—";
+            }
+
+            var oneLine = ErrorMessage!
+                .Replace("\r\n", " ", StringComparison.Ordinal)
+                .Replace('\n', ' ')
+                .Replace('\t', ' ')
+                .Trim();
+            while (oneLine.Contains("  ", StringComparison.Ordinal))
+            {
+                oneLine = oneLine.Replace("  ", " ", StringComparison.Ordinal);
+            }
+
+            return oneLine.Length <= ErrorPreviewMaxLength
+                ? oneLine
+                : oneLine[..(ErrorPreviewMaxLength - 1)] + "…";
+        }
+    }
 
     public bool IsMraCompositeInvoiceNumber =>
         PointOfSale.Mra.Billing.MraInvoiceNumberGenerator.IsMraCompositeInvoiceNumber(InvoiceNumber);

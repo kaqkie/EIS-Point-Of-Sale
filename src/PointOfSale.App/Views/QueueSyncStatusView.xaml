@@ -8,91 +8,140 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="*" MinHeight="180" />
+            <RowDefinition Height="Auto" MinHeight="168" MaxHeight="280" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <UniformGrid Grid.Row="0" Columns="4" Margin="0,0,0,12">
-            <Border Background="#FEF3C7" Padding="12" Margin="4" CornerRadius="8">
+            <Border Background="#FEF3C7"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="1"
+                    Padding="12"
+                    Margin="0,0,8,0"
+                    CornerRadius="8">
                 <StackPanel>
-                    <TextBlock Text="PENDING" FontWeight="Bold" />
-                    <TextBlock Text="{Binding PendingCount}" FontSize="24" />
+                    <TextBlock Text="Pending"
+                               Style="{StaticResource Art.Text.Caption}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding PendingCount}"
+                               Style="{StaticResource Art.Text.Title}"
+                               FontSize="28"
+                               Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
-            <Border Background="#DBEAFE" Padding="12" Margin="4" CornerRadius="8">
+            <Border Background="#DBEAFE"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="1"
+                    Padding="12"
+                    Margin="0,0,8,0"
+                    CornerRadius="8">
                 <StackPanel>
-                    <TextBlock Text="SYNCING" FontWeight="Bold" />
-                    <TextBlock Text="{Binding SyncingCount}" FontSize="24" />
+                    <TextBlock Text="Syncing"
+                               Style="{StaticResource Art.Text.Caption}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding SyncingCount}"
+                               Style="{StaticResource Art.Text.Title}"
+                               FontSize="28"
+                               Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
-            <Border Background="#FEE2E2" Padding="12" Margin="4" CornerRadius="8">
+            <Border Background="#FEE2E2"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="1"
+                    Padding="12"
+                    Margin="0,0,8,0"
+                    CornerRadius="8">
                 <StackPanel>
-                    <TextBlock Text="QUARANTINED" FontWeight="Bold" />
-                    <TextBlock Text="{Binding QuarantinedCount}" FontSize="24" />
+                    <TextBlock Text="Quarantined"
+                               Style="{StaticResource Art.Text.Caption}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding QuarantinedCount}"
+                               Style="{StaticResource Art.Text.Title}"
+                               FontSize="28"
+                               Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
-            <Border Background="#DCFCE7" Padding="12" Margin="4" CornerRadius="8">
+            <Border Background="#DCFCE7"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="1"
+                    Padding="12"
+                    CornerRadius="8">
                 <StackPanel>
-                    <TextBlock Text="SYNCED" FontWeight="Bold" />
-                    <TextBlock Text="{Binding SyncedCount}" FontSize="24" />
+                    <TextBlock Text="Synced"
+                               Style="{StaticResource Art.Text.Caption}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding SyncedCount}"
+                               Style="{StaticResource Art.Text.Title}"
+                               FontSize="28"
+                               Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
         </UniformGrid>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Text="Status filter:" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <ComboBox Width="160"
-                      ItemsSource="{Binding StatusFilterOptions}"
-                      SelectedItem="{Binding SelectedStatusFilter}"
-                      Padding="8,4"
-                      Margin="0,0,16,0" />
-            <Button Content="Refresh"
-                    Command="{Binding RefreshCommand}"
-                    Padding="10,8"
-                    Margin="0,0,8,0" />
-            <Button Content="Sync Next FIFO Item"
-                    Command="{Binding SyncNextCommand}"
-                    Padding="10,8"
-                    FontWeight="SemiBold"
-                    Margin="0,0,8,0" />
-            <Button Content="Fix Receipt IDs"
-                    Command="{Binding FixReceiptIdsCommand}"
-                    Padding="10,8"
-                    FontWeight="SemiBold"
-                    Margin="0,0,8,0"
-                    ToolTip="Rewrite bad invoice numbers, archive TIN-not-found as local offline receipts, and clear aged quarantines" />
-            <Button Content="Print All Receipts"
-                    Command="{Binding PrintAllReceiptsCommand}"
-                    Padding="10,8"
-                    FontWeight="SemiBold"
-                    ToolTip="Print every synced, pending, and quarantined invoice in the list" />
-        </StackPanel>
+        <DockPanel Grid.Row="1" Margin="0,0,0,8" LastChildFill="False">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                <TextBlock Text="Status filter"
+                           Style="{StaticResource Art.Text.Caption}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                <ComboBox Width="150"
+                          ItemsSource="{Binding StatusFilterOptions}"
+                          SelectedItem="{Binding SelectedStatusFilter}"
+                          Padding="8,6"
+                          Margin="0,0,12,0"
+                          VerticalAlignment="Center" />
+                <Button Content="Refresh"
+                        Style="{StaticResource Art.Button.Secondary}"
+                        Command="{Binding RefreshCommand}"
+                        Padding="12,8"
+                        Margin="0,0,8,0"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+                <Button Content="Sync next"
+                        Style="{StaticResource Art.Button.Primary}"
+                        Command="{Binding SyncNextCommand}"
+                        Padding="12,8"
+                        Margin="0,0,8,0"
+                        FontWeight="SemiBold"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
+                <Button Content="Fix receipt IDs"
+                        Style="{StaticResource Art.Button.Ghost}"
+                        Command="{Binding FixReceiptIdsCommand}"
+                        Padding="12,8"
+                        Margin="0,0,8,0"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                        ToolTip="Rewrite bad invoice numbers, archive TIN-not-found as local offline receipts, and clear aged quarantines" />
+                <Button Content="Print all"
+                        Style="{StaticResource Art.Button.Ghost}"
+                        Command="{Binding PrintAllReceiptsCommand}"
+                        Padding="12,8"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                        ToolTip="Print every synced, pending, and quarantined invoice in the list" />
+            </StackPanel>
+        </DockPanel>
 
-        <!--
-          Toolbar actions target the grid's SelectedItem (visual highlight).
-          Binding CommandParameter to QueueGrid.SelectedItem keeps the command in sync
-          with the highlighted row even if the VM property briefly lags.
-        -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button Content="Print Receipt"
+            <Button Content="Print receipt"
+                    Style="{StaticResource Art.Button.Secondary}"
                     Command="{Binding PrintReceiptCommand}"
                     CommandParameter="{Binding SelectedItem, ElementName=QueueGrid}"
-                    Padding="10,8"
+                    Padding="12,8"
                     Margin="0,0,8,0"
-                    FontWeight="SemiBold"
                     FocusVisualStyle="{x:Null}"
                     ToolTip="Print the selected queue invoice receipt" />
             <Button Content="Retry"
+                    Style="{StaticResource Art.Button.Secondary}"
                     Command="{Binding RetryQuarantinedCommand}"
                     CommandParameter="{Binding SelectedItem, ElementName=QueueGrid}"
-                    Padding="10,8"
+                    Padding="12,8"
                     Margin="0,0,8,0"
                     FocusVisualStyle="{x:Null}"
                     ToolTip="Return quarantined item to PENDING and submit to MRA immediately" />
-            <Button Content="Force Sync"
+            <Button Content="Force sync"
+                    Style="{StaticResource Art.Button.Primary}"
                     Command="{Binding ForceSyncCommand}"
                     CommandParameter="{Binding SelectedItem, ElementName=QueueGrid}"
-                    Padding="10,8"
+                    Padding="12,8"
                     FontWeight="SemiBold"
                     FocusVisualStyle="{x:Null}"
                     ToolTip="Immediately submit the selected pending/quarantined item to MRA" />
@@ -108,45 +157,76 @@
                   SelectionMode="Single"
                   SelectionUnit="FullRow"
                   IsSynchronizedWithCurrentItem="True"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  RowHeight="36"
+                  AlternatingRowBackground="#F8FAFC"
                   SelectionChanged="QueueGrid_OnSelectionChanged">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="ToolTip" Value="{Binding ErrorMessage}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Status}" Value="QUARANTINED">
+                            <Setter Property="Background" Value="#FEF2F2" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Status}" Value="PENDING">
+                            <Setter Property="Background" Value="#FFFBEB" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding HasError}" Value="True">
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="60" />
-                <DataGridTextColumn Header="Invoice" Binding="{Binding InvoiceNumber}" Width="160" />
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120" />
-                <DataGridTextColumn Header="Created" Binding="{Binding CreatedAt}" Width="160" />
-                <DataGridTextColumn Header="Retries" Binding="{Binding RetryCount}" Width="70" />
-                <DataGridTextColumn Header="Next Retry" Binding="{Binding NextRetryTime}" Width="160" />
-                <DataGridTextColumn Header="Error" Binding="{Binding ErrorMessage}" Width="*" />
-                <DataGridTemplateColumn Header="Row Actions" Width="300">
+                <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="56" />
+                <DataGridTextColumn Header="Invoice" Binding="{Binding InvoiceNumber}" Width="170" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110" />
+                <DataGridTextColumn Header="Created" Binding="{Binding CreatedAtDisplay}" Width="140" />
+                <DataGridTextColumn Header="Retries" Binding="{Binding RetryCount}" Width="64" />
+                <DataGridTextColumn Header="Next retry" Binding="{Binding NextRetryDisplay}" Width="140" />
+                <DataGridTextColumn Header="Error preview"
+                                   Binding="{Binding ErrorPreview}"
+                                   Width="*"
+                                   MinWidth="180">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding ErrorMessage}" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Padding" Value="4,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTemplateColumn Header="Actions" Width="220">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate DataType="{x:Type vm:QueueItemViewModel}">
-                            <StackPanel Orientation="Horizontal">
-                                <!--
-                                  Bind via DataGrid ancestor (visual tree). ElementName often fails inside
-                                  DataTemplate name scopes; RelativeSource AncestorType=UserControl is also unreliable.
-                                -->
-                                <Button Content="Print Receipt"
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Print"
+                                        Style="{StaticResource Art.Button.Ghost}"
                                         Command="{Binding DataContext.PrintReceiptCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}"
                                         Margin="0,0,4,0"
-                                        Padding="6,2"
+                                        Padding="8,4"
                                         FocusVisualStyle="{x:Null}"
                                         IsEnabled="{Binding CanPrintReceipt}"
                                         ToolTip="Print this invoice receipt"
                                         Click="RowActionButton_OnClick" />
                                 <Button Content="Retry"
+                                        Style="{StaticResource Art.Button.Ghost}"
                                         Command="{Binding DataContext.RetryQuarantinedCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}"
                                         Margin="0,0,4,0"
-                                        Padding="6,2"
+                                        Padding="8,4"
                                         FocusVisualStyle="{x:Null}"
                                         IsEnabled="{Binding CanRetry}"
                                         ToolTip="Retry quarantined item now (submit to MRA)"
                                         Click="RowActionButton_OnClick" />
-                                <Button Content="Force Sync"
+                                <Button Content="Force"
+                                        Style="{StaticResource Art.Button.Ghost}"
                                         Command="{Binding DataContext.ForceSyncCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}"
-                                        Padding="6,2"
+                                        Padding="8,4"
                                         FocusVisualStyle="{x:Null}"
                                         IsEnabled="{Binding CanForceSync}"
                                         ToolTip="Force immediate MRA sync for this item"
@@ -158,6 +238,91 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <TextBlock Grid.Row="4" Text="{Binding StatusMessage}" Margin="0,8,0,0" TextWrapping="Wrap" />
+        <Border Grid.Row="4"
+                Background="White"
+                BorderBrush="{StaticResource Art.Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12"
+                Margin="0,10,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" MinHeight="96" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,6">
+                    <Button DockPanel.Dock="Right"
+                            Content="Copy error"
+                            Style="{StaticResource Art.Button.Secondary}"
+                            Command="{Binding CopySelectedErrorCommand}"
+                            Padding="12,6"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            ToolTip="Copy the full error text for this queue item" />
+                    <TextBlock Text="Selected item / sync error"
+                               Style="{StaticResource Art.Text.Title}"
+                               FontSize="15"
+                               VerticalAlignment="Center" />
+                </DockPanel>
+
+                <TextBlock Grid.Row="1"
+                           Text="{Binding SelectedDetailSummary}"
+                           Style="{StaticResource Art.Text.Subtitle}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8" />
+
+                <Border Grid.Row="2"
+                        Background="#FFF7F7"
+                        BorderBrush="#FECACA"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="0"
+                        Visibility="{Binding HasSelectedError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  MaxHeight="160">
+                        <TextBox Text="{Binding SelectedErrorDetail, Mode=OneWay}"
+                                 IsReadOnly="True"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 Padding="10"
+                                 FontFamily="Consolas"
+                                 FontSize="12.5"
+                                 VerticalScrollBarVisibility="Disabled"
+                                 HorizontalScrollBarVisibility="Disabled"
+                                 ToolTip="Full MRA / sync error — select text or use Copy error" />
+                    </ScrollViewer>
+                </Border>
+
+                <Border Grid.Row="2"
+                        Background="#F8FAFC"
+                        BorderBrush="{StaticResource Art.Brush.Border}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="10"
+                        Visibility="{Binding ShowNoErrorPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="{Binding SelectedErrorDetail}"
+                               Style="{StaticResource Art.Text.Caption}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="5"
+                Background="#F1F5F9"
+                BorderBrush="{StaticResource Art.Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12"
+                Margin="0,8,0,0">
+            <TextBlock Text="{Binding StatusMessage}"
+                       Style="{StaticResource Art.Text.Subtitle}"
+                       TextWrapping="Wrap" />
+        </Border>
     </Grid>
 </UserControl>
