@@ -704,6 +704,14 @@ public sealed class TerminalOnboardingService
                 JsonSerializer.Serialize(bundle.TaxpayerConfiguration, MraJson.SerializerOptions),
                 cancellationToken).ConfigureAwait(false);
         }
+
+        // Successful config download means MRA is reachable; reset the offline wall-clock window
+        // and pick up any OfflineLimit.maxTransactionAgeInHours change from MRA.
+        await _configurationRepository.UpsertJsonAsync(
+                MraRuntimeConfigurationKeys.LastMraReachableUtc,
+                DateTime.UtcNow.ToString("O"),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 }
 

@@ -16,15 +16,17 @@ public interface IOfflineTransactionComplianceValidator
         decimal pendingOfflineCumulativeAmount = 0m);
 
     /// <summary>
-    /// Gate for starting/continuing offline sales: age of existing pending work + cumulative amount
-    /// including the prospective sale must stay within terminal OfflineLimit.
+    /// Gate for starting/continuing offline sales: wall-clock time since last MRA contact,
+    /// age of existing pending work, and cumulative amount including the prospective sale
+    /// must stay within terminal OfflineLimit (default 72h; updates when MRA changes it).
     /// </summary>
     OfflineTransactionComplianceResult ValidateCanContinueOffline(
         decimal prospectiveInvoiceTotal,
         OfflineLimitDto? offlineLimit,
         decimal pendingOfflineCumulativeAmount,
         DateTime? oldestPendingQueuedAtUtc,
-        DateTime? asOfUtc = null);
+        DateTime? asOfUtc = null,
+        DateTime? lastMraReachableUtc = null);
 }
 
 public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionComplianceValidator
@@ -84,11 +86,26 @@ public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionC
         OfflineLimitDto? offlineLimit,
         decimal pendingOfflineCumulativeAmount,
         DateTime? oldestPendingQueuedAtUtc,
-        DateTime? asOfUtc = null)
+        DateTime? asOfUtc = null,
+        DateTime? lastMraReachableUtc = null)
     {
         var now = (asOfUtc ?? DateTime.UtcNow).ToUniversalTime();
         var maxAgeHours = ResolveMaxAgeHours(offlineLimit);
         var maxAge = TimeSpan.FromHours((double)maxAgeHours);
+
+        // Wall-clock offline window since last successful MRA contact (MRA OfflineLimit).
+        if (lastMraReachableUtc is DateTime lastReachable)
+        {
+            var lastReachableUtc = NormalizeUtc(lastReachable);
+            var offlineDuration = now - lastReachableUtc;
+            if (offlineDuration > maxAge)
+            {
+                return OfflineTransactionComplianceResult.Reject(
+                    $"This terminal has been offline from MRA for {offlineDuration.TotalHours:0.#}h, " +
+                    $"which exceeds the allowed offline window of {maxAgeHours}h. " +
+                    "Reconnect to the MRA server before continuing sales.");
+            }
+        }
 
         if (oldestPendingQueuedAtUtc is DateTime oldest)
         {
@@ -113,9 +130,17 @@ public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionC
 
         return OfflineTransactionComplianceResult.Ok(
             (int)Math.Ceiling(maxAgeHours),
-            age: TimeSpan.Zero,
+            age: lastMraReachableUtc is DateTime lr
+                ? now - NormalizeUtc(lr)
+                : TimeSpan.Zero,
             offlineSignature: string.Empty);
     }
+
+    /// <summary>Resolves MRA OfflineLimit.maxTransactionAgeInHours, falling back to 72.</summary>
+    public static decimal ResolveMaxAgeHours(OfflineLimitDto? offlineLimit) =>
+        offlineLimit?.MaxTransactionAgeInHours > 0
+            ? offlineLimit.MaxTransactionAgeInHours
+            : FallbackMaxTransactionAgeInHours;
 
     private static OfflineTransactionComplianceResult? ValidateCumulativeAmount(
         decimal prospectiveInvoiceTotal,
@@ -148,11 +173,6 @@ public sealed class OfflineTransactionComplianceValidator : IOfflineTransactionC
 
         return null;
     }
-
-    private static decimal ResolveMaxAgeHours(OfflineLimitDto? offlineLimit) =>
-        offlineLimit?.MaxTransactionAgeInHours > 0
-            ? offlineLimit.MaxTransactionAgeInHours
-            : FallbackMaxTransactionAgeInHours;
 
     private static DateTime NormalizeUtc(DateTime value) =>
         value.Kind switch

@@ -124,6 +124,82 @@ public sealed class OfflineTransactionSyncTests
     }
 
     [Fact]
+    public void ComplianceValidator_BlocksNewOffline_WhenWallClockOfflineWindowExceeded()
+    {
+        var validator = new OfflineTransactionComplianceValidator();
+        var now = DateTime.UtcNow;
+        var result = validator.ValidateCanContinueOffline(
+            prospectiveInvoiceTotal: 1_000m,
+            offlineLimit: new OfflineLimitDto { MaxTransactionAgeInHours = 72 },
+            pendingOfflineCumulativeAmount: 0m,
+            oldestPendingQueuedAtUtc: null,
+            asOfUtc: now,
+            lastMraReachableUtc: now.AddHours(-80));
+
+        Assert.False(result.IsCompliant);
+        Assert.Contains("offline from MRA", result.Remark, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("72", result.Remark);
+    }
+
+    [Fact]
+    public void ComplianceValidator_HonoursMraChangedOfflineWindowHours()
+    {
+        var validator = new OfflineTransactionComplianceValidator();
+        var now = DateTime.UtcNow;
+
+        // MRA shortened the offline window to 24h — a 30h disconnect must be blocked.
+        var blocked = validator.ValidateCanContinueOffline(
+            prospectiveInvoiceTotal: 500m,
+            offlineLimit: new OfflineLimitDto { MaxTransactionAgeInHours = 24 },
+            pendingOfflineCumulativeAmount: 0m,
+            oldestPendingQueuedAtUtc: null,
+            asOfUtc: now,
+            lastMraReachableUtc: now.AddHours(-30));
+
+        Assert.False(blocked.IsCompliant);
+        Assert.Contains("24", blocked.Remark);
+
+        // Same disconnect is allowed again after MRA raises the window back to 72h.
+        var allowed = validator.ValidateCanContinueOffline(
+            prospectiveInvoiceTotal: 500m,
+            offlineLimit: new OfflineLimitDto { MaxTransactionAgeInHours = 72 },
+            pendingOfflineCumulativeAmount: 0m,
+            oldestPendingQueuedAtUtc: null,
+            asOfUtc: now,
+            lastMraReachableUtc: now.AddHours(-30));
+
+        Assert.True(allowed.IsCompliant);
+        Assert.Equal(72, allowed.MaxAgeHours);
+    }
+
+    [Fact]
+    public void ComplianceValidator_AllowsOffline_WithinWallClockWindow()
+    {
+        var validator = new OfflineTransactionComplianceValidator();
+        var now = DateTime.UtcNow;
+        var result = validator.ValidateCanContinueOffline(
+            prospectiveInvoiceTotal: 1_000m,
+            offlineLimit: new OfflineLimitDto { MaxTransactionAgeInHours = 72 },
+            pendingOfflineCumulativeAmount: 0m,
+            oldestPendingQueuedAtUtc: null,
+            asOfUtc: now,
+            lastMraReachableUtc: now.AddHours(-10));
+
+        Assert.True(result.IsCompliant);
+        Assert.Equal(72, result.MaxAgeHours);
+    }
+
+    [Fact]
+    public void ResolveMaxAgeHours_FallsBackTo72_WhenMissing()
+    {
+        Assert.Equal(72, OfflineTransactionComplianceValidator.ResolveMaxAgeHours(null));
+        Assert.Equal(72, OfflineTransactionComplianceValidator.ResolveMaxAgeHours(
+            new OfflineLimitDto { MaxTransactionAgeInHours = 0 }));
+        Assert.Equal(48, OfflineTransactionComplianceValidator.ResolveMaxAgeHours(
+            new OfflineLimitDto { MaxTransactionAgeInHours = 48 }));
+    }
+
+    [Fact]
     public async Task DrainPending_Pauses_WhenMraUnreachable()
     {
         using var mock = new MockMraServer();

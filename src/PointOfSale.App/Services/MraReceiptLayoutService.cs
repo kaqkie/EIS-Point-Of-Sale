@@ -46,30 +46,38 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
     public static decimal ResolveExclusiveUnitPrice(InvoiceLineItemDto item)
     {
         var quantity = item.Quantity <= 0m ? 1m : item.Quantity;
-        var exclusiveFromTotal = PosTaxCalculator.RoundMoney(
-            Math.Max(0m, (item.Total + Math.Max(0m, item.Discount)) / quantity));
+        var discount = PosTaxCalculator.RoundMoney(Math.Max(0m, item.Discount));
         var wireUnit = PosTaxCalculator.RoundMoney(item.UnitPrice);
-        if (item.TotalVat > 0m)
+        var payable = ResolveInclusiveLineTotal(item);
+        var wireLine = PosTaxCalculator.RoundMoney(wireUnit * quantity);
+        var rate = ResolveLineVatRatePercent(item);
+
+        // Item-mode wire: unitPrice is VAT-inclusive (discount may also be inclusive).
+        if (wireUnit > 0m && item.TotalVat > 0m)
         {
-            var wireLine = PosTaxCalculator.RoundMoney(wireUnit * quantity);
-            var grossLine = PosTaxCalculator.RoundMoney(item.Total + item.TotalVat + Math.Max(0m, item.Discount));
-            if (Math.Abs(wireLine - grossLine) <= 0.05m)
+            var looksInclusiveUnit =
+                Math.Abs(wireLine - payable) <= 0.05m
+                || Math.Abs(PosTaxCalculator.RoundMoney(wireLine - discount) - payable) <= 0.05m;
+            if (looksInclusiveUnit)
             {
-                return exclusiveFromTotal;
+                return PosTaxCalculator.ExtractExclusiveUnitFromInclusive(wireUnit, rate);
             }
         }
 
+        var exclusiveFromTotal = PosTaxCalculator.RoundMoney(
+            Math.Max(0m, (item.Total + discount) / quantity));
         return wireUnit > 0m ? wireUnit : exclusiveFromTotal;
     }
 
     /// <summary>
     /// VAT-inclusive shelf unit price for receipt qty lines (EIS: <c>1 X 20,000.00</c>).
     /// Inventory prices are inclusive; rebuild from exclusive total + VAT when the wire unit is net.
+    /// When a discount exists, restores the pre-discount shelf unit so DISCOUNT can be printed separately.
     /// </summary>
     public static decimal ResolveInclusiveUnitPrice(InvoiceLineItemDto item)
     {
         var quantity = item.Quantity <= 0m ? 1m : item.Quantity;
-        var inclusiveLine = ResolveInclusiveLineTotal(item);
+        var inclusiveLine = ResolveInclusiveShelfLineTotal(item);
         var fromTotals = PosTaxCalculator.RoundMoney(inclusiveLine / quantity);
         var wireUnit = PosTaxCalculator.RoundMoney(item.UnitPrice);
         if (wireUnit <= 0m)
@@ -87,9 +95,67 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         return fromTotals;
     }
 
-    /// <summary>VAT-inclusive line amount printed on the receipt (net + VAT).</summary>
+    /// <summary>VAT-inclusive line amount printed on the receipt (net + VAT) after discounts.</summary>
     public static decimal ResolveInclusiveLineTotal(InvoiceLineItemDto item) =>
         PosTaxCalculator.RoundMoney(Math.Max(0m, item.Total) + Math.Max(0m, item.TotalVat));
+
+    /// <summary>
+    /// VAT-inclusive discount amount for receipt display (matches POS MWK discount).
+    /// Supports Item-mode wire (inclusive discount) and legacy exclusive discount.
+    /// </summary>
+    public static decimal ResolveInclusiveDiscount(InvoiceLineItemDto item)
+    {
+        var discount = PosTaxCalculator.RoundMoney(Math.Max(0m, item.Discount));
+        if (discount <= 0m)
+        {
+            return 0m;
+        }
+
+        var payable = ResolveInclusiveLineTotal(item);
+        var quantity = item.Quantity <= 0m ? 1m : item.Quantity;
+        var wireUnit = PosTaxCalculator.RoundMoney(item.UnitPrice);
+        var wireLine = PosTaxCalculator.RoundMoney(wireUnit * quantity);
+
+        // Item-mode: unitPrice and discount are both VAT-inclusive.
+        if (wireUnit > 0m
+            && (Math.Abs(PosTaxCalculator.RoundMoney(wireLine - discount) - payable) <= 0.05m
+                || Math.Abs(wireLine - PosTaxCalculator.RoundMoney(payable + discount)) <= 0.05m))
+        {
+            return discount;
+        }
+
+        var ratePercent = ResolveLineVatRatePercent(item);
+        var exclusiveBefore = PosTaxCalculator.RoundMoney(Math.Max(0m, item.Total) + discount);
+        var inclusiveBefore = ratePercent <= 0m
+            ? exclusiveBefore
+            : PosTaxCalculator.RoundMoney(
+                exclusiveBefore + PosTaxCalculator.CalculateVatAmount(exclusiveBefore, ratePercent));
+        var inclusiveDiscount = PosTaxCalculator.RoundMoney(Math.Max(0m, inclusiveBefore - payable));
+        return inclusiveDiscount > 0m
+            ? inclusiveDiscount
+            : PosTaxCalculator.RoundMoney(discount * (1m + ratePercent / 100m));
+    }
+
+    /// <summary>Pre-discount VAT-inclusive shelf line total (payable + discount).</summary>
+    public static decimal ResolveInclusiveShelfLineTotal(InvoiceLineItemDto item) =>
+        PosTaxCalculator.RoundMoney(ResolveInclusiveLineTotal(item) + ResolveInclusiveDiscount(item));
+
+    /// <summary>Infer VAT % for a line from amounts, falling back to statutory Malawi rate for A.</summary>
+    public static decimal ResolveLineVatRatePercent(InvoiceLineItemDto item)
+    {
+        var net = Math.Max(0m, item.Total);
+        var vat = Math.Max(0m, item.TotalVat);
+        if (net > 0m && vat > 0m)
+        {
+            var implied = Math.Round(vat * 100m / net, 1, MidpointRounding.AwayFromZero);
+            if (implied is >= 0m and <= 100m)
+            {
+                return implied;
+            }
+        }
+
+        return PosTaxCalculator.MalawiStandardVatRatePercent;
+    }
 
     /// <summary>
     /// Formats the seller TIN from active store/terminal configuration.
@@ -188,15 +254,22 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             ItemHeaderLine(charactersPerLine)
         };
 
-        // ---- 3. Itemized breakdown (EIS style: qty X inclusive unit, description, amount+tax) ----
+        // ---- 3. Itemized breakdown (EIS style: qty X inclusive unit, description, discount, amount+tax) ----
         var lineItems = new List<MraReceiptLineItemViewModel>();
+        var totalInclusiveDiscount = 0m;
         foreach (var item in request.LineItems)
         {
             var taxCode = string.IsNullOrWhiteSpace(item.TaxRateId) ? "A" : item.TaxRateId.Trim().ToUpperInvariant();
             var inclusiveUnit = ResolveInclusiveUnitPrice(item);
             var inclusiveLineTotal = ResolveInclusiveLineTotal(item);
+            var inclusiveDiscount = ResolveInclusiveDiscount(item);
+            totalInclusiveDiscount = PosTaxCalculator.RoundMoney(totalInclusiveDiscount + inclusiveDiscount);
+
             var qtyPriceLine = FormatQtyInclusiveUnitLine(item.Quantity, inclusiveUnit, charactersPerLine);
             var descriptionLine = Truncate(item.Description, charactersPerLine);
+            var discountLine = inclusiveDiscount > 0m
+                ? Columns("DISCOUNT", $"-{inclusiveDiscount:N2}", charactersPerLine)
+                : string.Empty;
             var amountLine = Columns(
                 string.Empty,
                 $"{inclusiveLineTotal:N2} {taxCode}",
@@ -206,10 +279,12 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             {
                 Description = descriptionLine,
                 QuantityPriceLine = qtyPriceLine,
+                DiscountLine = discountLine,
                 VatBreakdownLine = amountLine,
                 Quantity = item.Quantity,
                 UnitPrice = inclusiveUnit,
                 LineTotal = inclusiveLineTotal,
+                LineDiscount = inclusiveDiscount,
                 LineVat = item.TotalVat,
                 TaxRateId = taxCode
             });
@@ -248,16 +323,21 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
         // ---- 5. Payment + tendered/change + totals ----
         var totals = new List<string>
         {
-            Separator('-', charactersPerLine),
-            Columns("TOTAL VAT", $"{request.ResolveTotalVat():N2}", charactersPerLine),
-            Columns("GRAND TOTAL", $"{request.InvoiceTotal:N2}", charactersPerLine),
-            Separator('-', charactersPerLine),
-            Truncate($"PAYMENT METHOD: {paymentLabel}", charactersPerLine),
-            Columns("AMOUNT TENDERED", $"{request.AmountTendered:N2}", charactersPerLine),
-            Columns("CHANGE", $"{request.ChangeDue:N2}", charactersPerLine),
-            Truncate($"TRANSACTION DATE/TIME: {localTime:yyyy-MM-dd HH:mm:ss}", charactersPerLine),
             Separator('-', charactersPerLine)
         };
+        if (totalInclusiveDiscount > 0m)
+        {
+            totals.Add(Columns("DISCOUNT", $"-{totalInclusiveDiscount:N2}", charactersPerLine));
+        }
+
+        totals.Add(Columns("TOTAL VAT", $"{request.ResolveTotalVat():N2}", charactersPerLine));
+        totals.Add(Columns("GRAND TOTAL", $"{request.InvoiceTotal:N2}", charactersPerLine));
+        totals.Add(Separator('-', charactersPerLine));
+        totals.Add(Truncate($"PAYMENT METHOD: {paymentLabel}", charactersPerLine));
+        totals.Add(Columns("AMOUNT TENDERED", $"{request.AmountTendered:N2}", charactersPerLine));
+        totals.Add(Columns("CHANGE", $"{request.ChangeDue:N2}", charactersPerLine));
+        totals.Add(Truncate($"TRANSACTION DATE/TIME: {localTime:yyyy-MM-dd HH:mm:ss}", charactersPerLine));
+        totals.Add(Separator('-', charactersPerLine));
 
         // ---- 6. Fiscal status: offline pending banner and/or MRA verification QR ----
         var verificationUrl = fiscal?.ResolveVerificationUrl();
@@ -322,6 +402,11 @@ public sealed class MraReceiptLayoutService : IMraReceiptLayoutService
             if (!string.IsNullOrWhiteSpace(line.Description))
             {
                 ordered.Add(line.Description);
+            }
+
+            if (!string.IsNullOrWhiteSpace(line.DiscountLine))
+            {
+                ordered.Add(line.DiscountLine);
             }
 
             ordered.Add(line.VatBreakdownLine);

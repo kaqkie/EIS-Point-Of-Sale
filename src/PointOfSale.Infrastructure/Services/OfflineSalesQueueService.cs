@@ -807,9 +807,15 @@ public sealed class OfflineSalesQueueService
     /// </summary>
     public async Task<int> ArchiveAgedOpenReceiptsAsync(CancellationToken cancellationToken = default)
     {
-        var maxAgeHours = _options.DefaultMaxTransactionAgeInHours > 0
-            ? _options.DefaultMaxTransactionAgeInHours
-            : OfflineTransactionComplianceValidator.FallbackMaxTransactionAgeInHours;
+        var offlineLimit = await LoadTerminalOfflineLimitAsync(cancellationToken).ConfigureAwait(false);
+        var maxAgeHours = (int)Math.Ceiling(
+            OfflineTransactionComplianceValidator.ResolveMaxAgeHours(offlineLimit));
+        if (_options.DefaultMaxTransactionAgeInHours > 0
+            && offlineLimit?.MaxTransactionAgeInHours is not > 0)
+        {
+            maxAgeHours = _options.DefaultMaxTransactionAgeInHours;
+        }
+
         var cutoffUtc = DateTime.UtcNow.AddHours(-maxAgeHours);
 
         var pending = await _queueRepository
@@ -1934,12 +1940,51 @@ public sealed class OfflineSalesQueueService
         var offlineLimit = await LoadTerminalOfflineLimitAsync(cancellationToken).ConfigureAwait(false);
         var (pendingTotal, oldestQueuedAt) = await SummarizeOpenOfflineQueueAsync(cancellationToken)
             .ConfigureAwait(false);
+        var lastReachable = await LoadLastMraReachableUtcAsync(cancellationToken).ConfigureAwait(false);
 
         return _offlineComplianceValidator.ValidateCanContinueOffline(
             prospectiveInvoiceTotal,
             offlineLimit,
             pendingTotal,
-            oldestQueuedAt);
+            oldestQueuedAt,
+            asOfUtc: null,
+            lastMraReachableUtc: lastReachable);
+    }
+
+    private async Task<DateTime?> LoadLastMraReachableUtcAsync(CancellationToken cancellationToken)
+    {
+        if (_configurationRepository is null)
+        {
+            return null;
+        }
+
+        foreach (var key in new[]
+                 {
+                     MraRuntimeConfigurationKeys.LastMraReachableUtc,
+                     MraRuntimeConfigurationKeys.LastSuccessfulSyncUtc,
+                     MraRuntimeConfigurationKeys.LastHandshakeUtc
+                 })
+        {
+            var raw = await _configurationRepository.GetJsonAsync(key, cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            var text = raw.Trim().Trim('"');
+            if (DateTime.TryParse(
+                    text,
+                    null,
+                    System.Globalization.DateTimeStyles.RoundtripKind,
+                    out var parsed))
+            {
+                return parsed.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(parsed, DateTimeKind.Utc)
+                    : parsed.ToUniversalTime();
+            }
+        }
+
+        return null;
     }
 
     private async Task<OfflineLimitDto?> LoadTerminalOfflineLimitAsync(CancellationToken cancellationToken)

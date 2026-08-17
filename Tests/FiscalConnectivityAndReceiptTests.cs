@@ -1,4 +1,5 @@
 using PointOfSale.App.Services;
+using PointOfSale.Core.Pricing;
 using PointOfSale.Mra.Contracts.Sales;
 using Xunit;
 
@@ -178,6 +179,143 @@ public sealed class FiscalConnectivityAndReceiptTests
         Assert.Equal(20000.00m, MraReceiptLayoutService.ResolveInclusiveUnitPrice(item));
         Assert.Equal(20000.00m, MraReceiptLayoutService.ResolveInclusiveLineTotal(item));
         Assert.Equal("1 X 20,000.00", MraReceiptLayoutService.FormatQtyInclusiveUnitLine(1m, 20000m, 42));
+    }
+
+    [Fact]
+    public void MraReceiptLayout_PrintsDiscountWhenApplied()
+    {
+        // EIS: 20,000.00 shelf − 1,000.00 discount ⇒ taxable 16,170.21 / VAT 2,829.79 / total 19,000.00
+        var netAfter = PosTaxCalculator.ExtractExclusiveFromInclusive(
+            19000m,
+            PosTaxCalculator.MalawiStandardVatRatePercent);
+        var vatAfter = PosTaxCalculator.RoundMoney(19000m - netAfter);
+        var exclusiveDiscount = PosTaxCalculator.RoundMoney(
+            PosTaxCalculator.ExtractExclusiveFromInclusive(
+                20000m,
+                PosTaxCalculator.MalawiStandardVatRatePercent) - netAfter);
+
+        var layout = new MraReceiptLayoutService().Build(
+            new ReceiptPrintRequest
+            {
+                TradingName = "Albert Retail",
+                SellerTin = "2007123456",
+                AddressLines = ["City Center"],
+                InvoiceNumber = "ART-DISC-1",
+                InvoiceDateTime = new DateTime(2026, 8, 11, 16, 0, 0),
+                PaymentMethod = "Cash",
+                LineItems =
+                [
+                    new InvoiceLineItemDto
+                    {
+                        Id = 1,
+                        ProductCode = "990663831995",
+                        Description = "Air Cleaner SMA-230",
+                        UnitPrice = PosTaxCalculator.ExtractExclusiveUnitFromInclusive(
+                            20000m,
+                            PosTaxCalculator.MalawiStandardVatRatePercent),
+                        Quantity = 1m,
+                        Discount = exclusiveDiscount,
+                        Total = netAfter,
+                        TotalVat = vatAfter,
+                        TaxRateId = "A"
+                    }
+                ],
+                TaxBreakdown =
+                [
+                    new TaxBreakDownDto
+                    {
+                        RateId = "A",
+                        TaxableAmount = netAfter,
+                        TaxAmount = vatAfter
+                    }
+                ],
+                InvoiceTotal = 19000m,
+                AmountTendered = 20000m,
+                SubtotalNet = netAfter,
+                TotalVat = vatAfter
+            },
+            charactersPerLine: 42);
+
+        var text = string.Join('\n', layout.OrderedTextLines);
+        Assert.Equal(20000.00m, layout.LineItems[0].UnitPrice);
+        Assert.Equal(1000.00m, layout.LineItems[0].LineDiscount);
+        Assert.Equal(19000.00m, layout.LineItems[0].LineTotal);
+        Assert.Contains("1 X 20,000.00", text, StringComparison.Ordinal);
+        Assert.Contains("Air Cleaner SMA-230", text, StringComparison.Ordinal);
+        Assert.Contains("DISCOUNT", text, StringComparison.Ordinal);
+        Assert.Contains("-1,000.00", text, StringComparison.Ordinal);
+        Assert.Contains("19,000.00 A", text, StringComparison.Ordinal);
+        Assert.Contains("GRAND TOTAL", text, StringComparison.Ordinal);
+        Assert.Contains("19,000.00", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MraReceiptLayout_PrintsInclusiveItemModeDiscount()
+    {
+        // Wire format after normalizer: inclusive unitPrice + inclusive discount.
+        var layout = new MraReceiptLayoutService().Build(
+            new ReceiptPrintRequest
+            {
+                TradingName = "Albert Retail",
+                SellerTin = "2007123456",
+                AddressLines = ["City Center"],
+                InvoiceNumber = "ART-DISC-2",
+                InvoiceDateTime = new DateTime(2026, 8, 12, 7, 0, 0),
+                PaymentMethod = "Cash",
+                LineItems =
+                [
+                    new InvoiceLineItemDto
+                    {
+                        Id = 1,
+                        ProductCode = "747157490635",
+                        Description = "Air Cleaner 13780-58JF02",
+                        UnitPrice = 22000m,
+                        Quantity = 1m,
+                        Discount = 2000m,
+                        Total = PosTaxCalculator.ExtractExclusiveFromInclusive(
+                            20000m,
+                            PosTaxCalculator.MalawiStandardVatRatePercent),
+                        TotalVat = PosTaxCalculator.RoundMoney(
+                            20000m - PosTaxCalculator.ExtractExclusiveFromInclusive(
+                                20000m,
+                                PosTaxCalculator.MalawiStandardVatRatePercent)),
+                        TaxRateId = "A"
+                    }
+                ],
+                TaxBreakdown =
+                [
+                    new TaxBreakDownDto
+                    {
+                        RateId = "A",
+                        TaxableAmount = PosTaxCalculator.ExtractExclusiveFromInclusive(
+                            20000m,
+                            PosTaxCalculator.MalawiStandardVatRatePercent),
+                        TaxAmount = PosTaxCalculator.RoundMoney(
+                            20000m - PosTaxCalculator.ExtractExclusiveFromInclusive(
+                                20000m,
+                                PosTaxCalculator.MalawiStandardVatRatePercent))
+                    }
+                ],
+                InvoiceTotal = 20000m,
+                AmountTendered = 20000m,
+                SubtotalNet = PosTaxCalculator.ExtractExclusiveFromInclusive(
+                    20000m,
+                    PosTaxCalculator.MalawiStandardVatRatePercent),
+                TotalVat = PosTaxCalculator.RoundMoney(
+                    20000m - PosTaxCalculator.ExtractExclusiveFromInclusive(
+                        20000m,
+                        PosTaxCalculator.MalawiStandardVatRatePercent))
+            },
+            charactersPerLine: 42);
+
+        var text = string.Join('\n', layout.OrderedTextLines);
+        Assert.Equal(22000.00m, layout.LineItems[0].UnitPrice);
+        Assert.Equal(2000.00m, layout.LineItems[0].LineDiscount);
+        Assert.Equal(20000.00m, layout.LineItems[0].LineTotal);
+        Assert.Contains("1 X 22,000.00", text, StringComparison.Ordinal);
+        Assert.Contains("DISCOUNT", text, StringComparison.Ordinal);
+        Assert.Contains("-2,000.00", text, StringComparison.Ordinal);
+        Assert.Contains("20,000.00 A", text, StringComparison.Ordinal);
     }
 
     [Fact]

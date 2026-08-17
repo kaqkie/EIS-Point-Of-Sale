@@ -192,6 +192,109 @@ public sealed class MraHttpClientAndQueueErrorTests
     }
 
     [Fact]
+    public void NormalizeQueuedPayload_ItemModeDiscount_IsInclusiveAndMatchesTaxBreakdown()
+    {
+        // Reproduces quarantined sale Cvp-E-JY5R-B:
+        // two 22,000 inclusive lines, MWK 2,000 discount on line 2.
+        // Checkout stores exclusive discount; Item-mode wire must send inclusive discount
+        // or MRA rejects with "Tax breakdown entries do not match…".
+        const decimal rate = PosTaxCalculator.MalawiStandardVatRatePercent;
+        var exclusiveUnit = PosTaxCalculator.ExtractExclusiveUnitFromInclusive(22000m, rate);
+        var line1Net = exclusiveUnit;
+        var line1Vat = PosTaxCalculator.RoundMoney(22000m - line1Net);
+
+        var payableInclusive = 20000m;
+        var line2Net = PosTaxCalculator.ExtractExclusiveFromInclusive(payableInclusive, rate);
+        var line2Vat = PosTaxCalculator.RoundMoney(payableInclusive - line2Net);
+        var exclusiveDiscount = PosTaxCalculator.RoundMoney(exclusiveUnit - line2Net);
+
+        var request = new SubmitSalesTransactionRequest
+        {
+            InvoiceHeader = new InvoiceHeaderDto
+            {
+                InvoiceNumber = "Cvp-E-JY5R-B",
+                InvoiceDateTime = DateTime.UtcNow,
+                SellerTin = "31018345",
+                SiteId = "BLc4f27da3-6c8e-4014-84b1-140886944c25",
+                PaymentMethod = "Cash",
+                GlobalConfigVersion = 1,
+                TaxpayerConfigVersion = 177,
+                TerminalConfigVersion = 1
+            },
+            InvoiceLineItems =
+            [
+                new InvoiceLineItemDto
+                {
+                    Id = 1,
+                    ProductCode = "990663831995",
+                    Description = "Air Cleaner 13780-58B00",
+                    TaxRateId = "A",
+                    Quantity = 1m,
+                    UnitPrice = exclusiveUnit,
+                    Discount = 0m,
+                    Total = line1Net,
+                    TotalVat = line1Vat,
+                    IsProduct = true
+                },
+                new InvoiceLineItemDto
+                {
+                    Id = 2,
+                    ProductCode = "747157490635",
+                    Description = "Air Cleaner 13780-58JF02",
+                    TaxRateId = "A",
+                    Quantity = 1m,
+                    UnitPrice = exclusiveUnit,
+                    Discount = exclusiveDiscount,
+                    Total = line2Net,
+                    TotalVat = line2Vat,
+                    IsProduct = true
+                }
+            ],
+            InvoiceSummary = new InvoiceSummaryDto
+            {
+                TaxBreakDown =
+                [
+                    new TaxBreakDownDto
+                    {
+                        RateId = "A",
+                        TaxableAmount = PosTaxCalculator.RoundMoney(line1Net + line2Net),
+                        TaxAmount = PosTaxCalculator.RoundMoney(line1Vat + line2Vat)
+                    }
+                ],
+                TotalVat = PosTaxCalculator.RoundMoney(line1Vat + line2Vat),
+                InvoiceTotal = 42000m,
+                AmountTendered = 45000m
+            }
+        };
+
+        var normalized = MraFiscalPayloadNormalizer.Normalize(
+            request,
+            new MraFiscalIdentityOverlay(
+                StandardTaxRateId: "A",
+                ConfiguredTaxRates: [("A", rate)]));
+
+        var discounted = normalized.InvoiceLineItems[1];
+        Assert.Equal(22000.00m, discounted.UnitPrice);
+        Assert.Equal(2000.00m, discounted.Discount); // inclusive, same basis as unitPrice
+        Assert.Equal(line2Net, discounted.Total);
+        Assert.Equal(line2Vat, discounted.TotalVat);
+
+        // MRA Item-mode check: taxable ≈ (unitPrice×qty − discount) ÷ (1+rate)
+        var computedTaxable = PosTaxCalculator.ExtractExclusiveFromInclusive(
+            PosTaxCalculator.RoundMoney(discounted.UnitPrice * discounted.Quantity - discounted.Discount),
+            rate);
+        Assert.Equal(discounted.Total, computedTaxable);
+
+        var breakdown = normalized.InvoiceSummary.TaxBreakDown[0];
+        Assert.Equal(
+            PosTaxCalculator.RoundMoney(normalized.InvoiceLineItems.Sum(l => l.Total)),
+            breakdown.TaxableAmount);
+        Assert.Equal(
+            PosTaxCalculator.RoundMoney(normalized.InvoiceLineItems.Sum(l => l.TotalVat)),
+            breakdown.TaxAmount);
+    }
+
+    [Fact]
     public void NormalizeQueuedPayload_PreservesActivatedRateId_A_WithoutOverlay()
     {
         var request = new SubmitSalesTransactionRequest

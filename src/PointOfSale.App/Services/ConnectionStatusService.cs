@@ -32,6 +32,7 @@ public sealed class ConnectionStatusService : IConnectionStatusService
     private bool _isOnline;
     private bool _isMraReachable;
     private string _statusText = "Checking…";
+    private DateTime _lastPersistedReachableUtc = DateTime.MinValue;
 
     public ConnectionStatusService(
         IOptions<MraApiOptions> options,
@@ -96,6 +97,11 @@ public sealed class ConnectionStatusService : IConnectionStatusService
             }
 
             var queueSuffix = await BuildQueueSuffixAsync(cancellationToken).ConfigureAwait(false);
+
+            if (_isMraReachable)
+            {
+                await PersistLastMraReachableAsync(cancellationToken).ConfigureAwait(false);
+            }
 
             _statusText = !_isOnline
                 ? "Offline — no network"
@@ -206,6 +212,38 @@ public sealed class ConnectionStatusService : IConnectionStatusService
         {
             _logger.LogWarning(ex, "MRA probe failed for {Uri}.", uri);
             return (false, Truncate(ex.Message, 64));
+        }
+    }
+
+    private async Task PersistLastMraReachableAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        // Throttle DB writes — only on first success or every 5 minutes while reachable.
+        if (_lastPersistedReachableUtc != DateTime.MinValue
+            && now - _lastPersistedReachableUtc < TimeSpan.FromMinutes(5))
+        {
+            return;
+        }
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var config = scope.ServiceProvider.GetService<IConfigurationRepository>();
+            if (config is null)
+            {
+                return;
+            }
+
+            await config.UpsertJsonAsync(
+                    MraRuntimeConfigurationKeys.LastMraReachableUtc,
+                    now.ToString("O"),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            _lastPersistedReachableUtc = now;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Unable to persist last MRA reachable timestamp.");
         }
     }
 

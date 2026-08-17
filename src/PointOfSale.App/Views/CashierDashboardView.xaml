@@ -23,7 +23,7 @@
                         <TextBlock Text="Cash Register"
                                    Style="{StaticResource Art.Text.Title}"
                                    Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                        <TextBlock Text="Search items · tender on keypad · Paid to complete. Cart stays when you switch views."
+                        <TextBlock Text="Search items · enter cash received for change · Paid to complete. Cart stays when you switch views."
                                    Style="{StaticResource Art.Text.Subtitle}"
                                    Margin="0,2,0,0"
                                    Visibility="{Binding IsCashRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -152,7 +152,7 @@
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="360" />
-                    <ColumnDefinition Width="320" />
+                    <ColumnDefinition Width="340" />
                 </Grid.ColumnDefinitions>
 
                 <!-- Top-Left: inventory search + cart grid -->
@@ -333,123 +333,196 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Top-Right: total display + numeric keypad -->
+                <!-- Top-Right: light totals + cash tender + keypad -->
                 <DockPanel x:Name="TenderKeypadPanel"
                            Grid.Column="1"
                            Margin="0,0,0,10"
                            Focusable="True">
                     <Border DockPanel.Dock="Top"
-                            Background="#0F172A"
-                            CornerRadius="10"
+                            Style="{StaticResource Art.Card}"
                             Padding="16,14"
                             Margin="0,0,0,10">
                         <StackPanel>
+                            <TextBlock Text="Sale summary"
+                                       Style="{StaticResource Art.Text.Subtitle}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,10" />
+
                             <DockPanel>
-                                <TextBlock Text="Sub total (taxable)" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Checkout.CartSubtotal, StringFormat=N2}"
-                                           Foreground="#E2E8F0"
-                                           FontSize="14"
-                                           FontFamily="{StaticResource Art.Font.Mono}"
-                                           HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel Margin="0,6,0,0">
-                                <TextBlock Text="Discount"
-                                           Foreground="#FCA5A5"
+                                <TextBlock Text="Sub total"
+                                           Foreground="{StaticResource Art.Brush.TextSecondary}"
                                            FontSize="13"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           Margin="0,0,8,0" />
-                                <Button DockPanel.Dock="Right"
-                                        Content="Keypad"
-                                        MinWidth="64"
-                                        MinHeight="32"
-                                        Margin="8,0,0,0"
-                                        Padding="8,4"
-                                        Command="{Binding Checkout.BeginDiscountKeypadEntryCommand}"
-                                        ToolTip="Use numeric keypad to enter discount on the selected line" />
-                                <DockPanel>
-                                    <TextBlock DockPanel.Dock="Left"
-                                               Text="MWK"
-                                               Foreground="#FCA5A5"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,6,0"
-                                               FontSize="12" />
-                                    <TextBox x:Name="CashRegisterDiscountInput"
-                                             Tag="LineDiscount"
-                                             Text="{Binding Checkout.SelectedLineDiscountText, UpdateSourceTrigger=PropertyChanged}"
-                                             MinHeight="32"
-                                             FontSize="16"
-                                             FontWeight="SemiBold"
-                                             FontFamily="{StaticResource Art.Font.Mono}"
-                                             Padding="8,4"
-                                             VerticalContentAlignment="Center"
-                                             Background="#1E293B"
-                                             Foreground="#FCA5A5"
-                                             BorderBrush="#F87171"
-                                             BorderThickness="1"
-                                             CaretBrush="#FCA5A5"
-                                             IsEnabled="{Binding Checkout.HasSelectedCartLine}"
-                                             ToolTip="Select a cart line, then type or keypad the discount amount"
-                                             PreviewMouseLeftButtonDown="DiscountTextBox_PreviewMouseLeftButtonDown"
-                                             GotKeyboardFocus="DiscountTextBox_GotKeyboardFocus"
-                                             LostKeyboardFocus="DiscountTextBox_LostKeyboardFocus"
-                                             KeyDown="DiscountTextBox_KeyDown" />
-                                </DockPanel>
-                            </DockPanel>
-                            <TextBlock Text="{Binding Checkout.CartDiscountTotal, StringFormat='Applied: MWK {0:N2}'}"
-                                       Foreground="#FCA5A5"
-                                       FontSize="12"
-                                       HorizontalAlignment="Right"
-                                       Margin="0,4,0,0"
-                                       Opacity="0.9" />
-                            <DockPanel Margin="0,6,0,0">
-                                <TextBlock Text="VAT" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Checkout.CartTaxTotal, StringFormat=N2}"
-                                           Foreground="#E2E8F0"
-                                           FontSize="14"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Checkout.CartSubtotal, StringFormat=N2}"
+                                           Foreground="{StaticResource Art.Brush.TextPrimary}"
+                                           FontSize="15"
                                            FontFamily="{StaticResource Art.Font.Mono}"
                                            HorizontalAlignment="Right" />
                             </DockPanel>
-                            <Separator Background="#334155" Margin="0,10,0,10" />
-                            <TextBlock Text="GRAND TOTAL"
-                                       Foreground="#94A3B8"
+
+                            <TextBlock Text="Line discount (MWK)"
+                                       Foreground="{StaticResource Art.Brush.TextSecondary}"
                                        FontSize="12"
                                        FontWeight="SemiBold"
-                                       HorizontalAlignment="Right" />
-                            <TextBlock Text="{Binding Checkout.CartGrandTotalDigital}"
-                                       Foreground="White"
-                                       FontSize="44"
-                                       FontWeight="Bold"
-                                       FontFamily="{StaticResource Art.Font.Mono}"
+                                       Margin="0,12,0,4" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="MWK"
+                                           Foreground="{StaticResource Art.Brush.TextMuted}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0"
+                                           FontSize="13" />
+                                <TextBox x:Name="CashRegisterDiscountInput"
+                                         Grid.Column="1"
+                                         Tag="LineDiscount"
+                                         Style="{StaticResource Art.TextBox}"
+                                         Text="{Binding Checkout.SelectedLineDiscountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         MinHeight="40"
+                                         FontSize="16"
+                                         FontWeight="SemiBold"
+                                         FontFamily="{StaticResource Art.Font.Mono}"
+                                         Padding="10,6"
+                                         VerticalContentAlignment="Center"
+                                         IsEnabled="{Binding Checkout.HasSelectedCartLine}"
+                                         ToolTip="Select a cart line, then type the discount amount in MWK"
+                                         PreviewMouseLeftButtonDown="DiscountTextBox_PreviewMouseLeftButtonDown"
+                                         GotKeyboardFocus="DiscountTextBox_GotKeyboardFocus"
+                                         LostKeyboardFocus="DiscountTextBox_LostKeyboardFocus"
+                                         KeyDown="DiscountTextBox_KeyDown" />
+                            </Grid>
+                            <TextBlock Text="{Binding Checkout.CartDiscountTotal, StringFormat='Applied: MWK {0:N2}'}"
+                                       Foreground="{StaticResource Art.Brush.Danger}"
+                                       FontSize="12"
                                        HorizontalAlignment="Right"
-                                       Margin="0,2,0,10" />
-                            <Separator Background="#334155" Margin="0,0,0,10" />
-                            <DockPanel>
-                                <TextBlock Text="Tendered" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock x:Name="TenderAmountDisplay"
-                                           Text="{Binding Checkout.AmountTenderedText}"
-                                           Foreground="#FBBF24"
-                                           FontSize="22"
-                                           FontWeight="Bold"
-                                           FontFamily="{StaticResource Art.Font.Mono}"
-                                           HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel Margin="0,6,0,0">
-                                <TextBlock Text="Change" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Checkout.ChangeDue, StringFormat=N2}"
-                                           Foreground="#4ADE80"
-                                           FontSize="20"
-                                           FontWeight="Bold"
-                                           FontFamily="{StaticResource Art.Font.Mono}"
-                                           HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <TextBlock Text="{Binding Checkout.TenderStatusMessage}"
-                                       Foreground="#CBD5E1"
+                                       Margin="0,4,0,0" />
+                            <TextBlock Text="Select a cart line to edit discount"
+                                       Foreground="{StaticResource Art.Brush.TextMuted}"
                                        FontSize="11"
+                                       Margin="0,2,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Checkout.HasSelectedCartLine}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <DockPanel Margin="0,10,0,0">
+                                <TextBlock Text="VAT"
+                                           Foreground="{StaticResource Art.Brush.TextSecondary}"
+                                           FontSize="13"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Checkout.CartTaxTotal, StringFormat=N2}"
+                                           Foreground="{StaticResource Art.Brush.TextPrimary}"
+                                           FontSize="15"
+                                           FontFamily="{StaticResource Art.Font.Mono}"
+                                           HorizontalAlignment="Right" />
+                            </DockPanel>
+
+                            <Border Background="{StaticResource Art.Brush.AccentSoft}"
+                                    CornerRadius="10"
+                                    Padding="12,10"
+                                    Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="GRAND TOTAL"
+                                               Foreground="{StaticResource Art.Brush.AccentHover}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Right" />
+                                    <TextBlock Text="{Binding Checkout.CartGrandTotalDigital}"
+                                               Foreground="{StaticResource Art.Brush.TextPrimary}"
+                                               FontSize="36"
+                                               FontWeight="Bold"
+                                               FontFamily="{StaticResource Art.Font.Mono}"
+                                               HorizontalAlignment="Right" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="#ECFDF5"
+                                    BorderBrush="#A7F3D0"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="12,10"
+                                    Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Cash received"
+                                               Foreground="{StaticResource Art.Brush.TextSecondary}"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Margin="0,0,0,4" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="MWK"
+                                                   Foreground="{StaticResource Art.Brush.TextMuted}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,8,0"
+                                                   FontSize="13" />
+                                        <TextBox x:Name="CashRegisterTenderInput"
+                                                 Grid.Column="1"
+                                                 Style="{StaticResource Art.TextBox}"
+                                                 Text="{Binding Checkout.AmountTenderedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 MinHeight="42"
+                                                 FontSize="20"
+                                                 FontWeight="Bold"
+                                                 FontFamily="{StaticResource Art.Font.Mono}"
+                                                 Padding="10,6"
+                                                 VerticalContentAlignment="Center"
+                                                 ToolTip="Enter the cash the customer handed over"
+                                                 GotKeyboardFocus="TenderTextBox_GotKeyboardFocus"
+                                                 KeyDown="TenderTextBox_KeyDown" />
+                                        <Button Grid.Column="2"
+                                                Content="Exact"
+                                                Style="{StaticResource Art.Button.Secondary}"
+                                                Command="{Binding Checkout.TenderExactAmountCommand}"
+                                                MinWidth="64"
+                                                MinHeight="42"
+                                                Margin="8,0,0,0"
+                                                ToolTip="Set cash received equal to grand total (F5)" />
+                                    </Grid>
+
+                                    <DockPanel Margin="0,10,0,0">
+                                        <TextBlock Text="Change due"
+                                                   Foreground="{StaticResource Art.Brush.TextSecondary}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Checkout.ChangeDue, StringFormat=N2}"
+                                                   Foreground="#047857"
+                                                   FontSize="24"
+                                                   FontWeight="Bold"
+                                                   FontFamily="{StaticResource Art.Font.Mono}"
+                                                   HorizontalAlignment="Right" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding Checkout.TenderShortfall, StringFormat='Short by: {0:N2}'}"
+                                               Foreground="{StaticResource Art.Brush.Danger}"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Right"
+                                               Margin="0,4,0,0"
+                                               Visibility="{Binding Checkout.HasInsufficientTender, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="{Binding Checkout.TenderStatusMessage}"
+                                       Foreground="{StaticResource Art.Brush.TextSecondary}"
+                                       FontSize="12"
                                        TextWrapping="Wrap"
-                                       Margin="0,8,0,0" />
+                                       Margin="0,10,0,0" />
                             <TextBlock Text="{Binding Checkout.PaymentMethod, StringFormat=Payment: {0}}"
-                                       Foreground="#94A3B8"
+                                       Foreground="{StaticResource Art.Brush.TextMuted}"
                                        FontSize="11"
                                        Margin="0,4,0,0" />
                         </StackPanel>
@@ -460,23 +533,30 @@
                             BorderThickness="1"
                             CornerRadius="10"
                             Padding="8">
-                        <UniformGrid Columns="3" Rows="5">
-                            <Button Content="7" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="7" />
-                            <Button Content="8" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="8" />
-                            <Button Content="9" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="9" />
-                            <Button Content="4" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="4" />
-                            <Button Content="5" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="5" />
-                            <Button Content="6" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="6" />
-                            <Button Content="1" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="1" />
-                            <Button Content="2" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="2" />
-                            <Button Content="3" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="3" />
-                            <Button Content="." Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="." />
-                            <Button Content="0" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="0" />
-                            <Button Content="⌫" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadBackspaceCommand}" ToolTip="Backspace" />
-                            <Button Content="C" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadClearCommand}" ToolTip="Clear tender" />
-                            <Button Content="Exact" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.TenderExactAmountCommand}" FontSize="14" />
-                            <Button Content="OK" Style="{StaticResource Art.Pos.KeypadOk}" Command="{Binding Checkout.KeypadConfirmTenderCommand}" ToolTip="Confirm cash tender" />
-                        </UniformGrid>
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="Cash keypad"
+                                       Style="{StaticResource Art.Text.Caption}"
+                                       FontWeight="SemiBold"
+                                       Margin="4,2,4,8" />
+                            <UniformGrid Columns="3" Rows="5">
+                                <Button Content="7" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="7" />
+                                <Button Content="8" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="8" />
+                                <Button Content="9" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="9" />
+                                <Button Content="4" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="4" />
+                                <Button Content="5" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="5" />
+                                <Button Content="6" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="6" />
+                                <Button Content="1" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="1" />
+                                <Button Content="2" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="2" />
+                                <Button Content="3" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="3" />
+                                <Button Content="." Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="." />
+                                <Button Content="0" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadPressCommand}" CommandParameter="0" />
+                                <Button Content="⌫" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadBackspaceCommand}" ToolTip="Backspace" />
+                                <Button Content="C" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.KeypadClearCommand}" ToolTip="Clear cash received" />
+                                <Button Content="Exact" Style="{StaticResource Art.Pos.Keypad}" Command="{Binding Checkout.TenderExactAmountCommand}" FontSize="14" ToolTip="Exact amount (F5)" />
+                                <Button Content="OK" Style="{StaticResource Art.Pos.KeypadOk}" Command="{Binding Checkout.KeypadConfirmTenderCommand}" ToolTip="Confirm cash received" />
+                            </UniformGrid>
+                        </DockPanel>
                     </Border>
                 </DockPanel>
             </Grid>
@@ -499,7 +579,7 @@
                                 Command="{Binding SelectPaymentMethodCommand}"
                                 CommandParameter="Cash"
                                 Click="PaymentMethodButton_OnClick"
-                                ToolTip="Cash — sets exact tender; adjust keypad for change, then Paid" />
+                                ToolTip="Cash — enter amount received to calculate change, then Paid" />
                         <Button Content="Credit" Style="{StaticResource Art.Pos.PayCredit}"
                                 Command="{Binding SelectPaymentMethodCommand}"
                                 CommandParameter="Credit"

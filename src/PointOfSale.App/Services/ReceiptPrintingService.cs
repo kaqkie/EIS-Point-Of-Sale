@@ -72,6 +72,7 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
                 || text.Contains("GRAND TOTAL", StringComparison.Ordinal)
                 || text.Contains("FISCAL RECEIPT NUMBER", StringComparison.Ordinal)
                 || text.StartsWith("TOTAL VAT", StringComparison.Ordinal)
+                || text.StartsWith("DISCOUNT", StringComparison.Ordinal)
                 || text.StartsWith("TOTAL", StringComparison.Ordinal))
             {
                 document.Blocks.Add(HeadingInline(text.Trim()));
@@ -129,7 +130,12 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
 
         var fallbackWidth = PrintPageSizeGuard.ResolveThermalWidthDip(_thermalOptions.PaperWidthMm);
         var fallbackHeight = EstimateReceiptHeightDip(request);
-        PrintPageSizeGuard.ApplySafePageSize(receipt.Document, printDialog, fallbackWidth, fallbackHeight);
+        // Use thermal column sizing — ApplySafePageSize expands to A4/PDF width and parks the QR mid-page.
+        PrintPageSizeGuard.ApplyThermalReceiptPageSize(
+            receipt.Document,
+            printDialog,
+            fallbackWidth,
+            fallbackHeight);
         PrintPageSizeGuard.EnsureDocumentReadyToPrint(receipt.Document);
 
         printDialog.PrintDocument(
@@ -153,15 +159,22 @@ public sealed class ReceiptPrintingService : IReceiptPrintingService
 
     private static BlockUIContainer CreateQrBlock(BitmapSource qr)
     {
-        return new BlockUIContainer
+        // Keep the QR in the receipt text column (centered under totals), not mid-A4.
+        var image = new Image
         {
-            Child = new Image
-            {
-                Source = qr,
-                Width = 120,
-                Height = 120,
-                HorizontalAlignment = HorizontalAlignment.Center
-            }
+            Source = qr,
+            Width = 128,
+            Height = 128,
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 4, 0, 4)
+        };
+
+        return new BlockUIContainer(image)
+        {
+            TextAlignment = TextAlignment.Center,
+            Margin = new Thickness(0, 8, 0, 8),
+            Padding = new Thickness(0)
         };
     }
 

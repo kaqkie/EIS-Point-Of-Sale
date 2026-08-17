@@ -22,8 +22,8 @@
     <Color x:Key="Art.Color.DangerSoft">#FEE2E2</Color>
     <Color x:Key="Art.Color.Warning">#F59E0B</Color>
     <Color x:Key="Art.Color.CashierRail">#0EA5E9</Color>
-    <Color x:Key="Art.Color.AdminRail">#0284C7</Color>
-    <Color x:Key="Art.Color.AdminRailDeep">#0C4A6E</Color>
+    <Color x:Key="Art.Color.AdminRail">#F0F9FF</Color>
+    <Color x:Key="Art.Color.AdminRailDeep">#E0F2FE</Color>
 
     <SolidColorBrush x:Key="Art.Brush.Canvas" Color="{StaticResource Art.Color.Canvas}" />
     <SolidColorBrush x:Key="Art.Brush.Surface" Color="{StaticResource Art.Color.Surface}" />
@@ -341,29 +341,65 @@
     </Style>
 
     <Style x:Key="Art.Nav.Admin" TargetType="Button" BasedOn="{StaticResource Art.Nav.Cashier}">
-        <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.TextPrimary}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Left"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"
-                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <Grid>
+                            <Border x:Name="Accent"
+                                    Width="3"
+                                    HorizontalAlignment="Left"
+                                    CornerRadius="2"
+                                    Background="Transparent"
+                                    Margin="-6,1,0,1" />
+                            <ContentPresenter Margin="8,0,0,0"
+                                              HorizontalAlignment="Left"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#0369A1" />
-                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                            <Setter TargetName="Bd" Property="Background" Value="#FFFFFF" />
+                            <Setter TargetName="Accent" Property="Background" Value="{StaticResource Art.Brush.Accent}" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.AccentHover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#075985" />
-                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.ButtonOnDark}" />
+                            <Setter TargetName="Bd" Property="Background" Value="#BAE6FD" />
+                            <Setter TargetName="Accent" Property="Background" Value="{StaticResource Art.Brush.AccentHover}" />
+                            <Setter Property="Foreground" Value="{StaticResource Art.Brush.AccentHover}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <Style x:Key="Art.Nav.AdminSection" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Art.Brush.AccentHover}" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Margin" Value="4,0,4,6" />
+        <Setter Property="Opacity" Value="0.9" />
+    </Style>
+
+    <Style x:Key="Art.Nav.AdminGroup" TargetType="Border">
+        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Padding" Value="8,10" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+        <Setter Property="BorderBrush" Value="#C7E7FB" />
+        <Setter Property="BorderThickness" Value="1" />
     </Style>
 
     <Style x:Key="Art.TextBox" TargetType="TextBox">

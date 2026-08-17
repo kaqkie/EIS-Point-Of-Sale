@@ -108,147 +108,184 @@
                 </DockPanel>
             </Border>
 
-            <!-- Admin light rail (deep accent header, still light mode) -->
+            <!-- Admin rail (light) -->
             <Border Grid.Column="0"
-                    Width="252"
+                    Width="268"
                     Background="{StaticResource Art.Brush.AdminRail}"
-                    Padding="16"
+                    BorderBrush="{StaticResource Art.Brush.Border}"
+                    BorderThickness="0,0,1,0"
+                    Padding="12,14"
                     Visibility="{Binding IsAdminNavVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <DockPanel>
-                    <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <Border Background="#0369A1" CornerRadius="10" Padding="10,8" Margin="0,0,0,12">
-                                <TextBlock Text="ADMIN CONSOLE"
-                                           FontWeight="Bold"
-                                           FontSize="11"
-                                           Foreground="White" />
-                            </Border>
-                            <TextBlock Text="Albert Retail Terminal"
-                                       Foreground="White"
-                                       FontSize="18"
-                                       FontWeight="Bold"
-                                       TextWrapping="Wrap"
-                                       Margin="0,0,0,4" />
-                            <TextBlock Text="{Binding OperatorDisplay}"
-                                       Foreground="#E0F2FE"
-                                       TextWrapping="Wrap"
-                                       Margin="0,0,0,16" />
-                            <Button Content="Admin home"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateAdminHomeCommand}" />
-                            <Button Content="Settings"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateAdminSettingsCommand}"
-                                    ToolTip="Fiscal VAT, MRA connection, account, and terminal maintenance" />
-                            <Button Content="POS Terminal"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateCashierRegisterCommand}"
-                                    Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Shift tools"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigatePosWorkspaceCommand}"
-                                    Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Inventory"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateInventoryCommand}"
-                                    Visibility="{Binding CanInventory, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Analytics"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateAnalyticsCommand}"
-                                    Visibility="{Binding CanAnalytics, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Users"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateUsersCommand}"
-                                    Visibility="{Binding CanManageUsers, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="MRA Compliance"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateComplianceCommand}"
-                                    Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Compliance Audit"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateComplianceAuditCommand}"
-                                    Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Head Office"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateHeadOfficeCommand}"
-                                    Visibility="{Binding CanHeadOffice, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Backup / DR"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateBackupCommand}"
-                                    Visibility="{Binding CanBackup, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Discounts"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateDiscountsCommand}"
-                                    Visibility="{Binding CanDiscounts, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Stock Alerts"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateStockAlertsCommand}"
-                                    Visibility="{Binding CanStockAlerts, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Purchase Orders"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigatePurchaseOrdersCommand}"
-                                    Visibility="{Binding CanPurchaseOrders, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Goods Receipt"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateGoodsReceiptCommand}"
-                                    Visibility="{Binding CanGoodsReceipt, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Supplier Recon"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateSupplierReconCommand}"
-                                    Visibility="{Binding CanSupplierRecon, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Diagnostics"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateSystemDiagnosticsCommand}"
-                                    Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Health"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateSystemHealthCommand}"
-                                    Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="End of Day"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateEndOfDayCommand}"
-                                    Visibility="{Binding CanEndOfDay, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Fiscal Rollover"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateFiscalRolloverCommand}"
-                                    Visibility="{Binding CanFiscalRollover, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Terminal Setup"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateTerminalProvisioningCommand}"
-                                    Visibility="{Binding CanProvisionTerminal, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Test Runner"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateTestRunnerCommand}"
-                                    Visibility="{Binding CanRunIntegrationTests, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Enterprise"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateEnterpriseMaintenanceCommand}"
-                                    Visibility="{Binding CanEnterpriseMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="DB Maintenance"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateDatabaseMaintenanceCommand}"
-                                    Visibility="{Binding CanDatabaseMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Hardware"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateHardwareCommand}"
-                                    Visibility="{Binding CanHardware, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="POS Terminal"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigatePosTerminalCommand}"
-                                    Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                            <Button Content="Queue Sync"
-                                    Style="{StaticResource Art.Nav.Admin}"
-                                    Command="{Binding NavigateQueueCommand}"
-                                    Visibility="{Binding CanQueue, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                        </StackPanel>
-                    </ScrollViewer>
-                    <Button Content="Sign out"
-                            Style="{StaticResource Art.Button.Danger}"
-                            Command="{Binding SignOutCommand}"
-                            DockPanel.Dock="Bottom"
-                            VerticalAlignment="Bottom"
-                            Margin="0,16,0,0" />
-                </DockPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,2,0">
+                    <StackPanel>
+                        <Border Background="White"
+                                CornerRadius="14"
+                                Padding="12,12"
+                                Margin="0,0,0,14"
+                                BorderBrush="#C7E7FB"
+                                BorderThickness="1">
+                            <StackPanel>
+                                <Border Background="{StaticResource Art.Brush.Accent}"
+                                        CornerRadius="8"
+                                        Padding="8,4"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,0,0,8">
+                                    <TextBlock Text="ADMIN CONSOLE"
+                                               FontWeight="Bold"
+                                               FontSize="10"
+                                               Foreground="White" />
+                                </Border>
+                                <TextBlock Text="Albert Retail Terminal"
+                                           Style="{StaticResource Art.Text.Title}"
+                                           FontSize="16"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding OperatorDisplay}"
+                                           Style="{StaticResource Art.Text.Caption}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Art.Nav.AdminGroup}">
+                            <StackPanel>
+                                <TextBlock Text="OVERVIEW" Style="{StaticResource Art.Nav.AdminSection}" />
+                                <Button Content="Admin home"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateAdminHomeCommand}" />
+                                <Button Content="Analytics"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateAnalyticsCommand}"
+                                        Visibility="{Binding CanAnalytics, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Art.Nav.AdminGroup}">
+                            <StackPanel>
+                                <TextBlock Text="OPERATIONS" Style="{StaticResource Art.Nav.AdminSection}" />
+                                <Button Content="POS Terminal"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateCashierRegisterCommand}"
+                                        Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Shift tools"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigatePosWorkspaceCommand}"
+                                        Visibility="{Binding CanCheckout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Queue Sync"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateQueueCommand}"
+                                        Visibility="{Binding CanQueue, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Discounts"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateDiscountsCommand}"
+                                        Visibility="{Binding CanDiscounts, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="End of Day"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateEndOfDayCommand}"
+                                        Visibility="{Binding CanEndOfDay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Fiscal Rollover"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateFiscalRolloverCommand}"
+                                        Visibility="{Binding CanFiscalRollover, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Art.Nav.AdminGroup}">
+                            <StackPanel>
+                                <TextBlock Text="INVENTORY &amp; SUPPLY" Style="{StaticResource Art.Nav.AdminSection}" />
+                                <Button Content="Inventory"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateInventoryCommand}"
+                                        Visibility="{Binding CanInventory, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Stock Alerts"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateStockAlertsCommand}"
+                                        Visibility="{Binding CanStockAlerts, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Purchase Orders"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigatePurchaseOrdersCommand}"
+                                        Visibility="{Binding CanPurchaseOrders, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Goods Receipt"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateGoodsReceiptCommand}"
+                                        Visibility="{Binding CanGoodsReceipt, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Supplier Recon"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateSupplierReconCommand}"
+                                        Visibility="{Binding CanSupplierRecon, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Art.Nav.AdminGroup}">
+                            <StackPanel>
+                                <TextBlock Text="COMPLIANCE" Style="{StaticResource Art.Nav.AdminSection}" />
+                                <Button Content="MRA Compliance"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateComplianceCommand}"
+                                        Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Compliance Audit"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateComplianceAuditCommand}"
+                                        Visibility="{Binding CanCompliance, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Art.Nav.AdminGroup}">
+                            <StackPanel>
+                                <TextBlock Text="ADMINISTRATION" Style="{StaticResource Art.Nav.AdminSection}" />
+                                <Button Content="Settings"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateAdminSettingsCommand}"
+                                        ToolTip="Fiscal VAT, MRA connection, account, and terminal maintenance" />
+                                <Button Content="Users"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateUsersCommand}"
+                                        Visibility="{Binding CanManageUsers, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Head Office"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateHeadOfficeCommand}"
+                                        Visibility="{Binding CanHeadOffice, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Backup / DR"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateBackupCommand}"
+                                        Visibility="{Binding CanBackup, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Terminal Setup"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateTerminalProvisioningCommand}"
+                                        Visibility="{Binding CanProvisionTerminal, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Hardware"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateHardwareCommand}"
+                                        Visibility="{Binding CanHardware, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Art.Nav.AdminGroup}" Margin="0,0,0,4">
+                            <StackPanel>
+                                <TextBlock Text="SYSTEM" Style="{StaticResource Art.Nav.AdminSection}" />
+                                <Button Content="Diagnostics"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateSystemDiagnosticsCommand}"
+                                        Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Health"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateSystemHealthCommand}"
+                                        Visibility="{Binding CanSystemDiagnostics, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Test Runner"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateTestRunnerCommand}"
+                                        Visibility="{Binding CanRunIntegrationTests, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="Enterprise"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateEnterpriseMaintenanceCommand}"
+                                        Visibility="{Binding CanEnterpriseMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button Content="DB Maintenance"
+                                        Style="{StaticResource Art.Nav.Admin}"
+                                        Command="{Binding NavigateDatabaseMaintenanceCommand}"
+                                        Visibility="{Binding CanDatabaseMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </Border>
 
             <Grid Grid.Column="1">

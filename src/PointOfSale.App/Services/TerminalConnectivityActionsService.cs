@@ -94,7 +94,8 @@ public sealed class TerminalConnectivityActionsService : ITerminalConnectivityAc
         if (!result.Enabled)
         {
             return TerminalUpdateActionResult.Info(
-                $"Terminal update checks are disabled (current v{current}). Enable ApplicationUpdate in settings to use the feed.",
+                $"Terminal update checks are disabled (current v{current}). " +
+                "Set ApplicationUpdate:Enabled=true and ApplicationUpdate:FeedUrl in appsettings, then restart.",
                 result);
         }
 

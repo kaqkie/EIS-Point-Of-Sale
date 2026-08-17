@@ -136,7 +136,12 @@ public partial class CheckoutViewModel : ObservableObject
         {
             if (SelectedCartLine is null)
             {
-                return;
+                if (CartItems.Count == 0)
+                {
+                    return;
+                }
+
+                SelectedCartLine = CartItems[^1];
             }
 
             if (!string.Equals(SelectedCartLine.ManualDiscountText, value, StringComparison.Ordinal))
@@ -144,7 +149,8 @@ public partial class CheckoutViewModel : ObservableObject
                 SelectedCartLine.ManualDiscountText = value;
             }
 
-            OnPropertyChanged();
+            // Do not raise PropertyChanged here — TwoWay TextBox already holds the typed value.
+            // Re-raising resets the caret and makes the discount field feel broken.
         }
     }
 
@@ -546,8 +552,12 @@ public partial class CheckoutViewModel : ObservableObject
     [RelayCommand]
     private void BeginTenderKeypadEntry()
     {
+        var wasDiscount = KeypadTargetsDiscount;
         KeypadTargetsDiscount = false;
-        StatusMessage = "Cash tender keypad — enter amount tendered.";
+        if (wasDiscount)
+        {
+            StatusMessage = "Cash received — type or use the keypad, then press Paid.";
+        }
     }
 
     [RelayCommand]
@@ -774,17 +784,15 @@ public partial class CheckoutViewModel : ObservableObject
 
         if (IsCashPayment)
         {
-            // Match card UX: default to exact tender so Paid is enabled immediately.
-            // Cashier can still change the amount on the keypad for change calculation.
-            if (CartGrandTotal > 0m)
-            {
-                AmountTendered = CartGrandTotal;
-                AmountTenderedText = CartGrandTotal.ToString("N2", CultureInfo.CurrentCulture);
-            }
-
+            // Cash needs the amount handed over so change can be calculated.
+            // Clear to an empty entry field and focus it for typing / keypad.
+            KeypadTargetsDiscount = false;
+            _keypadEditing = true;
+            AmountTendered = 0m;
+            AmountTenderedText = string.Empty;
             StatusMessage = CartGrandTotal > 0m
-                ? $"Cash selected — tender set to exact {CartGrandTotal:N2}. Adjust on keypad for change, then press Paid."
-                : "Cash selected — add items, then enter tender on the keypad.";
+                ? $"Cash — enter amount received (total {CartGrandTotal:N2}). Change shows automatically."
+                : "Cash selected — add items, then enter the amount received.";
             TenderInputFocusRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
@@ -1672,11 +1680,8 @@ public partial class CheckoutViewModel : ObservableObject
 
         if (e.PropertyName == nameof(CartLineViewModel.ManualDiscountText))
         {
-            if (ReferenceEquals(line, SelectedCartLine))
-            {
-                OnPropertyChanged(nameof(SelectedLineDiscountText));
-            }
-
+            // Avoid echo-binding back into SelectedLineDiscountText while the cashier is typing;
+            // keypad paths raise SelectedLineDiscountText themselves when needed.
             return;
         }
 

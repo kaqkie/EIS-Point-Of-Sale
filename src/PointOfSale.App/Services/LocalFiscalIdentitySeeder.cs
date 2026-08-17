@@ -200,6 +200,19 @@ public static class LocalFiscalIdentitySeeder
                         dirty = true;
                     }
 
+                    if (existing.OfflineLimit is null
+                        || existing.OfflineLimit.MaxTransactionAgeInHours <= 0)
+                    {
+                        existing.OfflineLimit = new OfflineLimitDto
+                        {
+                            MaxTransactionAgeInHours = 72,
+                            MaxCummulativeAmount = existing.OfflineLimit?.MaxCummulativeAmount > 0
+                                ? existing.OfflineLimit.MaxCummulativeAmount
+                                : 5_000_000m
+                        };
+                        dirty = true;
+                    }
+
                     if (dirty)
                     {
                         await config.UpsertJsonAsync(
@@ -288,6 +301,18 @@ public static class LocalFiscalIdentitySeeder
             {
                 // Leave malformed cache alone.
             }
+        }
+
+        var lastReachable = await config
+            .GetJsonAsync(MraRuntimeConfigurationKeys.LastMraReachableUtc, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(lastReachable))
+        {
+            await config.UpsertJsonAsync(
+                    MraRuntimeConfigurationKeys.LastMraReachableUtc,
+                    DateTime.UtcNow.ToString("O"),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 }

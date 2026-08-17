@@ -64,6 +64,54 @@ public static class PrintPageSizeGuard
             width - document.PagePadding.Left - document.PagePadding.Right);
     }
 
+    /// <summary>
+    /// Receipt / PDF print sizing: keep an 80mm/58mm thermal column and content-fitted height.
+    /// Never expand to letter/A4 printable area — that centers the MRA QR in the middle of a blank PDF page.
+    /// </summary>
+    public static void ApplyThermalReceiptPageSize(
+        FlowDocument document,
+        PrintDialog? printDialog,
+        double thermalWidthDip,
+        double estimatedHeightDip)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var thermalWidth = Sanitize(
+            thermalWidthDip,
+            DefaultThermalWidth80Dip,
+            MinPageDimensionDip,
+            MaxPageWidthDip);
+
+        // Cap at printable width only when the target printer is narrower than thermal stock.
+        var printableWidth = printDialog?.PrintableAreaWidth ?? double.NaN;
+        var width = thermalWidth;
+        if (IsValidPageDimension(printableWidth)
+            && printableWidth >= MinPageDimensionDip
+            && printableWidth < thermalWidth)
+        {
+            width = printableWidth;
+        }
+
+        var measured = TryMeasureContentHeight(document, width);
+        var height = measured is > 0
+            ? Math.Clamp(
+                measured.Value + document.PagePadding.Top + document.PagePadding.Bottom + 32,
+                MinPageDimensionDip,
+                MaxPageHeightDip)
+            : Sanitize(
+                estimatedHeightDip,
+                DefaultReceiptHeightDip,
+                MinPageDimensionDip,
+                MaxPageHeightDip);
+
+        // Never stretch height to full A4/Letter — leave content tightly packed so the QR sits under totals.
+        document.PageWidth = width;
+        document.PageHeight = height;
+        document.ColumnWidth = Math.Max(
+            MinPageDimensionDip,
+            width - document.PagePadding.Left - document.PagePadding.Right);
+    }
+
     public static void EnsureDocumentReadyToPrint(FlowDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);

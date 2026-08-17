@@ -25,10 +25,15 @@ public sealed class MraReceiptLineItemViewModel
 {
     public required string Description { get; init; }
     public required string QuantityPriceLine { get; init; }
+
+    /// <summary>Optional <c>DISCOUNT … -1,000.00</c> line when a discount was applied.</summary>
+    public string DiscountLine { get; init; } = string.Empty;
+
     public required string VatBreakdownLine { get; init; }
     public decimal Quantity { get; init; }
     public decimal UnitPrice { get; init; }
     public decimal LineTotal { get; init; }
+    public decimal LineDiscount { get; init; }
     public decimal LineVat { get; init; }
     public string TaxRateId { get; init; } = "A";
 }

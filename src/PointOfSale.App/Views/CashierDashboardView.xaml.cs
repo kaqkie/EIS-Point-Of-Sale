@@ -42,11 +42,12 @@ public partial class CashierDashboardView
 
     private void OnTenderInputFocusRequested(object? sender, EventArgs e)
     {
-        // Prefer keypad panel so digit keys update cash tender / change due.
+        // Focus the cash-received box so the cashier can type the amount handed over.
         Dispatcher.BeginInvoke(() =>
         {
-            TenderKeypadPanel.Focus();
-            Keyboard.Focus(TenderKeypadPanel);
+            CashRegisterTenderInput.Focus();
+            Keyboard.Focus(CashRegisterTenderInput);
+            CashRegisterTenderInput.SelectAll();
         });
     }
 
@@ -114,17 +115,24 @@ public partial class CashierDashboardView
 
     private void DiscountTextBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        if (sender is TextBox textBox)
+        if (sender is not TextBox textBox || ViewModel is null)
         {
-            if (textBox.DataContext is CartLineViewModel line && ViewModel is not null)
-            {
-                ViewModel.Checkout.SelectedCartLine = line;
-            }
-
-            textBox.SelectAll();
+            return;
         }
 
-        ViewModel?.Checkout.BeginDiscountKeypadEntryCommand.Execute(null);
+        // Prefer the cart-line DataContext; otherwise ensure a line is selected for the side panel.
+        if (textBox.DataContext is CartLineViewModel line)
+        {
+            ViewModel.Checkout.SelectedCartLine = line;
+        }
+        else if (ViewModel.Checkout.SelectedCartLine is null && ViewModel.Checkout.CartItems.Count > 0)
+        {
+            ViewModel.Checkout.SelectedCartLine = ViewModel.Checkout.CartItems[^1];
+        }
+
+        // Keep the on-screen keypad on cash tender — discount is typed in this box.
+        ViewModel.Checkout.BeginTenderKeypadEntryCommand.Execute(null);
+        textBox.SelectAll();
     }
 
     private void DiscountTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -138,8 +146,6 @@ public partial class CashierDashboardView
         {
             ViewModel?.Checkout.SelectedCartLine?.CommitManualDiscountFromText();
         }
-
-        ViewModel?.Checkout.BeginTenderKeypadEntryCommand.Execute(null);
     }
 
     private void DiscountTextBox_KeyDown(object sender, KeyEventArgs e)
@@ -160,10 +166,29 @@ public partial class CashierDashboardView
                 ViewModel?.Checkout.SelectedCartLine?.CommitManualDiscountFromText();
             }
 
-            // Move focus so LostFocus commits cleanly and keypad returns to tender.
-            TenderKeypadPanel.Focus();
+            CashRegisterTenderInput.Focus();
             e.Handled = true;
         }
+    }
+
+    private void TenderTextBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        ViewModel?.Checkout.BeginTenderKeypadEntryCommand.Execute(null);
+        if (sender is TextBox textBox)
+        {
+            textBox.SelectAll();
+        }
+    }
+
+    private void TenderTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || ViewModel is null)
+        {
+            return;
+        }
+
+        ViewModel.Checkout.KeypadConfirmTenderCommand.Execute(null);
+        e.Handled = true;
     }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
